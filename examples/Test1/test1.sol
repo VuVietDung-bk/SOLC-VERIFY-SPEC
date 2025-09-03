@@ -1,23 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
-/// @notice invariant x == y
 contract Example1 {
     uint public x;
     uint public y;
 
-/// === SPEC ASSERTS (auto-generated) ===
-/// Call from rule xSpec: add_to_x(n)
-/// - xBefore <= xAfter  // x must increase
     function add_to_x(uint n) external {
         x = x + n;
         //require(x >= y); // Ensures that there is no overflow
         _add(n);
     }
 
-/// === SPEC ASSERTS (auto-generated) ===
-/// Indirect from rule xSpec via add_to_x()
-/// - xBefore <= xAfter  // x must increase
     function _add(uint n) internal {
         x = x + n;
         y = y + n;
