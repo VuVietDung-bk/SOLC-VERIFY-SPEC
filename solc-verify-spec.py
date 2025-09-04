@@ -5,7 +5,6 @@ from lark import Tree, Token, Lark
 import argparse
 from slither.slither import Slither
 from slither.core.declarations import Function as SlitherFunction
-import io
 import subprocess
 
 def _rewrite_pragma_to_0_7_0(filepath: str) -> None:
@@ -123,14 +122,50 @@ def _infer_post_from_assert(assert_expr_text: str, snapshots: dict) -> Optional[
     new_op = mapping[op]
     return f"{obsL} {new_op} __verifier_old_uint({obsL})"
 
+def _infer_total_change_from_assert(assert_expr_text: str, snapshots: dict) -> Optional[Tuple[str, str]]:
+    """
+    Nhận 'xBefore == xAfter - 2*n' hoặc 'xAfter - 2*n == xBefore'
+    Trả về: (observed_var, '2*n') → nghĩa là Δobserved_var_total = 2*n.
+    """
+    s = assert_expr_text.strip()
+    if "==" not in s:
+        return None
+    left, right = [p.strip() for p in s.split("==", 1)]
+
+    def parse_minus(expr: str) -> Optional[Tuple[str, str]]:
+        if " - " not in expr:
+            return None
+        a, b = expr.split(" - ", 1)
+        a = a.strip(); b = b.strip()
+        if a in snapshots:
+            return snapshots[a], b  # (obs, expr_total)
+        return None
+
+    if left in snapshots:
+        pr = parse_minus(right)
+        if pr and pr[0] == snapshots[left]:
+            return pr[0], pr[1]
+    if right in snapshots:
+        pl = parse_minus(left)
+        if pl and pl[0] == snapshots[right]:
+            return pl[0], pl[1]
+    return None
+
+
 def infer_rule_posts(rule: dict) -> List[str]:
     posts = []
     snapshots = rule.get("snapshots", {})
     for a in rule.get("asserts", []):
-        pc = _infer_post_from_assert(a["expr"], snapshots)
+        tot = _infer_total_change_from_assert(a["expr"], snapshots)
+        if tot:
+            obs, expr_total = tot
+            posts.append(f"{obs} - {expr_total} == __verifier_old_uint({obs})")
+            continue
+        pc = _infer_post_from_assert(a["expr"], snapshots)  # bất đẳng thức / so sánh chung
         if pc:
             posts.append(pc)
     return posts
+
 
 def collect_solidity_param_preconds(sol_file: str) -> Dict[str, List[str]]:
     """
@@ -153,39 +188,168 @@ def collect_solidity_param_preconds(sol_file: str) -> Dict[str, List[str]]:
                 preconds.setdefault(f.name, []).extend(pcs)
     return preconds
 
-def _build_notice_annotations(func_name: str,
-                              rules: List[dict],
-                              rule_call_edges: Dict[str, List[Tuple[str, Optional[str]]]],
-                              rule_posts: Dict[str, List[str]],
-                              param_preconds: Dict[str, List[str]]) -> List[str]:
+def _extract_state_vars(sol_file: str) -> List[str]:
     """
-    Tạo các dòng:
-      /// @notice precondition ...
-      /// @notice postcondition ...
-    Nếu có nhiều rule chạm tới cùng hàm, gộp các postcondition (unique).
-    Với case gián tiếp, vẫn dùng postcondition của rule gốc.
+    Lấy tên biến trạng thái đơn giản ở cấp contract:
+    match các dòng dạng:   <type> [visibility] <name> ;
+    Ví dụ: uint public x;  uint y;  address owner;
+    """
+    with open(sol_file, "r", encoding="utf-8") as f:
+        src = f.read()
+    # rất đơn giản, không xử lý struct/mapping phức tạp
+    decl = re.compile(r'^\s*(?:[A-Za-z_][A-Za-z0-9_]*(?:\s+[A-Za-z_][A-Za-z0-9_]*)*)\s+(?:public|private|internal|external)?\s*([A-Za-z_][A-Za-z0-9_]*)\s*;', re.MULTILINE)
+    vars_ = []
+    for m in decl.finditer(src):
+        name = m.group(1)
+        # bỏ qua tên giống "function" v.v.
+        if name not in vars_:
+            vars_.append(name)
+    return vars_
+
+def analyze_solidity_self_deltas_all(sol_file: str) -> Dict[str, Dict[str, str]]:
+    """
+    Trả về: { func_name: { var_name: "expr + ..." } }
+    Hỗ trợ pattern:
+      var = var + EXPR;
+      var += EXPR;
+    """
+    with open(sol_file, "r", encoding="utf-8") as f:
+        src = f.read()
+
+    state_vars = _extract_state_vars(sol_file)
+
+    func_re = re.compile(r'function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\([^)]*\)\s*[^{]*\{', re.MULTILINE)
+
+    def extract_body(start_idx: int) -> Tuple[str, int]:
+        depth = 0
+        i = src.find("{", start_idx)
+        if i == -1:
+            return "", -1
+        j = i
+        while j < len(src):
+            if src[j] == "{":
+                depth += 1
+            elif src[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    return src[i+1:j], j+1
+            j += 1
+        return "", -1
+
+    out: Dict[str, Dict[str, List[str]]] = {}
+    pos = 0
+    while True:
+        m = func_re.search(src, pos)
+        if not m:
+            break
+        fname = m.group(1)
+        body, endpos = extract_body(m.start())
+        if endpos == -1:
+            break
+
+        for var in state_vars:
+            pat_assign = re.compile(rf'\b{re.escape(var)}\s*=\s*{re.escape(var)}\s*\+\s*([^;]+);')
+            pat_plus_eq = re.compile(rf'\b{re.escape(var)}\s*\+=\s*([^;]+);')
+            exprs = [mm.group(1).strip() for mm in pat_assign.finditer(body)]
+            exprs += [mm.group(1).strip() for mm in pat_plus_eq.finditer(body)]
+            if exprs:
+                out.setdefault(fname, {}).setdefault(var, [])
+                out[fname][var].extend(exprs)
+        pos = endpos
+
+    # Ghép về tổng-expr
+    result: Dict[str, Dict[str, str]] = {}
+    for fn, per_var in out.items():
+        result[fn] = {}
+        for var, lst in per_var.items():
+            result[fn][var] = " + ".join(lst) if len(lst) > 1 else lst[0]
+    return result
+
+def _parse_eq_post(post: str) -> Optional[Tuple[str, str]]:
+    """
+    Nhận chuỗi kiểu: "<var> - <expr> == __verifier_old_uint(<var>)"
+    Trả về (var, expr) hoặc None.
+    """
+    m = re.match(r'\s*([A-Za-z_][A-Za-z0-9_]*)\s*-\s*(.+?)\s*==\s*__verifier_old_uint\(\s*\1\s*\)\s*$', post)
+    if m:
+        return m.group(1), m.group(2).strip()
+    return None
+
+def _build_notice_annotations(
+    func_name: str,
+    rules: List[dict],
+    rule_call_edges: Dict[str, List[Tuple[str, Optional[str]]]],
+    rule_posts: Dict[str, List[str]],
+    param_preconds: Dict[str, List[str]],
+    seed_names: List[str],
+    self_deltas_by_var: Dict[str, Dict[str, str]],   # func -> {var: expr}
+    total_deltas_by_var: Dict[str, Dict[str, str]]   # seed-func -> {var: expr}
+) -> List[str]:
+    """
+    Sinh @notice cho đa biến:
+    - Ưu tiên các post từ rule (đẳng thức-delta / bất đẳng thức).
+    - Nếu không có từ rule: seed dùng total-delta theo biến; callee dùng self-delta.
     """
     lines: List[str] = []
 
-    # Pre từ kiểu tham số
-    pres = list(dict.fromkeys(param_preconds.get(func_name, [])))  # unique, giữ thứ tự
+    # 1) Preconditions (giữ nguyên)
+    pres = list(dict.fromkeys(param_preconds.get(func_name, [])))
     for pre in pres:
         lines.append(f"    /// @notice precondition {pre}")
 
-    # Post từ các rule liên quan (direct or indirect)
+    # 2) Thu thập tất cả post liên quan từ các rule "gắn" với func_name
     edges = rule_call_edges.get(func_name, [])
-    if not edges and not pres:
-        return []  # không có gì để ghi
-
-    posts_set = []
+    connected_posts: List[str] = []
     seen = set()
     for (rname, _caller) in edges:
-        for post in rule_posts.get(rname, []):
-            if post not in seen:
-                posts_set.append(post); seen.add(post)
+        for p in rule_posts.get(rname, []):
+            if p not in seen:
+                connected_posts.append(p); seen.add(p)
 
-    for post in posts_set:
-        lines.append(f"    /// @notice postcondition {post}")
+    # 2a) Phân tách đẳng thức-delta theo biến và bất đẳng thức nguyên văn
+    eq_posts_by_var: Dict[str, str] = {}  # var -> delta-expr
+    ineq_posts: List[str] = []
+    for p in connected_posts:
+        pe = _parse_eq_post(p)
+        if pe:
+            var, dexpr = pe
+            eq_posts_by_var[var] = dexpr  # nếu nhiều rule/biến, giữ cái đầu tiên
+        else:
+            ineq_posts.append(p)
+
+    is_seed = func_name in seed_names
+
+    # 3) Nếu có hậu điều kiện từ rule:
+    post_lines: List[str] = []
+    if eq_posts_by_var:
+        if is_seed:
+            # seed: in đúng các đẳng thức-delta theo từng biến
+            for var, dexpr in eq_posts_by_var.items():
+                post_lines.append(f"{var} - {dexpr} == __verifier_old_uint({var})")
+        else:
+            # callee: dùng self-delta theo biến nếu có
+            sdbv = self_deltas_by_var.get(func_name, {})
+            for var, _ in eq_posts_by_var.items():
+                if var in sdbv:
+                    post_lines.append(f"{var} - {sdbv[var]} == __verifier_old_uint({var})")
+
+    # 3b) Nếu có bất đẳng thức từ rule: in nguyên văn (áp cho seed/callee)
+    if ineq_posts:
+        post_lines.extend(ineq_posts)
+
+    # 4) Nếu rule không cung cấp gì (hoặc chưa tạo được post nào):
+    if not post_lines:
+        if is_seed:
+            tdbv = total_deltas_by_var.get(func_name, {})
+            for var, dexpr in tdbv.items():
+                post_lines.append(f"{var} - {dexpr} == __verifier_old_uint({var})")
+        else:
+            sdbv = self_deltas_by_var.get(func_name, {})
+            for var, dexpr in sdbv.items():
+                post_lines.append(f"{var} - {dexpr} == __verifier_old_uint({var})")
+
+    for p in dict.fromkeys(post_lines):  # unique, giữ thứ tự
+        lines.append(f"    /// @notice postcondition {p}")
 
     return lines
 
@@ -361,52 +525,6 @@ def _scan_function_lines_in_file(sol_file: str, target_names: List[str]) -> Dict
                 found[name].append(i)
     return found
 
-def _build_comments_for_function_name(func_name: str, rules: list[dict], rule_call_edges: Dict[str, List[Tuple[str, Optional[str]]]]) -> list[str]:
-    """
-    - Hiển thị:
-      + Các lần gọi trực tiếp (có args) từ rule
-      + Các lần gọi gián tiếp: 'Indirect from rule R via add_to_x'
-      + Các assert của rule (vẫn thuộc rule gốc)
-    """
-    lines: List[str] = []
-
-    # edges theo rule cho func_name
-    edges = rule_call_edges.get(func_name, [])
-    if not edges:
-        return []
-
-    lines.append('/// === SPEC ASSERTS (auto-generated) ===')
-
-    # 1) Direct calls: lấy args từ rules
-    for r in rules:
-        rname = r["name"]
-        # rule này có edge tới func_name?
-        if not any(e[0] == rname for e in edges):
-            continue
-
-        # direct calls trong rule (có thể nhiều lần)
-        direct_calls = [c for c in r["calls"] if c["name"] == func_name]
-        for c in direct_calls:
-            if c["args"]:
-                lines.append(f'/// Call from rule {rname}: {func_name}({", ".join(c["args"])})')
-            else:
-                lines.append(f'/// Call from rule {rname}: {func_name}()')
-
-        # indirect edges: (rule, caller_name)
-        for (erule, caller) in edges:
-            if erule != rname or caller is None:
-                continue
-            lines.append(f'/// Indirect from rule {rname} via {caller}()')
-
-        # Assert của rule
-        for a in r["asserts"]:
-            if a.get("message"):
-                lines.append(f'/// - {a["expr"]}  // {a["message"]}')
-            else:
-                lines.append(f'/// - {a["expr"]}')
-
-    return lines
-
 def _insert_lines_before(filepath: str, line_no_1based: int, new_lines: List[str]) -> None:
     with open(filepath, "r", encoding="utf-8") as f:
         lines = f.read().splitlines()
@@ -453,7 +571,6 @@ def annotate_spec_asserts(ast_tree: Tree, sol_file: str, output_path: Optional[s
     - Ghi ra <sol_file>.annotated.sol
     """
     spec = extract_spec_summary(ast_tree)
-    print(spec)
     methods = spec["methods"]
     allow_all = spec["allow_all_calls"]
     allowed_names = {m["name"] for m in methods if m.get("name")}
@@ -464,9 +581,10 @@ def annotate_spec_asserts(ast_tree: Tree, sol_file: str, output_path: Optional[s
         calls = r["calls"] if allow_all else [c for c in r["calls"] if c["name"] in allowed_names]
         filtered_rules.append({**r, "calls": calls})
 
-    # 1) Xây call graph bằng Slither
-    callmap = build_call_mapping(sol_file)
+        print("Filtered rules:", filtered_rules)
 
+    # 1) Call graph từ Slither → caller -> set(callee)
+    callmap = build_call_mapping(sol_file)
     def _simple_name(canonical: str) -> str:
         s = canonical.split(".", 1)[-1]
         return s.split("(", 1)[0]
@@ -477,23 +595,32 @@ def annotate_spec_asserts(ast_tree: Tree, sol_file: str, output_path: Optional[s
         for cal in callees:
             caller2callees.setdefault(src_name, set()).add(_simple_name(cal))
 
+    # 2) Seed & Transitive (1 bậc)
     seed_names = sorted({c["name"] for r in filtered_rules for c in r["calls"]})
     transitive_names = set(seed_names)
     for seed in seed_names:
         transitive_names |= caller2callees.get(seed, set())
 
-    # 2) Tập “seed” là các hàm xuất hiện trực tiếp trong rule
-    seed_func_names = sorted({c["name"] for r in filtered_rules for c in r["calls"]})
+    # 3) Hiệu ứng cục bộ & tổng hợp (1 bậc) trên biến 'x'
+    # self-delta cho tất cả biến
+    self_deltas_by_var = analyze_solidity_self_deltas_all(sol_file)  # {func: {var: expr}}
 
-    # 3) Mở rộng thêm một bậc: tất cả callee của seed
-    transitive_func_names = set(seed_func_names)
-    for seed in seed_func_names:
+    # total-delta seed theo biến (1 bậc)
+    total_deltas_by_var: Dict[str, Dict[str, str]] = {}
+    for seed in seed_names:
+        parts_per_var: Dict[str, List[str]] = {}
+        # self
+        for var, expr in self_deltas_by_var.get(seed, {}).items():
+            parts_per_var.setdefault(var, []).append(expr)
+        # callee
         for cal in caller2callees.get(seed, set()):
-            transitive_func_names.add(cal)
+            for var, expr in self_deltas_by_var.get(cal, {}).items():
+                parts_per_var.setdefault(var, []).append(expr)
+        if parts_per_var:
+            total_deltas_by_var[seed] = {var: " + ".join(lst) if len(lst) > 1 else lst[0]
+                                        for var, lst in parts_per_var.items()}
 
-    # rule_call_edges: func_name -> list of (rule_name, direct_caller_name or None)
-    # - direct: (rule_name, func_name) chính nó
-    # - indirect (callee): (rule_name, caller_name) nơi caller_name ∈ seed
+    # 4) rule_call_edges: func_name -> list[(rule_name, caller_or_None)]
     rule_call_edges: Dict[str, List[Tuple[str, Optional[str]]]] = {}
     for r in filtered_rules:
         rname = r["name"]
@@ -504,9 +631,29 @@ def annotate_spec_asserts(ast_tree: Tree, sol_file: str, output_path: Optional[s
             for cal in caller2callees.get(caller, set()):
                 rule_call_edges.setdefault(cal, []).append((rname, caller))
 
+    print("Rule call edges: ", rule_call_edges)
+
+    # 5) Postconditions từ rule (đẳng thức-delta / bất đẳng thức)
     rule_posts: Dict[str, List[str]] = {r["name"]: infer_rule_posts(r) for r in filtered_rules}
     param_preconds = collect_solidity_param_preconds(sol_file)
     target_func_names = sorted(transitive_names)
+
+    print("Rule posts:", rule_posts)
+    print("Param Preconds:", param_preconds)
+    print("Target functions to annotate:", target_func_names)
+
+
+    # Rút tổng thay đổi Δobs_total từ assert (ưu tiên)
+    rule_total_by_obs: Dict[str, str] = {}  # obs -> expr_total (ví dụ {'x': '2*n'})
+    for r in filtered_rules:
+        snapshots = r.get("snapshots", {})
+        for a in r.get("asserts", []):
+            tot = _infer_total_change_from_assert(a["expr"], snapshots)
+            if tot:
+                obs, expr_total = tot
+                rule_total_by_obs[obs] = expr_total  # đơn giản: lấy cái đầu tiên
+                break
+
 
     # Nếu không có gì để chèn, cứ copy file và trả path
     if output_path is None:
@@ -525,12 +672,23 @@ def annotate_spec_asserts(ast_tree: Tree, sol_file: str, output_path: Optional[s
         return output_path
 
     # Quét file để tìm dòng function theo tên
-    occ = _scan_function_lines_in_file(sol_file, target_func_names)
+    occ = _scan_function_lines_in_file(output_path, target_func_names)
     inserts: List[Tuple[int, List[str]]] = []
     for name, lines in occ.items():
         if not lines:
             continue
-        comments = _build_notice_annotations(name, filtered_rules, rule_call_edges, rule_posts, param_preconds)
+        comments = _build_notice_annotations(
+            name,
+            filtered_rules,
+            rule_call_edges,
+            rule_posts,
+            param_preconds,
+            seed_names,
+            self_deltas_by_var,     # NEW: per-var
+            total_deltas_by_var     # NEW: per-var
+        )
+
+
         if not comments:
             continue
         for ln in lines:

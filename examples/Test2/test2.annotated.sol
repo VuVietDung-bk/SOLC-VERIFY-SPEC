@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.7.0;
 
-contract Example1 {
+contract Example2 {
     uint public x;
     uint public y;
 
     /// @notice precondition n >= 0
+    /// @notice postcondition x - 2 * n == __verifier_old_uint(x)
     function add_to_x(uint n) external {
         x = x + n;
         //require(x >= y); // Ensures that there is no overflow
@@ -13,6 +14,7 @@ contract Example1 {
     }
 
     /// @notice precondition n >= 0
+    /// @notice postcondition x - n == __verifier_old_uint(x)
     function _add(uint n) internal {
         x = x + n;
         y = y + n;
