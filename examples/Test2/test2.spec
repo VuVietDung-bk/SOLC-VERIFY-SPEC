@@ -17,4 +17,6 @@ rule xSpec(uint n) {
     // Operations on mathints can never overflow or underflow. 
     assert xBefore == xAfter - 2*n,
         "x must increase";
+    assert xBefore <= xAfter,
+        "x must increase";
 }

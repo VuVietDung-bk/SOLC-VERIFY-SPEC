@@ -91,41 +91,12 @@ def _is_zero_arg_function_call(tree: Tree) -> Optional[str]:
         return func_name
     return None
 
-def _infer_post_from_assert(assert_expr_text: str, snapshots: dict) -> Optional[str]:
+def _infer_total_change_post(assert_expr_text: str, snapshots: dict) -> Optional[str]:
     """
-    Từ chuỗi như 'xBefore <= xAfter' và mapping snapshots {xBefore: 'x', xAfter: 'x'}
-    → 'x >= __verifier_old_uint(x)'
-    Hỗ trợ các toán tử cơ bản: <=, <, >=, >, ==, !=
-    """
-    # tách rất đơn giản theo các toán tử hai ký tự trước
-    ops = ["<=", ">=", "==", "!=", "<", ">"]
-    op = next((o for o in ops if f" {o} " in assert_expr_text), None)
-    if not op:
-        return None
-    left, right = [p.strip() for p in assert_expr_text.split(f" {op} ", 1)]
-    if left not in snapshots or right not in snapshots:
-        return None
-    obsL = snapshots[left]
-    obsR = snapshots[right]
-    if obsL != obsR:
-        return None  # chỉ xử lý cùng một quan sát
-    # ánh xạ ngược: a<=b  => obs >= old(obs); a<b => obs > old(obs), v.v.
-    # mặc định dùng __verifier_old_uint, có thể tổng quát hóa theo kiểu
-    mapping = {
-        "<=": ">=",
-        "<":  ">",
-        ">=": "<=",
-        ">":  "<",
-        "==": "==",
-        "!=": "!=",
-    }
-    new_op = mapping[op]
-    return f"{obsL} {new_op} __verifier_old_uint({obsL})"
-
-def _infer_total_change_from_assert(assert_expr_text: str, snapshots: dict) -> Optional[Tuple[str, str]]:
-    """
-    Nhận 'xBefore == xAfter - 2*n' hoặc 'xAfter - 2*n == xBefore'
-    Trả về: (observed_var, '2*n') → nghĩa là Δobserved_var_total = 2*n.
+    Giữ NGUYÊN hướng từ assert cho đẳng thức-delta.
+    Hỗ trợ:
+      - xBefore == xAfter - EXPR   → '__verifier_old_uint(x) == x - EXPR'
+      - xAfter - EXPR == xBefore   → 'x - EXPR == __verifier_old_uint(x)'
     """
     s = assert_expr_text.strip()
     if "==" not in s:
@@ -136,35 +107,69 @@ def _infer_total_change_from_assert(assert_expr_text: str, snapshots: dict) -> O
         if " - " not in expr:
             return None
         a, b = expr.split(" - ", 1)
-        a = a.strip(); b = b.strip()
+        a, b = a.strip(), b.strip()
         if a in snapshots:
             return snapshots[a], b  # (obs, expr_total)
         return None
 
+    # Case A: left is BEFORE-snapshot, right is 'AFTER - EXPR'
     if left in snapshots:
         pr = parse_minus(right)
         if pr and pr[0] == snapshots[left]:
-            return pr[0], pr[1]
+            obs, expr_total = pr
+            return f"__verifier_old_uint({obs}) == {obs} - {expr_total}"
+
+    # Case B: right is BEFORE-snapshot, left is 'AFTER - EXPR'
     if right in snapshots:
         pl = parse_minus(left)
         if pl and pl[0] == snapshots[right]:
-            return pl[0], pl[1]
+            obs, expr_total = pl
+            return f"{obs} - {expr_total} == __verifier_old_uint({obs})"
+
     return None
 
+def _infer_rel_post(assert_expr_text: str, snapshots: dict) -> Optional[str]:
+    """
+    Giữ NGUYÊN hướng cho các quan hệ hai vế giữa snapshot-before và snapshot-after.
+    Ví dụ:
+      - 'xBefore <= xAfter' → '__verifier_old_uint(x) <= x'
+      - 'xAfter >= xBefore' → 'x >= __verifier_old_uint(x)'
+    """
+    s = assert_expr_text.strip()
+    ops = ["<=", ">=", "==", "!=", "<", ">"]
+    op = next((o for o in ops if f" {o} " in s), None)
+    if not op:
+        return None
+    left, right = [p.strip() for p in s.split(f" {op} ", 1)]
+    if left not in snapshots or right not in snapshots:
+        return None
+    obsL, obsR = snapshots[left], snapshots[right]
+    if obsL != obsR:
+        return None
+
+    # Map snapshot token → old/new
+    # left is before → old(left); right is after → new(right)
+    # Không chuyển vế, chỉ thay snapshot bằng old()/new
+    # Quy ước: token xuất hiện ở vế nào thì giữ nguyên vế đó.
+    left_expr = f"__verifier_old_uint({obsL})"
+    right_expr = f"{obsR}"
+    return f"{left_expr} {op} {right_expr}"
 
 def infer_rule_posts(rule: dict) -> List[str]:
     posts = []
     snapshots = rule.get("snapshots", {})
     for a in rule.get("asserts", []):
-        tot = _infer_total_change_from_assert(a["expr"], snapshots)
-        if tot:
-            obs, expr_total = tot
-            posts.append(f"{obs} - {expr_total} == __verifier_old_uint({obs})")
+        # Ưu tiên đẳng thức-delta, GIỮ NGUYÊN HƯỚNG
+        eq = _infer_total_change_post(a["expr"], snapshots)
+        if eq:
+            posts.append(eq)
             continue
-        pc = _infer_post_from_assert(a["expr"], snapshots)  # bất đẳng thức / so sánh chung
-        if pc:
-            posts.append(pc)
+        # Fallback: bất đẳng thức GIỮ NGUYÊN HƯỚNG
+        rel = _infer_rel_post(a["expr"], snapshots)
+        if rel:
+            posts.append(rel)
     return posts
+
 
 
 def collect_solidity_param_preconds(sol_file: str) -> Dict[str, List[str]]:
@@ -267,13 +272,19 @@ def analyze_solidity_self_deltas_all(sol_file: str) -> Dict[str, Dict[str, str]]
 
 def _parse_eq_post(post: str) -> Optional[Tuple[str, str]]:
     """
-    Nhận chuỗi kiểu: "<var> - <expr> == __verifier_old_uint(<var>)"
-    Trả về (var, expr) hoặc None.
+    Nhận một trong hai dạng:
+      1) '<var> - <expr> == __verifier_old_uint(<var>)'
+      2) '__verifier_old_uint(<var>) == <var> - <expr>'
+    Trả về (var, expr).
     """
-    m = re.match(r'\s*([A-Za-z_][A-Za-z0-9_]*)\s*-\s*(.+?)\s*==\s*__verifier_old_uint\(\s*\1\s*\)\s*$', post)
-    if m:
-        return m.group(1), m.group(2).strip()
+    m1 = re.match(r'\s*([A-Za-z_][A-Za-z0-9_]*)\s*-\s*(.+?)\s*==\s*__verifier_old_uint\(\s*\1\s*\)\s*$', post)
+    if m1:
+        return m1.group(1), m1.group(2).strip()
+    m2 = re.match(r'\s*__verifier_old_uint\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\s*==\s*([A-Za-z_][A-Za-z0-9_]*)\s*-\s*(.+?)\s*$', post)
+    if m2 and m2.group(1) == m2.group(2):
+        return m2.group(1), m2.group(3).strip()
     return None
+
 
 def _build_notice_annotations(
     func_name: str,
@@ -581,10 +592,11 @@ def annotate_spec_asserts(ast_tree: Tree, sol_file: str, output_path: Optional[s
         calls = r["calls"] if allow_all else [c for c in r["calls"] if c["name"] in allowed_names]
         filtered_rules.append({**r, "calls": calls})
 
-        print("Filtered rules:", filtered_rules)
+    print("Filtered rules:", filtered_rules)
 
     # 1) Call graph từ Slither → caller -> set(callee)
     callmap = build_call_mapping(sol_file)
+    print("Call map from Slither:", callmap)
     def _simple_name(canonical: str) -> str:
         s = canonical.split(".", 1)[-1]
         return s.split("(", 1)[0]
@@ -595,15 +607,19 @@ def annotate_spec_asserts(ast_tree: Tree, sol_file: str, output_path: Optional[s
         for cal in callees:
             caller2callees.setdefault(src_name, set()).add(_simple_name(cal))
 
+    print("Caller to callees:", caller2callees)
+
     # 2) Seed & Transitive (1 bậc)
     seed_names = sorted({c["name"] for r in filtered_rules for c in r["calls"]})
     transitive_names = set(seed_names)
+    print("Seed function names:", seed_names)
     for seed in seed_names:
         transitive_names |= caller2callees.get(seed, set())
 
     # 3) Hiệu ứng cục bộ & tổng hợp (1 bậc) trên biến 'x'
     # self-delta cho tất cả biến
     self_deltas_by_var = analyze_solidity_self_deltas_all(sol_file)  # {func: {var: expr}}
+    print("Self deltas by var:", self_deltas_by_var)
 
     # total-delta seed theo biến (1 bậc)
     total_deltas_by_var: Dict[str, Dict[str, str]] = {}
@@ -619,6 +635,7 @@ def annotate_spec_asserts(ast_tree: Tree, sol_file: str, output_path: Optional[s
         if parts_per_var:
             total_deltas_by_var[seed] = {var: " + ".join(lst) if len(lst) > 1 else lst[0]
                                         for var, lst in parts_per_var.items()}
+    print("Total deltas by var for seeds:", total_deltas_by_var)
 
     # 4) rule_call_edges: func_name -> list[(rule_name, caller_or_None)]
     rule_call_edges: Dict[str, List[Tuple[str, Optional[str]]]] = {}
@@ -638,22 +655,9 @@ def annotate_spec_asserts(ast_tree: Tree, sol_file: str, output_path: Optional[s
     param_preconds = collect_solidity_param_preconds(sol_file)
     target_func_names = sorted(transitive_names)
 
-    print("Rule posts:", rule_posts)
-    print("Param Preconds:", param_preconds)
-    print("Target functions to annotate:", target_func_names)
-
-
-    # Rút tổng thay đổi Δobs_total từ assert (ưu tiên)
-    rule_total_by_obs: Dict[str, str] = {}  # obs -> expr_total (ví dụ {'x': '2*n'})
-    for r in filtered_rules:
-        snapshots = r.get("snapshots", {})
-        for a in r.get("asserts", []):
-            tot = _infer_total_change_from_assert(a["expr"], snapshots)
-            if tot:
-                obs, expr_total = tot
-                rule_total_by_obs[obs] = expr_total  # đơn giản: lấy cái đầu tiên
-                break
-
+    print("Rule posts: ", rule_posts)
+    print("Param Preconds: ", param_preconds)
+    print("Target functions to annotate: ", target_func_names)
 
     # Nếu không có gì để chèn, cứ copy file và trả path
     if output_path is None:
@@ -687,7 +691,6 @@ def annotate_spec_asserts(ast_tree: Tree, sol_file: str, output_path: Optional[s
             self_deltas_by_var,     # NEW: per-var
             total_deltas_by_var     # NEW: per-var
         )
-
 
         if not comments:
             continue
