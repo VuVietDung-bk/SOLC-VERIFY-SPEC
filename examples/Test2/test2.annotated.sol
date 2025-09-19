@@ -6,7 +6,7 @@ contract Example2 {
     uint public y;
 
     /// @notice precondition n >= 0
-    /// @notice postcondition x - 2 * n == __verifier_old_uint(x)
+    /// @notice postcondition __verifier_old_uint(x) == x - 2 * n
     /// @notice postcondition __verifier_old_uint(x) <= x
     function add_to_x(uint n) external {
         x = x + n;
@@ -15,13 +15,12 @@ contract Example2 {
     }
 
     /// @notice precondition n >= 0
-    /// @notice postcondition x - n == __verifier_old_uint(x)
-    /// @notice postcondition __verifier_old_uint(x) <= x
     function _add(uint n) internal {
         x = x + n;
         y = y + n;
     }
     
+    /// @notice precondition n >= 0
     function add_to_y(uint n) external {
         y = y + n;
         //require(x >= y); // Ensures that there is no overflow

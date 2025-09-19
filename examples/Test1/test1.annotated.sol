@@ -14,12 +14,12 @@ contract Example1 {
     }
 
     /// @notice precondition n >= 0
-    /// @notice postcondition __verifier_old_uint(x) <= x
     function _add(uint n) internal {
         x = x + n;
         y = y + n;
     }
     
+    /// @notice precondition n >= 0
     function add_to_y(uint n) external {
         y = y + n;
         //require(x >= y); // Ensures that there is no overflow

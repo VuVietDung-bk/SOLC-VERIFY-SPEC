@@ -13,8 +13,6 @@ contract Example1 {
         _add(n);
     }
 
-    /// @notice precondition n >= 0
-    /// @notice postcondition x >= __verifier_old_uint(x)
     function _add(uint n) internal {
         x = x + n;
         y = y + n;
