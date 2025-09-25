@@ -7,7 +7,7 @@ contract Example2 {
     mapping (uint => bool) public isSet;
 
     /// @notice precondition n >= 0
-    /// @notice postcondition isSet[x] == true
+    /// @notice postcondition isSet[x]
     function setNextIndex(uint n) external {
         x = n + 2;
         _set(n + 2);

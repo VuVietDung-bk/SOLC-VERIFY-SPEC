@@ -11,8 +11,7 @@ rule xSpec(uint n) {
 
     setNextIndex(n);
 
-    mathint xAfter = x() + 2;
-    bool nah = isSet(n);
+    mathint xAfter = x();
 
     // Operations on mathints can never overflow or underflow. 
     assert isSet(xAfter);

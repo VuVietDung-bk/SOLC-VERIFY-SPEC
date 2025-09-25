@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List
+from typing import Dict, List, Set
 from slither.slither import Slither
 from slither.core.declarations import Function as SlitherFunction
 
@@ -24,3 +24,19 @@ def build_call_graph(sol_file: str) -> Dict[str, List[str]]:
                     callees.append(_simple_name(callee.canonical_name))
             graph[src_name] = sorted(set(callees))
     return graph
+
+def build_sol_symbol_table(sol_file: str) -> dict:
+    """
+    Thu thập tên function và state variables từ Solidity để phân biệt cách render:
+    - functions: gọi dạng fn(a, b)
+    - state_vars: đọc dạng var hoặc var[a][b] (mapping)
+    """
+    sl = Slither(os.path.abspath(sol_file))
+    fnames: Set[str] = set()
+    vnames: Set[str] = set()
+    for c in sl.contracts:
+        for f in c.functions:
+            fnames.add(f.name)
+        for v in c.state_variables:
+            vnames.add(v.name)
+    return {"functions": fnames, "state_vars": vnames}

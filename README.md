@@ -1,5 +1,5 @@
 # A Spec-based Verifier for Solidity Smart Contracts
-SOLC-VERIFY-SPEC is a spec-based verification tool for Ethereum smart contracts. SOLC-VERIFY-SPEC takes smart contracts written in Solidity along with a specification file to automatically fill in smart contracts with SOLC-VERIFY-based annotations, and later discharges verification conditions using modular program analysis and SMT solvers.
+SOLC-VERIFY-SPEC is a spec-based verification tool for Ethereum smart contracts. SOLC-VERIFY-SPEC takes smart contracts written in Solidity along with a specification file to automatically fill in smart contracts with SOLC-VERIFY-based annotations, and later discharge verification conditions using modular program analysis and SMT solvers.
 For more information about SOLC-VERIFY, visit the [github page](https://github.com/SRI-CSL/solidity) of the verifier.
 
 Please note that this tool is under development and has not been finished yet.

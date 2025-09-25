@@ -42,19 +42,69 @@ def _infer_rel_post(assert_text: str, snapshots: Dict[str, str]) -> Optional[str
     return f"__verifier_old_uint({obsL}) {op} {obsR}"
 
 def rule_to_posts(rule: Dict[str, Any]) -> List[str]:
+    """
+    Sinh hậu-điều-kiện từ:
+      (A) assert gọi vào state-var/mapping: isSet(xAfter) → 'isSet[<resolved-arg>]'
+          - thay ghost trong args bằng expr_text từ snapshot (vd 'xAfter' → 'x + 2').
+      (B) quan hệ BEFORE/AFTER (<=, >=, ==, ...) dùng simple snapshots ghost→observed.
+    """
     posts: List[str] = []
-    snaps = rule.get("snapshots", {})
+
+    # --- A) Mapping-like assertions (state variables with args) ---
+    rich_snaps: Dict[str, Dict[str, Any]] = rule.get("snapshots", {}) or {}
+
+    def _resolve_arg(a: str) -> str:
+        """Nếu 'a' là ghost và snapshot có 'expr_text' thì thay bằng expr_text; ngược lại giữ nguyên."""
+        info = rich_snaps.get(a)
+        if isinstance(info, dict):
+            et = info.get("expr_text")
+            if et:
+                return et
+        return a
+
+    # xử lý mapping/state-var assertions
     for st in rule.get("steps", []):
-        if st.get("kind") == "assert":
-            expr = st.get("text", "")
-            eq = _infer_total_change_post(expr, snaps)
-            if eq:
-                posts.append(eq); continue
-            rel = _infer_rel_post(expr, snaps)
-            if rel:
-                posts.append(rel)
-    seen = set(); out = []
+        if st.get("kind") != "assert":
+            continue
+        for fc in st.get("func_calls", []):
+            if fc.get("decl_kind") == "state_var":
+                name = fc.get("name")
+                args = fc.get("args", [])
+                if not name:
+                    continue
+                if len(args) == 0:
+                    posts.append(f"{name}")
+                else:
+                    resolved = [_resolve_arg(a) for a in args]
+                    posts.append(f"{name}[{', '.join(resolved)}]")
+
+    # --- B) Quan hệ BEFORE/AFTER cho delta/relational ---
+    # rút simple map: ghost -> observed (nếu có)
+    simple_snaps: Dict[str, str] = {}
+    for g, info in rich_snaps.items():
+        if isinstance(info, dict) and info.get("observed"):
+            simple_snaps[g] = info["observed"]
+
+    # xử lý phần relational/delta từ expr_text
+    for st in rule.get("steps", []):
+        if st.get("kind") != "assert":
+            continue
+        expr = st.get("expr_text", "") or st.get("text", "") or ""
+        # delta-equality ưu tiên trước
+        eq = _infer_total_change_post(expr, simple_snaps)
+        if eq:
+            posts.append(eq)
+            continue
+        # quan hệ bất đẳng thức
+        rel = _infer_rel_post(expr, simple_snaps)
+        if rel:
+            posts.append(rel)
+
+    # unique, giữ thứ tự
+    seen = set()
+    out: List[str] = []
     for p in posts:
         if p not in seen:
-            seen.add(p); out.append(p)
+            seen.add(p)
+            out.append(p)
     return out

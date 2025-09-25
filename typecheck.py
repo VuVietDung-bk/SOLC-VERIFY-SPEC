@@ -1,6 +1,5 @@
 import re
 from typing import Dict, List, Optional
-from spec_parser import _flatten_expr  # if needed elsewhere (not used here but ok)
 
 _NUMERIC_OPS = ("+", "-", "*", "/", "%", "<<", ">>", "^")
 _BOOL_TOKENS = ("==", "!=", "<=", ">=", "<", ">", "&&", "||")

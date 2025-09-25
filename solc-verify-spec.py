@@ -1,19 +1,44 @@
+# solc-verify-spec.py (main)
+import os
+import re
 import argparse
+from typing import Dict, List, Tuple, Optional, Any
 from lark import Lark
-from typing import Dict, List
+import subprocess
 
+from io_utils import _rewrite_pragma_to_0_7_0, _insert_lines_before, _scan_function_lines_in_file
 from spec_parser import parse_spec_to_ir
-from typecheck import validate_spec_ir
-from callgraph import build_call_graph
+from callgraph import build_call_graph, build_sol_symbol_table
 from build_conditions import rule_to_posts
-from annotations import collect_param_preconds, write_annotations
-from runner import run_sv
+from annotations import write_annotations
+from typecheck import validate_spec_ir
+from build_conditions import rule_to_posts
+from callgraph import build_call_graph, build_sol_symbol_table
+from annotations import write_annotations
+from typecheck import validate_spec_ir
+
+# Thu thập preconditions bằng Slither (giữ nguyên module nếu bạn đã có)
+from annotations import collect_param_preconds   # nếu bạn đặt ở annotations.py
+
+
+def run_sv(out_file: str) -> int:
+    cmd = ["./docker/runsv.sh", out_file]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    except FileNotFoundError:
+        proc = subprocess.run(["bash", "./docker/runsv.sh", out_file],
+                              capture_output=True, text=True, check=False)
+    if proc.stdout:
+        print("\033[96mSOLC-VERIFY OUTPUT:\033[0m")
+        print(proc.stdout, end="")
+    return proc.returncode
+
 
 def main():
     parser = argparse.ArgumentParser(description="Spec→Annotation (single-hop, no propagation)")
     parser.add_argument("file_sol", help="Path to the Solidity file")
     parser.add_argument("file_spec", help="Path to the spec file")
-    parser.add_argument("--grammar", default="./parser_certora.lark", help="Path to the .lark grammar")
+    parser.add_argument("--grammar", default="./parser_certora.lark",  help="Path to the .lark grammar")
     parser.add_argument("--no-run", action="store_true", help="Run ./docker/runsv.sh on the annotated output")
     args = parser.parse_args()
 
@@ -28,7 +53,8 @@ def main():
     try:
         ast = lark.parse(spec_text)
     except Exception as e:
-        line = getattr(e, "line", None); column = getattr(e, "column", None)
+        line = getattr(e, "line", None)
+        column = getattr(e, "column", None)
         if line is not None:
             print(f"[ERROR] Syntax error at line {line}" + (f", column {column}" if column is not None else "") + ".")
             lines = spec_text.splitlines()
@@ -41,20 +67,21 @@ def main():
         raise SystemExit(1)
 
     print("[3/8] Building IR (ordered rule steps + snapshots)...")
-    ir = parse_spec_to_ir(ast)
+    # NEW: build symbol table and pass into parser
+    sol_symbols = build_sol_symbol_table(args.file_sol)
+    ir = parse_spec_to_ir(ast, sol_symbols)
     print(ir)
-    rules = ir["rules"]
 
     print("[3.5/8] Validating spec IR...")
     validate_spec_ir(ir)
 
     print("[4/8] Building call graph (Slither)...")
     call_graph = build_call_graph(args.file_sol)
-    # giữ để dùng sau
+    # (kept for later use; no propagation here)
 
     print("[5/8] Generating postconditions from rules...")
     post_by_func: Dict[str, List[str]] = {}
-    for r in rules:
+    for r in ir["rules"]:
         posts = rule_to_posts(r)
         seeds = r.get("calls", [])
         for fn in seeds:
@@ -76,6 +103,7 @@ def main():
 
     if args.no_run is False:
         run_sv(out_file)
+
 
 if __name__ == "__main__":
     main()
