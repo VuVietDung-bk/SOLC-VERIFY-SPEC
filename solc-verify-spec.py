@@ -8,18 +8,16 @@ import subprocess
 
 from io_utils import _rewrite_pragma_to_0_7_0, _insert_lines_before, _scan_function_lines_in_file
 from spec_parser import parse_spec_to_ir
-from callgraph import build_call_graph, build_sol_symbol_table
+from sol_file_utils import build_call_graph, build_sol_symbol_table
 from build_conditions import rule_to_posts
 from annotations import write_annotations
 from typecheck import validate_spec_ir
 from build_conditions import rule_to_posts
-from callgraph import build_call_graph, build_sol_symbol_table
+from sol_file_utils import build_call_graph, build_sol_symbol_table
 from annotations import write_annotations
 from typecheck import validate_spec_ir
 
-# Thu thập preconditions bằng Slither (giữ nguyên module nếu bạn đã có)
-from annotations import collect_param_preconds   # nếu bạn đặt ở annotations.py
-
+from annotations import collect_param_preconds 
 
 def run_sv(out_file: str) -> int:
     cmd = ["./docker/runsv.sh", out_file]
@@ -52,6 +50,7 @@ def main():
         spec_text = f.read()
     try:
         ast = lark.parse(spec_text)
+        print(ast.pretty())
     except Exception as e:
         line = getattr(e, "line", None)
         column = getattr(e, "column", None)
@@ -67,22 +66,22 @@ def main():
         raise SystemExit(1)
 
     print("[3/8] Building IR (ordered rule steps + snapshots)...")
-    # NEW: build symbol table and pass into parser
     sol_symbols = build_sol_symbol_table(args.file_sol)
     ir = parse_spec_to_ir(ast, sol_symbols)
-    print(ir)
+    print(ir) # DEBUG
 
     print("[3.5/8] Validating spec IR...")
     validate_spec_ir(ir)
 
     print("[4/8] Building call graph (Slither)...")
     call_graph = build_call_graph(args.file_sol)
-    # (kept for later use; no propagation here)
+    # (kept for later use)
 
     print("[5/8] Generating postconditions from rules...")
     post_by_func: Dict[str, List[str]] = {}
     for r in ir["rules"]:
         posts = rule_to_posts(r)
+        print(f"Rule '{r.get('name', '<unnamed>')}' → posts: {posts}") # DEBUG
         seeds = r.get("calls", [])
         for fn in seeds:
             if posts:

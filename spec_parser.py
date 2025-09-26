@@ -3,6 +3,11 @@ import re
 from typing import Dict, List, Tuple, Optional, Any
 from lark import Tree, Token
 
+# === NEW: helpers for robust arg splitting without commas in AST ===
+_ATOM_TOKEN_TYPES = {
+    "ID", "INTEGER_LITERAL", "STRING_LITERAL", "TRUE", "FALSE"
+}
+
 # ===== Helpers (public if other modules import) =====
 def _flatten_expr(tree_or_tok: Any) -> str:
     if isinstance(tree_or_tok, Token):
@@ -16,35 +21,14 @@ def _flatten_expr(tree_or_tok: Any) -> str:
     return str(tree_or_tok)
 
 def _get_function_call_info(call_tree: Tree) -> Tuple[Optional[str], List[str]]:
-    """
-    function_call: (ID ".")? ID ("@" CALL_MODIFIER)? "(" exprs? ")" ("at" ID)?
-    Return (func_name, args_texts) in raw token-flatten form.
-    """
     children = list(call_tree.children)
     exprs_node = next((ch for ch in children if isinstance(ch, Tree) and ch.data == "exprs"), None)
     cutoff_idx = children.index(exprs_node) if exprs_node is not None else len(children)
     ids_before = [ch.value for ch in children[:cutoff_idx]
                   if isinstance(ch, Token) and ch.type == "ID"]
     func_name = ids_before[-1] if ids_before else None
-
-    def _extract_args(exprs_tree: Optional[Tree]) -> List[str]:
-        if exprs_tree is None:
-            return []
-        args, cur = [], []
-        for ch in exprs_tree.children:
-            if isinstance(ch, Token) and ch.value == ",":
-                if cur:
-                    arg = " ".join(_flatten_tokens_only(x) for x in cur).strip()
-                    args.append(arg)
-                    cur = []
-            else:
-                cur.append(ch)
-        if cur:
-            arg = " ".join(_flatten_tokens_only(x) for x in cur).strip()
-            args.append(arg)
-        return args
-
-    args = _extract_args(exprs_node)
+    # DÙNG splitter mới; ở đây không cần sol_symbols nên pass {} để chỉ tách theo dấu phẩy
+    args = _split_call_args(exprs_node, sol_symbols={})
     return func_name, args
 
 def _is_zero_arg_function_call(tree: Tree) -> Optional[str]:
@@ -144,6 +128,56 @@ def _flatten_expr_with_symbols_list(nodes: List[Any], sol_symbols: dict) -> str:
     s = " ".join(parts)
     return s.replace(" ,", ",").replace("( ", "(").replace(" )", ")").replace(" .", ".").strip()
 
+def _is_atom_token(tok: Token) -> bool:
+    return isinstance(tok, Token) and tok.type in _ATOM_TOKEN_TYPES
+
+def _split_call_args(exprs_node: Optional[Tree], sol_symbols: dict) -> List[str]:
+    """
+    Tách args từ node 'exprs' mà KHÔNG dựa vào comma tồn tại trong AST.
+    Chiến lược:
+      - Nếu có bất kỳ Tree con (tức là có expr phức tạp) → flatten toàn bộ thành 1 đối số duy nhất.
+      - Nếu chỉ có Tokens:
+          * Nếu xuất hiện dấu phẩy → dùng logic tách theo ',' (đang có sẵn).
+          * Nếu KHÔNG có dấu phẩy:
+              - Nếu tất cả tokens đều 'atomic' (ID/number/string/true/false) → mỗi token là MỘT đối số.
+              - Ngược lại (thấy toán tử/ngoặc...) → coi là MỘT đối số duy nhất.
+    """
+    if exprs_node is None:
+        return []
+
+    # 1) Nếu có subtree (Tree) → coi như 1 expr (vì không còn delimiter rõ ràng)
+    if any(isinstance(ch, Tree) for ch in exprs_node.children):
+        # render cả exprs thành 1 đối số
+        return [_flatten_expr_with_symbols_list(list(exprs_node.children), sol_symbols).strip()]
+
+    # 2) Chỉ còn Tokens
+    toks = [ch for ch in exprs_node.children if isinstance(ch, Token)]
+    if not toks:
+        return []
+
+    # 2a) Nếu có dấu phẩy trong tokens → tách theo dấu phẩy
+    if any(t.value == "," for t in toks):
+        args: List[str] = []
+        cur: List[Any] = []
+        for t in toks:
+            if isinstance(t, Token) and t.value == ",":
+                if cur:
+                    args.append(_flatten_expr_with_symbols_list(cur, sol_symbols))
+                    cur = []
+            else:
+                cur.append(t)
+        if cur:
+            args.append(_flatten_expr_with_symbols_list(cur, sol_symbols))
+        return [a.strip() for a in args]
+
+    # 2b) KHÔNG có dấu phẩy:
+    #     - Nếu TẤT CẢ tokens đều là atomic → mỗi token là MỘT đối số.
+    #     - Nếu có token không-atomic (toán tử/ngoặc/…): coi toàn bộ là MỘT biểu thức (1 đối số).
+    if all(_is_atom_token(t) for t in toks):
+        return [t.value for t in toks]  # mỗi token là 1 arg
+
+    # Không thuần atomic → 1 đối số duy nhất
+    return [_flatten_expr_with_symbols_list(toks, sol_symbols).strip()]
 
 def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
     """
@@ -293,7 +327,7 @@ def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
                         "type": ghost_type,
                         "expr": rhs_text,
                         "rhs_calls": rhs_calls,
-                        "observed": observed,           # <-- NEW (optional)
+                        "observed": observed,           
                     })
 
                     # Ghi snapshot “giàu thông tin” (CHỦ ĐIỂM: thêm 'observed')
@@ -302,17 +336,18 @@ def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
                             "type": ghost_type,
                             "expr_text": rhs_text,
                             "rhs_calls": rhs_calls,
-                            "observed": observed,       # <-- NEW (bắt buộc)
+                            "observed": observed,       
                         }
 
                 elif st.data == "funccall_statement":
-                    # câu lệnh gọi hàm độc lập → seed
                     fcall = next((ch for ch in st.children if isinstance(ch, Tree) and ch.data == "function_call"), None)
                     if fcall is not None:
-                        fname, fargs_raw = _get_function_call_info(fcall)
+                        fname, _ = _get_function_call_info(fcall)
                         if fname:
+                            exprs_node = next((ch for ch in fcall.children if isinstance(ch, Tree) and ch.data == "exprs"), None)
+                            fargs = _split_call_args(exprs_node, sol_symbols)
                             calls.append(fname)
-                            steps.append({"kind": "call", "name": fname, "args": fargs_raw})
+                            steps.append({"kind": "call", "name": fname, "args": fargs})
 
                 elif st.data == "assert_statement":
                     expr_node = None
@@ -327,23 +362,12 @@ def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
                     if expr_node is not None:
                         for fc in expr_node.iter_subtrees_topdown():
                             if isinstance(fc, Tree) and fc.data == "function_call":
-                                fname, fargs_raw = _get_function_call_info(fc)
+                                fname, _ = _get_function_call_info(fc)
                                 if not fname:
                                     continue
                                 # render args chuẩn (biết function/state_var)
-                                fargs = []
-                                exprs_node = next((ch for ch in fc.children if isinstance(ch, Tree) and ch.data == "exprs"), None)
-                                if exprs_node is not None:
-                                    cur = []
-                                    for ch in exprs_node.children:
-                                        if isinstance(ch, Token) and ch.value == ",":
-                                            if cur:
-                                                fargs.append(_flatten_expr_with_symbols_list(cur, sol_symbols))
-                                                cur = []
-                                        else:
-                                            cur.append(ch)
-                                    if cur:
-                                        fargs.append(_flatten_expr_with_symbols_list(cur, sol_symbols))
+                                exprs_node = next((c for c in fc.children if isinstance(c, Tree) and c.data == "exprs"), None)
+                                fargs: List[str] = _split_call_args(exprs_node, sol_symbols)
                                 # phân loại từ bảng symbol
                                 if fname in sol_symbols.get("state_vars", set()):
                                     decl_kind = "state_var"
@@ -352,6 +376,7 @@ def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
                                 else:
                                     decl_kind = "unknown"
 
+                                print(len(fargs))
                                 rendered = _render_call(fname, fargs, sol_symbols)
                                 func_calls.append({
                                     "name": fname,

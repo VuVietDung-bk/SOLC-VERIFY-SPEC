@@ -74,9 +74,12 @@ def rule_to_posts(rule: Dict[str, Any]) -> List[str]:
                     continue
                 if len(args) == 0:
                     posts.append(f"{name}")
-                else:
+                elif len(args) == 1:
                     resolved = [_resolve_arg(a) for a in args]
                     posts.append(f"{name}[{', '.join(resolved)}]")
+                else:
+                    resolved = [_resolve_arg(a) for a in args]
+                    posts.append(f"{name}[" + "][".join(resolved) + "]")
 
     # --- B) Quan hệ BEFORE/AFTER cho delta/relational ---
     # rút simple map: ghost -> observed (nếu có)
