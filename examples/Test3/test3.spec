@@ -9,7 +9,7 @@ rule xSpec(uint n) {
 
     env e;
 
-    setNextIndex(n, n);
+    setNextIndex(n);
 
     mathint xAfter = x();
 

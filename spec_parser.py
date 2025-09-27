@@ -20,6 +20,24 @@ def _flatten_expr(tree_or_tok: Any) -> str:
         return s.replace(" ,", ",").replace("( ", "(").replace(" )", ")").replace(" .", ".").strip()
     return str(tree_or_tok)
 
+def _extract_param_types_from_pattern(pat: Tree) -> List[str]:
+    """
+    Lấy danh sách kiểu tham số từ subtree 'params' bên trong exact_pattern / wildcard_pattern.
+    Trả về list chuỗi đã flatten (ví dụ: ['uint', 'address', 'bytes32[]']).
+    """
+    params_node = next((ch for ch in pat.children
+                        if isinstance(ch, Tree) and ch.data == "params"), None)
+    if params_node is None:
+        return []
+
+    types: List[str] = []
+
+    for tnode in params_node.iter_subtrees_topdown():
+        if isinstance(tnode, Tree) and tnode.data == "cvl_type":
+            types.append(_flatten_tokens_only(tnode))
+
+    return types
+
 def _get_function_call_info(call_tree: Tree) -> Tuple[Optional[str], List[str]]:
     children = list(call_tree.children)
     exprs_node = next((ch for ch in children if isinstance(ch, Tree) and ch.data == "exprs"), None)
@@ -43,6 +61,61 @@ def _is_zero_arg_function_call(tree: Tree) -> Optional[str]:
         return func_name
     return None
 
+def _extract_rule_params(params_node: Tree) -> List[dict]:
+    """
+    Trả về danh sách tham số của rule dạng:
+    [{"type": "<flatten cvl_type>", "name": "<id|None>"}]
+
+    Grammar:
+      params : cvl_type data_location? ID? param*
+      param  : "," cvl_type data_location? (ID)?
+
+    Thực tế trong AST:
+      - Tham số đầu tiên: xuất hiện trực tiếp dưới 'params' (cvl_type rồi ID).
+      - Các tham số còn lại: mỗi cái nằm trong một subtree 'param' bên trong 'params'.
+    """
+    out: List[dict] = []
+    if params_node is None:
+        return out
+
+    # 1) Lấy tham số đầu tiên trực tiếp dưới 'params'
+    children = list(params_node.children)
+    i = 0
+    while i < len(children):
+        ch = children[i]
+        if isinstance(ch, Tree) and ch.data == "cvl_type":
+            ty = _flatten_tokens_only(ch)
+            name = None
+            # token ID ngay sau đó (nếu có) thuộc tham số đầu tiên
+            j = i + 1
+            while j < len(children):
+                nxt = children[j]
+                # gặp 'param' -> dừng, vì phần sau là các tham số tiếp theo
+                if isinstance(nxt, Tree) and nxt.data == "param":
+                    break
+                if isinstance(nxt, Token) and nxt.type == "ID":
+                    name = nxt.value
+                    j += 1
+                    break
+                j += 1
+            out.append({"type": ty, "name": name})
+            break  # chỉ có duy nhất 1 "đầu" trực tiếp dưới params
+        i += 1
+
+    # 2) Lấy các tham số còn lại bên trong từng 'param'
+    for ch in children:
+        if isinstance(ch, Tree) and ch.data == "param":
+            ptype = None
+            pname = None
+            for sub in ch.children:
+                if isinstance(sub, Tree) and sub.data == "cvl_type":
+                    ptype = _flatten_tokens_only(sub)
+                elif isinstance(sub, Token) and sub.type == "ID":
+                    pname = sub.value
+            if ptype:
+                out.append({"type": ptype, "name": pname})
+
+    return out
 
 def _flatten_tokens_only(x: Any) -> str:
     """
@@ -209,24 +282,29 @@ def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
             kind = None
             visibility = None
             returns_type = None
+            params_types = None
 
             # exact/wildcard/catch_...
             exact_pat = next((ch for ch in node.children if isinstance(ch, Tree) and ch.data == "exact_pattern"), None)
             if exact_pat is not None:
-                # name + visibility ở trong exact_pattern
                 ids = [t.value for t in exact_pat.scan_values(lambda v: isinstance(v, Token) and v.type == "ID")]
                 if ids:
-                    # (contract ".")? ID => lấy cuối cùng
                     method_name = ids[-1]
                 vis_tok = next((t for t in exact_pat.scan_values(lambda v: isinstance(v, Token) and v.type == "VISIBILITY")), None)
                 visibility = vis_tok.value if vis_tok is not None else visibility
                 kind = "exact"
+
+                # NEW: lấy loại tham số
+                params_types = _extract_param_types_from_pattern(exact_pat)
 
             elif next((ch for ch in node.children if isinstance(ch, Tree) and ch.data == "wildcard_pattern"), None) is not None:
                 wp = next(ch for ch in node.children if isinstance(ch, Tree) and ch.data == "wildcard_pattern")
                 ids = [t.value for t in wp.scan_values(lambda v: isinstance(v, Token) and v.type == "ID")]
                 method_name = ids[-1] if ids else None
                 kind = "wildcard"
+
+                # NEW: lấy loại tham số (wildcard_pattern cũng có "( params? )" theo grammar)
+                params_types = _extract_param_types_from_pattern(wp)
 
             elif next((ch for ch in node.children if isinstance(ch, Tree) and ch.data == "catch_all_pattern"), None) is not None:
                 kind = "catch_all"
@@ -254,7 +332,8 @@ def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
                 "kind": kind or "unknown",
                 "visibility": visibility,
                 "returns": returns_type,
-                "decl_kind": decl_kind
+                "decl_kind": decl_kind,
+                "params": params_types if params_types is not None else []
             })
 
     # ===== rules =====
@@ -270,6 +349,10 @@ def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
             steps: List[Dict[str, Any]] = []
             calls: List[str] = []
             snapshots: Dict[str, Dict[str, Any]] = {}
+            # Lấy params của rule (nếu có)
+            params_node = next((ch for ch in node.children if isinstance(ch, Tree) and ch.data == "params"), None)
+            rule_params = _extract_rule_params(params_node) if params_node is not None else []
+
 
             # 2) Duyệt tất cả statement theo thứ tự xuất hiện (top-down)
             for st in node.iter_subtrees_topdown():
@@ -376,7 +459,6 @@ def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
                                 else:
                                     decl_kind = "unknown"
 
-                                print(len(fargs))
                                 rendered = _render_call(fname, fargs, sol_symbols)
                                 func_calls.append({
                                     "name": fname,
@@ -403,9 +485,10 @@ def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
 
             rules.append({
                 "name": rule_name,
+                "params": rule_params,   # <-- NEW
                 "steps": steps,
                 "calls": calls,
-                "snapshots": snapshots,   # đảm bảo là dict, KHÔNG phải list
+                "snapshots": snapshots,
             })
 
     return {"methods": methods, "rules": rules}
