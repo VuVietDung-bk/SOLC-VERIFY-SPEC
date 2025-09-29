@@ -8,7 +8,7 @@ HEXADECIMAL_LITERAL: /0[xX][0-9a-fA-F]+/
 INTEGER_LITERAL: DECIMAL_LITERAL | HEXADECIMAL_LITERAL
 STRING_LITERAL: /"([^"\\]|\\.)*"/
 
-?start: (methods | rule)+
+?start: (methods | rule | invariant_rule)+
 
 // CVL types
 cvl_type: evm_type
@@ -95,6 +95,7 @@ XOR_ARROW: "<=>"
 XOR: "xor"
 RSHIFT3: ">>>"
 
+compare_binop: GT | LT | EQEQ | BANGEQ | GTEQ | LTEQ
 
 special_field: block_field
                  | msg_field
@@ -204,6 +205,12 @@ dispatch_pattern : "_" "." ID "(" dispatch_param ")"
                      | ID "." ID "(" dispatch_param ")"
 
 rule : ("rule")? ID ("(" params? ")")? ("filtered" "{" ID "->" expr ("," ID "->" expr)* "}")? ("description" STRING_LITERAL)? ("good_description" STRING_LITERAL)? block
+
+invariant_rule: ("invariant") ID "{" (invariant_spec |statement)* "}"
+
+invariant_spec: (assert_invariant) ";"
+
+assert_invariant: "assert" expr compare_binop expr
 
 // Ignore whitespace
 %import common.WS
