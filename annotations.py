@@ -1,12 +1,17 @@
 import os
 from typing import Dict, List, Optional
+from slither.slither import Slither
 from io_utils import _rewrite_pragma_to_0_7_0, _insert_lines_before, _scan_function_lines_in_file
 
-def collect_param_preconds(sol_file: str) -> Dict[str, List[str]]:
-    from slither.slither import Slither  # local import to keep module lightweight
+def collect_param_preconds(sol_file: str, only_contract: Optional[str] = None) -> Dict[str, List[str]]:
+    """
+    Trả về preconditions đơn giản dựa trên kiểu tham số (uint* → param >= 0)
+    Nếu only_contract != None → chỉ lấy functions của contract đó.
+    """
     sl = Slither(os.path.abspath(sol_file))
     pre: Dict[str, List[str]] = {}
-    for c in sl.contracts:
+
+    def _handle_contract(c):
         for f in c.functions:
             pcs: List[str] = []
             for p in f.parameters:
@@ -14,7 +19,20 @@ def collect_param_preconds(sol_file: str) -> Dict[str, List[str]]:
                 if "uint" in str(t) and not str(t).startswith("int"):
                     pcs.append(f"{p.name} >= 0")
             if pcs:
+                # Chỉ key theo tên hàm, giống phần annotate
                 pre.setdefault(f.name, []).extend(pcs)
+
+    if only_contract:
+        cs = [c for c in sl.contracts if c.name == only_contract]
+        if not cs:
+            raise SystemExit(f"[ERROR] Contract '{only_contract}' not found when collecting preconditions.")
+        for c in cs:
+            _handle_contract(c)
+    else:
+        for c in sl.contracts:
+            _handle_contract(c)
+
+    # unique
     for k, v in list(pre.items()):
         pre[k] = list(dict.fromkeys(v))
     return pre

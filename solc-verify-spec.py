@@ -1,4 +1,3 @@
-# solc-verify-spec.py (main)
 import os
 import re
 import argparse
@@ -8,16 +7,10 @@ import subprocess
 
 from io_utils import _rewrite_pragma_to_0_7_0, _insert_lines_before, _scan_function_lines_in_file
 from spec_parser import parse_spec_to_ir
-from sol_file_utils import build_call_graph, build_sol_symbol_table
 from build_conditions import rule_to_posts
-from annotations import write_annotations
+from annotations import write_annotations, collect_param_preconds 
 from typecheck import validate_spec_ir
-from build_conditions import rule_to_posts
-from sol_file_utils import build_call_graph, build_sol_symbol_table
-from annotations import write_annotations
-from typecheck import validate_spec_ir
-
-from annotations import collect_param_preconds 
+from sol_file_utils import build_call_graph, build_sol_symbols, split_sol_and_contract
 
 def run_sv(out_file: str) -> int:
     cmd = ["./docker/runsv.sh", out_file]
@@ -31,7 +24,6 @@ def run_sv(out_file: str) -> int:
         print(proc.stdout, end="")
     return proc.returncode
 
-
 def main():
     parser = argparse.ArgumentParser(description="Spec→Annotation (single-hop, no propagation)")
     parser.add_argument("file_sol", help="Path to the Solidity file")
@@ -39,6 +31,8 @@ def main():
     parser.add_argument("--grammar", default="./parser_certora.lark",  help="Path to the .lark grammar")
     parser.add_argument("--no-run", action="store_true", help="Run ./docker/runsv.sh on the annotated output")
     args = parser.parse_args()
+
+    sol_path, target_contract = split_sol_and_contract(args.file_sol)
 
     print("[1/8] Loading grammar...")
     with open(args.grammar, "r", encoding="utf-8") as f:
@@ -66,7 +60,7 @@ def main():
         raise SystemExit(1)
 
     print("[3/8] Building IR (ordered rule steps + snapshots)...")
-    sol_symbols = build_sol_symbol_table(args.file_sol)
+    sol_symbols = build_sol_symbols(sol_path, only_contract=target_contract)
     ir = parse_spec_to_ir(ast, sol_symbols)
     print(ir) # DEBUG
 
@@ -74,7 +68,7 @@ def main():
     validate_spec_ir(ir)
 
     print("[4/8] Building call graph (Slither)...")
-    call_graph = build_call_graph(args.file_sol)
+    call_graph = build_call_graph(sol_path)
     # (kept for later use)
 
     print("[5/8] Generating postconditions from rules...")
@@ -91,12 +85,12 @@ def main():
                         post_by_func[fn].append(p)
 
     print("[6/8] Collecting parameter-based preconditions (Slither)...")
-    pre_by_func = collect_param_preconds(args.file_sol)
+    pre_by_func = collect_param_preconds(sol_path, only_contract=target_contract)
 
     target_funcs = sorted(set(list(post_by_func.keys()) + list(pre_by_func.keys())))
 
     print("[7/8] Writing annotations into Solidity...")
-    out_file = write_annotations(args.file_sol, target_funcs, pre_by_func, post_by_func)
+    out_file = write_annotations(sol_path, target_funcs, pre_by_func, post_by_func)
 
     print("[8/8] Done. Annotated file:", out_file)
 
