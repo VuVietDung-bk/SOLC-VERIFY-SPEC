@@ -46,15 +46,17 @@ ID: /[a-zA-Z_][a-zA-Z0-9_]*/
         | "(" exprs ")"
         | expr "?" expr ":" expr
         | QUANTIFIER cvl_type ID "." expr
-        | SUM_OPERATOR cvl_type ID ("," cvl_type ID)* "." expr
         | expr "." ID
         | ID index?
+        | special_var_attribute_call
         | function_call
         | expr "in" ID
 
 QUANTIFIER: "forall" | "exists"
-SUM_OPERATOR: "sum" | "usum"
 function_call: (ID ".")? ID ("@" CALL_MODIFIER)? "(" exprs? ")" ("at" ID)?
+special_var_attribute: SUM
+SUM: "sum"
+special_var_attribute_call: ID "." special_var_attribute
 CALL_MODIFIER: "norevert" | "withrevert" | "dontsummarize"
 index: "[" expr "]" ("[" expr "]")*
 exprs: expr ("," expr)*
@@ -206,11 +208,7 @@ dispatch_pattern : "_" "." ID "(" dispatch_param ")"
 
 rule : ("rule")? ID ("(" params? ")")? ("filtered" "{" ID "->" expr ("," ID "->" expr)* "}")? ("description" STRING_LITERAL)? ("good_description" STRING_LITERAL)? block
 
-invariant_rule: ("invariant") ID "{" (invariant_spec |statement)* "}"
-
-invariant_spec: (assert_invariant) ";"
-
-assert_invariant: "assert" expr compare_binop expr
+invariant_rule: ("invariant") ID block
 
 // Ignore whitespace
 %import common.WS

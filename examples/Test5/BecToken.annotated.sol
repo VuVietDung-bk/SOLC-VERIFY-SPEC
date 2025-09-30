@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity >=0.7.0;
+pragma solidity ^0.7.0;
 
 /**
  * @title SafeMath
@@ -31,9 +31,6 @@ library SafeMath {
     }
 }
 
-/**
- * @notice invariant totalSupply == __verifier_sum_uint(balances)
- */
 contract BecToken {
     using SafeMath for uint256;
 
@@ -49,6 +46,7 @@ contract BecToken {
         return balances[_owner];
     }
 
+    /// @notice precondition _value >= 0
     function transfer(address _receiver, uint256 _value) public returns (bool) {
         require(_value > 0 && balances[msg.sender] >= _value);
 
@@ -57,6 +55,7 @@ contract BecToken {
         return true;
     }
 
+    /// @notice precondition _value >= 0
     function batchTransfer(address[] memory _receivers, uint256 _value) public returns (bool) {
         uint cnt = _receivers.length;
         uint256 amount = uint256(cnt).mul(_value); // Correct version
@@ -64,10 +63,6 @@ contract BecToken {
         require(_value > 0 && balances[msg.sender] >= amount);
 
         balances[msg.sender] = balances[msg.sender].sub(amount);
-        /**
-         * @notice invariant totalSupply == __verifier_sum_uint(balances) + (cnt - i) * _value
-         * @notice invariant i <= cnt
-         */
         for (uint i = 0; i < cnt; i++) {
             balances[_receivers[i]] = balances[_receivers[i]].add(_value);
         }

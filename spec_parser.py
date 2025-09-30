@@ -180,6 +180,25 @@ def _flatten_expr_with_symbols(tree_or_tok: Any, sol_symbols: dict) -> str:
             if cur:
                 args.append(_flatten_expr_with_symbols_list(cur, sol_symbols))
         return _render_call(fname, args, sol_symbols)
+    
+    # --- special_var_attribute_call: ID "." special_var_attribute
+    if isinstance(tree_or_tok, Tree) and tree_or_tok.data == "special_var_attribute_call":
+        # Tên: ID có thể là con trực tiếp
+        name_tok = next(
+            (t for t in tree_or_tok.scan_values(lambda v: isinstance(v, Token) and v.type == "ID")),
+            None
+        )
+        # Thuộc tính: token SUM có thể nằm trong Tree('special_var_attribute', [Token('SUM','sum')])
+        attr_tok = next(
+            (t for t in tree_or_tok.scan_values(
+                lambda v: isinstance(v, Token) and getattr(v, "type", None) in ("SUM",)
+            )),
+            None
+        )
+        if name_tok and attr_tok:
+            return f"{name_tok.value}.{attr_tok.value}"
+        # fallback (nếu grammar thay đổi)
+        return _flatten_tokens_only(tree_or_tok)
 
     # Các Tree khác (expr, binop, literal, ...) → duyệt đệ quy toàn bộ children
     if isinstance(tree_or_tok, Tree):
@@ -193,6 +212,69 @@ def _flatten_expr_with_symbols(tree_or_tok: Any, sol_symbols: dict) -> str:
 
     # fallback
     return str(tree_or_tok)
+
+def _collect_calls_in_expr(expr_node: Optional[Tree], sol_symbols: dict) -> List[Dict[str, Any]]:
+    """
+    Trả về danh sách các "gọi" xuất hiện trong expr:
+    - function_call → {"name", "args", "decl_kind": "function"/"state_var"/"unknown", "rendered"}
+    - special_var_attribute_call → {"name", "attr", "decl_kind":"state_var_attr", "rendered": "balances.sum"}
+    """
+    out: List[Dict[str, Any]] = []
+    if expr_node is None:
+        return out
+
+    # 1) function_call
+    for fc in expr_node.iter_subtrees_topdown():
+        if not (isinstance(fc, Tree) and fc.data == "function_call"):
+            continue
+        fname, _ = _get_function_call_info(fc)
+        if not fname:
+            continue
+
+        exprs_node = next((ch for ch in fc.children if isinstance(ch, Tree) and ch.data == "exprs"), None)
+        fargs = _split_call_args(exprs_node, sol_symbols) if exprs_node is not None else []
+
+        if fname in sol_symbols.get("state_vars", set()):
+            decl_kind = "state_var"
+        elif fname in sol_symbols.get("functions", set()):
+            decl_kind = "function"
+        else:
+            decl_kind = "unknown"
+
+        rendered = _render_call(fname, fargs, sol_symbols)
+        out.append({
+            "name": fname,
+            "args": fargs,
+            "decl_kind": decl_kind,
+            "rendered": rendered
+        })
+
+    # 2) special_var_attribute_call
+    for sc in expr_node.iter_subtrees_topdown():
+        if not (isinstance(sc, Tree) and sc.data == "special_var_attribute_call"):
+            continue
+        # Tên state var
+        name_tok = next(
+            (t for t in sc.scan_values(lambda v: isinstance(v, Token) and v.type == "ID")),
+            None
+        )
+        # Thuộc tính (SUM)
+        attr_tok = next(
+            (t for t in sc.scan_values(
+                lambda v: isinstance(v, Token) and getattr(v, "type", None) in ("SUM",)
+            )),
+            None
+        )
+        if name_tok and attr_tok:
+            rendered = f"{name_tok.value}.{attr_tok.value}"
+            out.append({
+                "name": name_tok.value,
+                "attr": attr_tok.value,
+                "decl_kind": "state_var_attr",
+                "rendered": rendered
+            })
+
+    return out
 
 def _flatten_expr_with_symbols_list(nodes: List[Any], sol_symbols: dict) -> str:
     parts = []
@@ -441,34 +523,26 @@ def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
                         if isinstance(ch, Token) and ch.type == "STRING_LITERAL":
                             msg = ch.value[1:-1]
 
-                    func_calls: List[Dict[str, Any]] = []
-                    if expr_node is not None:
-                        for fc in expr_node.iter_subtrees_topdown():
-                            if isinstance(fc, Tree) and fc.data == "function_call":
-                                fname, _ = _get_function_call_info(fc)
-                                if not fname:
-                                    continue
-                                # render args chuẩn (biết function/state_var)
-                                exprs_node = next((c for c in fc.children if isinstance(c, Tree) and c.data == "exprs"), None)
-                                fargs: List[str] = _split_call_args(exprs_node, sol_symbols)
-                                # phân loại từ bảng symbol
-                                if fname in sol_symbols.get("state_vars", set()):
-                                    decl_kind = "state_var"
-                                elif fname in sol_symbols.get("functions", set()):
-                                    decl_kind = "function"
-                                else:
-                                    decl_kind = "unknown"
-
-                                rendered = _render_call(fname, fargs, sol_symbols)
-                                func_calls.append({
-                                    "name": fname,
-                                    "args": fargs,
-                                    "decl_kind": decl_kind,
-                                    "rendered": rendered
-                                })
-
+                    func_calls = _collect_calls_in_expr(expr_node, sol_symbols)
                     steps.append({
                         "kind": "assert",
+                        "expr_text": _flatten_tokens_only(expr_node) if expr_node is not None else "",
+                        "func_calls": func_calls,
+                        "message": msg
+                    })
+                
+                elif st.data == "require_statement":
+                    expr_node = None
+                    msg = None
+                    for ch in st.children:
+                        if isinstance(ch, Tree):
+                            expr_node = ch
+                        if isinstance(ch, Token) and ch.type == "STRING_LITERAL":
+                            msg = ch.value[1:-1]
+
+                    func_calls = _collect_calls_in_expr(expr_node, sol_symbols)
+                    steps.append({
+                        "kind": "require",
                         "expr_text": _flatten_tokens_only(expr_node) if expr_node is not None else "",
                         "func_calls": func_calls,
                         "message": msg
@@ -491,4 +565,103 @@ def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
                 "snapshots": snapshots,
             })
 
-    return {"methods": methods, "rules": rules}
+    # ==== invariant_rules ====
+    invariants: List[Dict[str, Any]] = []
+    for node in ast.iter_subtrees_topdown():
+        if not (isinstance(node, Tree) and node.data == "invariant_rule"):
+            continue
+
+        inv_name_tok = next((t for t in node.children if isinstance(t, Token) and t.type == "ID"), None)
+        inv_name = inv_name_tok.value if inv_name_tok else "<unnamed_invariant>"
+
+        steps: List[Dict[str, Any]] = []
+        # Duyệt block bên trong invariant_rule giống như rule
+        for st in node.iter_subtrees_topdown():
+            if not isinstance(st, Tree):
+                continue
+
+            if st.data == "assert_statement":
+                expr_node = None
+                msg = None
+                for ch in st.children:
+                    if isinstance(ch, Tree):
+                        expr_node = ch
+                    if isinstance(ch, Token) and ch.type == "STRING_LITERAL":
+                        msg = ch.value[1:-1]
+                func_calls = _collect_calls_in_expr(expr_node, sol_symbols)
+                steps.append({
+                    "kind": "assert",
+                    "expr_text": _flatten_tokens_only(expr_node) if expr_node is not None else "",
+                    "func_calls": func_calls,
+                    "message": msg
+                })
+
+            elif st.data == "require_statement":
+                expr_node = None
+                msg = None
+                for ch in st.children:
+                    if isinstance(ch, Tree):
+                        expr_node = ch
+                    if isinstance(ch, Token) and ch.type == "STRING_LITERAL":
+                        msg = ch.value[1:-1]
+                func_calls = _collect_calls_in_expr(expr_node, sol_symbols)
+                steps.append({
+                    "kind": "require",
+                    "expr_text": _flatten_tokens_only(expr_node) if expr_node is not None else "",
+                    "func_calls": func_calls,
+                    "message": msg
+                })
+
+            elif st.data == "define_statement":
+                # Cho phép define/havoc… bên trong invariant block nếu bạn muốn giữ nguyên
+                chs = list(st.children)
+                ghost = None
+                ghost_type = None
+                rhs_text = None
+                rhs_calls: List[str] = []
+                observed: Optional[str] = None
+
+                cvl_type_node = next((x for x in chs if isinstance(x, Tree) and x.data == "cvl_type"), None)
+                if cvl_type_node is not None:
+                    ghost_type = _flatten_tokens_only(cvl_type_node)
+
+                ghost_tok = None
+                seen_cvl = False
+                for ch in chs:
+                    if ch is cvl_type_node:
+                        seen_cvl = True
+                        continue
+                    if seen_cvl and isinstance(ch, Token) and ch.type == "ID":
+                        ghost_tok = ch
+                        break
+                if ghost_tok is not None:
+                    ghost = ghost_tok.value
+
+                expr_node = next((x for x in chs if isinstance(x, Tree) and x.data in ("expr", "function_call", "special_var_attribute_call")), None)
+                if expr_node is not None:
+                    rhs_text = _flatten_expr_with_symbols(expr_node, sol_symbols)
+                    for fc in expr_node.iter_subtrees_topdown():
+                        if isinstance(fc, Tree) and fc.data == "function_call":
+                            fname, _ = _get_function_call_info(fc)
+                            if fname:
+                                rhs_calls.append(fname)
+                    if isinstance(expr_node, Tree) and expr_node.data == "function_call":
+                        zname = _is_zero_arg_function_call(expr_node)
+                        if zname:
+                            observed = zname
+
+                steps.append({
+                    "kind": "define",
+                    "ghost": ghost,
+                    "type": ghost_type,
+                    "expr": rhs_text,
+                    "rhs_calls": rhs_calls,
+                    "observed": observed,
+                })
+
+        invariants.append({
+            "name": inv_name,
+            "steps": steps
+        })
+    
+    return {"methods": methods, "rules": rules, "invariants": invariants}

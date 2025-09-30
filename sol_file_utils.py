@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, Set, Optional
+from typing import Dict, List, Set, Optional, Tuple
 from slither.slither import Slither
 from slither.core.declarations import Function as SlitherFunction
 
@@ -64,7 +64,7 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
     return {"functions": functions, "state_vars": state_vars}
 
 
-def split_sol_and_contract(arg: str) -> (str, Optional[str]):
+def split_sol_and_contract(arg: str) -> Tuple[str, Optional[str]]:
     """
     Cho phép 'path/File.sol:ContractName'. Nếu không có ':', trả (arg, None).
     Lưu ý: chỉ tách phần sau dấu ':' cuối cùng (đường dẫn Unix/Windows đều OK).

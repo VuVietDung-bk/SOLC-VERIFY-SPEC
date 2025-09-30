@@ -31,7 +31,7 @@ library SafeMath {
     }
 }
 
-contract BecTokenSimplified {
+contract BecToken {
     using SafeMath for uint256;
 
     uint256 public totalSupply;
