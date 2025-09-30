@@ -49,14 +49,23 @@ ID: /[a-zA-Z_][a-zA-Z0-9_]*/
         | expr "." ID
         | ID index?
         | special_var_attribute_call
+        | contract_attribute_call
         | function_call
         | expr "in" ID
 
 QUANTIFIER: "forall" | "exists"
 function_call: (ID ".")? ID ("@" CALL_MODIFIER)? "(" exprs? ")" ("at" ID)?
+
 special_var_attribute: SUM
 SUM: "sum"
 special_var_attribute_call: ID "." special_var_attribute
+
+CONTRACT: "contract"
+contract_attribute: BALANCE | ADDRESS
+BALANCE: "balance"
+ADDRESS: "address"
+contract_attribute_call: CONTRACT "." contract_attribute
+
 CALL_MODIFIER: "norevert" | "withrevert" | "dontsummarize"
 index: "[" expr "]" ("[" expr "]")*
 exprs: expr ("," expr)*
@@ -154,6 +163,7 @@ statement:  cvl_type ID ("=" expr)? ";"                 -> define_statement
             | "reset_storage" expr ";"                  -> reset_statement
 
             | "havoc" ID ("assuming" expr)? ";"         -> havoc_statement
+            | assert_modify                             -> assert_modify_statement
 
 lhs : ID ("[" expr "]")? ("," lhs)?
 
@@ -209,6 +219,8 @@ dispatch_pattern : "_" "." ID "(" dispatch_param ")"
 rule : ("rule")? ID ("(" params? ")")? ("filtered" "{" ID "->" expr ("," ID "->" expr)* "}")? ("description" STRING_LITERAL)? ("good_description" STRING_LITERAL)? block
 
 invariant_rule: ("invariant") ID block
+
+assert_modify: "assert_modify" ID "(" params? ")" ("," expr)? ";"
 
 // Ignore whitespace
 %import common.WS

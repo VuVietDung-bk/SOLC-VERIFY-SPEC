@@ -31,6 +31,7 @@ library SafeMath {
     }
 }
 
+/// @notice invariant totalSupply == __verifier_sum_uint(balances)
 contract BecToken {
     using SafeMath for uint256;
 

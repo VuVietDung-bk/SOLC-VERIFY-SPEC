@@ -199,6 +199,15 @@ def _flatten_expr_with_symbols(tree_or_tok: Any, sol_symbols: dict) -> str:
             return f"{name_tok.value}.{attr_tok.value}"
         # fallback (nếu grammar thay đổi)
         return _flatten_tokens_only(tree_or_tok)
+    # contract_attribute_call → "contract.balance" / "contract.address"
+    if isinstance(tree_or_tok, Tree) and tree_or_tok.data == "contract_attribute_call":
+        # Tìm nhánh con 'contract_attribute', rồi lấy token bên trong (balance/address)
+        attr_node = next(
+            (ch for ch in tree_or_tok.children if isinstance(ch, Tree) and ch.data == "contract_attribute"),
+            None
+        )
+        attr = _flatten_tokens_only(attr_node) if attr_node is not None else None
+        return f"contract.{attr}" if attr else "contract"
 
     # Các Tree khác (expr, binop, literal, ...) → duyệt đệ quy toàn bộ children
     if isinstance(tree_or_tok, Tree):
@@ -213,15 +222,17 @@ def _flatten_expr_with_symbols(tree_or_tok: Any, sol_symbols: dict) -> str:
     # fallback
     return str(tree_or_tok)
 
-def _collect_calls_in_expr(expr_node: Optional[Tree], sol_symbols: dict) -> List[Dict[str, Any]]:
+def _collect_call_like_from_expr(expr_node: Optional[Tree], sol_symbols: dict) -> List[Dict[str, Any]]:
     """
-    Trả về danh sách các "gọi" xuất hiện trong expr:
-    - function_call → {"name", "args", "decl_kind": "function"/"state_var"/"unknown", "rendered"}
-    - special_var_attribute_call → {"name", "attr", "decl_kind":"state_var_attr", "rendered": "balances.sum"}
+    Trả về danh sách 'func_calls' từ 1 expr:
+      - function_call: {"name", "args", "decl_kind", "rendered"}
+      - special_var_attribute_call: {"name", "attr", "decl_kind":"state_var_attr", "rendered": "name.attr"}
+      - contract_attribute_call: {"name":"contract", "attr":("balance"|"address"), "decl_kind":"contract_attr", "rendered":"contract.balance"}
     """
-    out: List[Dict[str, Any]] = []
     if expr_node is None:
-        return out
+        return []
+
+    calls: List[Dict[str, Any]] = []
 
     # 1) function_call
     for fc in expr_node.iter_subtrees_topdown():
@@ -231,9 +242,23 @@ def _collect_calls_in_expr(expr_node: Optional[Tree], sol_symbols: dict) -> List
         if not fname:
             continue
 
+        # render args chuẩn
+        fargs: List[str] = []
         exprs_node = next((ch for ch in fc.children if isinstance(ch, Tree) and ch.data == "exprs"), None)
-        fargs = _split_call_args(exprs_node, sol_symbols) if exprs_node is not None else []
+        if exprs_node is not None:
+            # dùng lại splitter hiện có (nếu bạn đã tạo); nếu chưa, giữ cách build cur tương tự logic trước
+            cur = []
+            for ch in exprs_node.children:
+                if isinstance(ch, Token) and ch.value == ",":
+                    if cur:
+                        fargs.append(_flatten_expr_with_symbols_list(cur, sol_symbols))
+                        cur = []
+                else:
+                    cur.append(ch)
+            if cur:
+                fargs.append(_flatten_expr_with_symbols_list(cur, sol_symbols))
 
+        # phân loại từ bảng symbol
         if fname in sol_symbols.get("state_vars", set()):
             decl_kind = "state_var"
         elif fname in sol_symbols.get("functions", set()):
@@ -242,39 +267,55 @@ def _collect_calls_in_expr(expr_node: Optional[Tree], sol_symbols: dict) -> List
             decl_kind = "unknown"
 
         rendered = _render_call(fname, fargs, sol_symbols)
-        out.append({
+        calls.append({
             "name": fname,
             "args": fargs,
             "decl_kind": decl_kind,
             "rendered": rendered
         })
 
-    # 2) special_var_attribute_call
-    for sc in expr_node.iter_subtrees_topdown():
-        if not (isinstance(sc, Tree) and sc.data == "special_var_attribute_call"):
+    # 2) special_var_attribute_call: ID "." special_var_attribute (ví dụ balances.sum)
+    for sv in expr_node.iter_subtrees_topdown():
+        if not (isinstance(sv, Tree) and sv.data == "special_var_attribute_call"):
             continue
-        # Tên state var
-        name_tok = next(
-            (t for t in sc.scan_values(lambda v: isinstance(v, Token) and v.type == "ID")),
-            None
-        )
-        # Thuộc tính (SUM)
-        attr_tok = next(
-            (t for t in sc.scan_values(
-                lambda v: isinstance(v, Token) and getattr(v, "type", None) in ("SUM",)
-            )),
-            None
-        )
-        if name_tok and attr_tok:
-            rendered = f"{name_tok.value}.{attr_tok.value}"
-            out.append({
-                "name": name_tok.value,
-                "attr": attr_tok.value,
-                "decl_kind": "state_var_attr",
-                "rendered": rendered
-            })
+        # Lấy ID và attr
+        id_tok = next((t for t in sv.scan_values(lambda v: isinstance(v, Token) and v.type == "ID")), None)
+        attr_tok = next((t for t in sv.scan_values(lambda v: isinstance(v, Token) and v.type in ("SUM",))), None)
+        name = id_tok.value if id_tok else None
+        attr = (attr_tok.value.lower() if attr_tok else None)  # "sum"
+        if not name:
+            continue
+        rendered = f"{name}.{attr}" if attr else name
+        calls.append({
+            "name": name,
+            "args": [],
+            "decl_kind": "state_var_attr",
+            "attr": attr,
+            "rendered": rendered
+        })
 
-    return out
+    # 3) contract_attribute_call: "contract.balance" | "contract.address"
+    for ca in expr_node.iter_subtrees_topdown():
+        if not (isinstance(ca, Tree) and ca.data == "contract_attribute_call"):
+            continue
+
+        # Lấy attr qua nhánh con 'contract_attribute'
+        attr_node = next(
+            (ch for ch in ca.children if isinstance(ch, Tree) and ch.data == "contract_attribute"),
+            None
+        )
+        attr = _flatten_tokens_only(attr_node) if attr_node is not None else None
+        rendered = f"contract.{attr}" if attr else "contract"
+
+        calls.append({
+            "name": "contract",
+            "args": [],
+            "decl_kind": "contract_attr",
+            "attr": attr,                 # <-- giờ có 'balance' hoặc 'address'
+            "rendered": rendered          # <-- "contract.balance" hoặc "contract.address"
+        })
+
+    return calls
 
 def _flatten_expr_with_symbols_list(nodes: List[Any], sol_symbols: dict) -> str:
     parts = []
@@ -523,7 +564,7 @@ def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
                         if isinstance(ch, Token) and ch.type == "STRING_LITERAL":
                             msg = ch.value[1:-1]
 
-                    func_calls = _collect_calls_in_expr(expr_node, sol_symbols)
+                    func_calls = _collect_call_like_from_expr(expr_node, sol_symbols)
                     steps.append({
                         "kind": "assert",
                         "expr_text": _flatten_tokens_only(expr_node) if expr_node is not None else "",
@@ -540,7 +581,7 @@ def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
                         if isinstance(ch, Token) and ch.type == "STRING_LITERAL":
                             msg = ch.value[1:-1]
 
-                    func_calls = _collect_calls_in_expr(expr_node, sol_symbols)
+                    func_calls = _collect_call_like_from_expr(expr_node, sol_symbols)
                     steps.append({
                         "kind": "require",
                         "expr_text": _flatten_tokens_only(expr_node) if expr_node is not None else "",
@@ -556,6 +597,35 @@ def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
                         for t in lhs_node.scan_values(lambda v: isinstance(v, Token) and v.type == "ID"):
                             targets.append(t.value)
                     steps.append({"kind": "assign", "targets": targets})
+
+                elif st.data == "assert_modify_statement":
+                    # children: Token('ID', <name>), Tree('params')?, (',' expr)? theo grammar
+                    target_name = next((t.value for t in st.children if isinstance(t, Token) and t.type == "ID"), None)
+
+                    # params? là danh sách kiểu (cvl_type) giống như ở method signature
+                    param_types: List[str] = []
+                    params_node = next((ch for ch in st.children if isinstance(ch, Tree) and ch.data == "params"), None)
+                    if params_node is not None:
+                        # lấy mọi cvl_type trong params
+                        for tnode in params_node.scan_values(lambda v: isinstance(v, Tree) and v.data == "cvl_type"):
+                            param_types.append(_flatten_tokens_only(tnode))
+
+                    # optional ", expr"
+                    extra_expr_node = None
+                    # tìm node expr đứng sau params (nếu có)
+                    # đơn giản: lấy Tree('expr') cuối cùng trong children
+                    for ch in st.children:
+                        if isinstance(ch, Tree) and ch.data == "expr":
+                            extra_expr_node = ch
+
+                    extra_func_calls = _collect_call_like_from_expr(extra_expr_node, sol_symbols)
+                    steps.append({
+                        "kind": "assert_modify",
+                        "target": target_name,
+                        "param_types": param_types,
+                        "extra_expr_text": _flatten_tokens_only(extra_expr_node) if extra_expr_node is not None else None,
+                        "extra_func_calls": extra_func_calls
+                    })
 
             rules.append({
                 "name": rule_name,
@@ -588,7 +658,7 @@ def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
                         expr_node = ch
                     if isinstance(ch, Token) and ch.type == "STRING_LITERAL":
                         msg = ch.value[1:-1]
-                func_calls = _collect_calls_in_expr(expr_node, sol_symbols)
+                func_calls = _collect_call_like_from_expr(expr_node, sol_symbols)
                 steps.append({
                     "kind": "assert",
                     "expr_text": _flatten_tokens_only(expr_node) if expr_node is not None else "",
@@ -604,7 +674,7 @@ def parse_spec_to_ir(ast: Tree, sol_symbols: dict) -> Dict[str, Any]:
                         expr_node = ch
                     if isinstance(ch, Token) and ch.type == "STRING_LITERAL":
                         msg = ch.value[1:-1]
-                func_calls = _collect_calls_in_expr(expr_node, sol_symbols)
+                func_calls = _collect_call_like_from_expr(expr_node, sol_symbols)
                 steps.append({
                     "kind": "require",
                     "expr_text": _flatten_tokens_only(expr_node) if expr_node is not None else "",

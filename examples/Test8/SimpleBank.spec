@@ -1,6 +1,6 @@
 methods
 {
-    function balances(address) external returns (int) envfree; // a là array, phải có cách phân biệt giữa array và mapping
+    function balances(address) external returns (uint) envfree; // a là array, phải có cách phân biệt giữa array và mapping
 }
 
 invariant sorted {
