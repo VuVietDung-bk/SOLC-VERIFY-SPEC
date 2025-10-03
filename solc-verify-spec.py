@@ -7,6 +7,7 @@ from annotations import write_annotations
 from validate import validate_spec_ir
 from utils import build_call_graph, build_sol_symbols, split_sol_and_contract
 from runner import run_sv  
+from loop_invariant import write_loop_invariants
 
 def main():
     parser = argparse.ArgumentParser(
@@ -21,12 +22,12 @@ def main():
 
     sol_path, target_contract = split_sol_and_contract(args.file_sol)
 
-    print("[1/9] Loading grammar...")
+    print("[1/8] Loading grammar...")
     with open(args.grammar, "r", encoding="utf-8") as f:
         grammar_text = f.read()
     lark = Lark(grammar_text)
 
-    print("[2/9] Parsing spec...")
+    print("[2/8] Parsing spec...")
     with open(args.file_spec, "r", encoding="utf-8") as f:
         spec_text = f.read()
     try:
@@ -45,39 +46,27 @@ def main():
             print(f"[ERROR] Syntax error: {e}")
         raise SystemExit(1)
 
-    print("[3/9] Building IR object...")
+    print("[3/8] Building IR object...")
     sol_symbols = build_sol_symbols(sol_path, only_contract=target_contract)
     ir = IR.from_ast(ast, sol_symbols)
     print(ir.to_dict())  # DEBUG
 
-    print("[4/9] Validating spec IR...")
+    print("[4/8] Validating IR...")
     validate_spec_ir(ir.to_dict())
 
-    print("[5/9] Building call graph (Slither)...")
+    print("[5/8] Building call graph...")
     call_graph = build_call_graph(sol_path)
     # (kept for later use)
 
-    print("[6/9] Generating postconditions from rules...")
-    post_by_func: Dict[str, List[str]] = {}
-    for rule in ir.rules:   # duyệt object thay vì dict
-        posts = rule.to_postconditions()
-        print(f"Rule '{rule.name}' → posts: {posts}")  # DEBUG
-        for fn in rule.calls:
-            if posts:
-                post_by_func.setdefault(fn, [])
-                for p in posts:
-                    if p not in post_by_func[fn]:
-                        post_by_func[fn].append(p)
+    print("[6/8] Inserting preconditions, postconditions and invariants...")
+    out_files = write_annotations(sol_path, ir, only_contract=target_contract)
 
-
-    print("[8/9] Inserting preconditions, postconditions and invariants...")
-    out_file = write_annotations(sol_path, ir, only_contract=target_contract)
-
-    print("[9/9] Done. Annotated file:", out_file)
+    print("[7/8] Annotated files:", out_files)
 
     if not args.no_run:
-        run_sv(out_file)
-
+        for file in out_files:
+            # TO-DO: Cài thuật toán loop invariant
+            run_sv(file)
 
 if __name__ == "__main__":
     main()

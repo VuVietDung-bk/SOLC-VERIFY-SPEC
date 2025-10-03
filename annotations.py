@@ -1,6 +1,7 @@
 import os
 from typing import Dict, List, Optional
 from slither.slither import Slither
+import shutil
 
 from utils import _rewrite_pragma_to_0_7_0, _insert_lines_before, _scan_function_lines_in_file
 from spec_ir import IR   # IR object
@@ -39,32 +40,25 @@ def collect_param_preconds(sol_file: str, only_contract: Optional[str] = None) -
     return pre
 
 
-def write_annotations(sol_in: str,
-                      ir: IR,
-                      only_contract: Optional[str] = None) -> str:
+def write_annotations(sol_in: str, ir: IR, only_contract: Optional[str] = None) -> List[str]:
     """
-    Ghi pre/post/invariant vào file Solidity đã annotate.
-    - ir: đối tượng IR đã parse từ spec
-    - preconds: preconditions thu thập bằng Slither
+    Sinh nhiều file .ruleName.sol cho từng rule, mỗi file chứa:
+      - preconditions (toàn cục),
+      - postconditions từ rule đó,
+      - invariants (toàn cục).
+    Trả về danh sách path file sinh ra.
     """
     preconds = collect_param_preconds(sol_in, only_contract=only_contract)
 
     base, ext = os.path.splitext(os.path.abspath(sol_in))
-    out_path = base + ".annotated" + ext
-
-    # copy gốc sang file annotate
-    with open(sol_in, "r", encoding="utf-8") as rf:
-        original = rf.read()
-    with open(out_path, "w", encoding="utf-8") as wf:
-        wf.write(original)
-
-    # rewrite pragma
-    _rewrite_pragma_to_0_7_0(out_path)
-
-    # ================= POSTCONDITIONS =================
-    post_by_func: Dict[str, List[str]] = {}
+    out_files: List[str] = []
     for rule in ir.rules:
+        out_path = base + f".{rule.name}" + ext
+        shutil.copyfile(sol_in, out_path)
+        _rewrite_pragma_to_0_7_0(out_path)
+
         posts = rule.to_postconditions()
+        post_by_func = {}
         for fn in rule.calls:
             if posts:
                 post_by_func.setdefault(fn, [])
@@ -72,35 +66,45 @@ def write_annotations(sol_in: str,
                     if p not in post_by_func[fn]:
                         post_by_func[fn].append(p)
 
-    # ================= FUNC TARGETS =================
-    target_funcs = sorted(set(list(post_by_func.keys()) + list(preconds.keys())))
-    occ = _scan_function_lines_in_file(out_path, target_funcs)
-    inserts: List[tuple[int, List[str]]] = []
+        target_funcs = sorted(set(list(post_by_func.keys()) + list(preconds.keys())))
+        occ = _scan_function_lines_in_file(out_path, target_funcs)
+        inserts: List[tuple[int, List[str]]] = []
 
-    for fn in target_funcs:
-        lines: List[str] = []
-        for pre in preconds.get(fn, []):
-            lines.append(f"    /// @notice precondition {pre}")
-        for post in post_by_func.get(fn, []):
-            lines.append(f"    /// @notice postcondition {post}")
-        if not lines:
-            continue
-        for ln in occ.get(fn, []):
-            inserts.append((ln, lines))
+        for fn in target_funcs:
+            lines: List[str] = []
+            for pre in preconds.get(fn, []):
+                lines.append(f"    /// @notice precondition {pre}")
+            for post in post_by_func.get(fn, []):
+                lines.append(f"    /// @notice postcondition {post}")
+            if not lines:
+                continue
+            for ln in occ.get(fn, []):
+                inserts.append((ln, lines))
 
-    # chèn vào file (theo thứ tự từ cuối lên đầu để không lệch line)
-    for ln, lines in sorted(inserts, key=lambda x: x[0], reverse=True):
-        _insert_lines_before(out_path, ln, lines)
+        for ln, lines in sorted(inserts, key=lambda x: x[0], reverse=True):
+            _insert_lines_before(out_path, ln, lines)
 
-    # ================= INVARIANTS =================
-    inv_lines: List[str] = []
-    for inv in ir.invariants:
-        inv_lines.extend(inv.to_invariants())
+        # invariants toàn cục
+        inv_lines: List[str] = []
+        for inv in ir.invariants:
+            inv_lines.extend(inv.to_invariants())
+        if inv_lines:
+            insert_invariants_into_contract(out_path, inv_lines, only_contract)
 
-    if inv_lines:
-        insert_invariants_into_contract(out_path, inv_lines, None)
+        out_files.append(out_path)
 
-    return out_path
+    if not out_files:
+        out_path = base + f".annotated" + ext
+        shutil.copyfile(sol_in, out_path)
+        _rewrite_pragma_to_0_7_0(out_path)
+        
+        inv_lines: List[str] = []
+        for inv in ir.invariants:
+            inv_lines.extend(inv.to_invariants())
+        if inv_lines:
+            insert_invariants_into_contract(out_path, inv_lines, only_contract)
+        out_files.append(out_path)
+    return out_files
 
 
 # giữ lại util chèn invariant vào file contract
