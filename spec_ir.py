@@ -1,5 +1,5 @@
 from lark import Tree, Token
-from spec_parser import (
+from parser_utils import (
     _flatten_tokens_only,
     _extract_param_types_from_pattern
 )
