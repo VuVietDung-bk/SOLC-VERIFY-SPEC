@@ -1,5 +1,5 @@
 from lark import Tree, Token
-from spec_parser import (
+from parser_utils import (
     _get_function_call_info,
     _is_zero_arg_function_call,
     _flatten_expr_with_symbols,
@@ -8,6 +8,11 @@ from spec_parser import (
 )
 from typing import Dict, List, Optional, Any
 from spec_method import Method, Step
+
+"""
+    TO-DO:
+    - Câu lệnh forall exist
+"""
 
 class Invariant:
     _COMPARE_TOKENS = ["==", "!=", "<=", ">=", "<", ">"]
@@ -38,20 +43,6 @@ class Invariant:
                         msg = ch.value[1:-1]
                 func_calls = _collect_call_like_from_expr(expr_node, sol_symbols)
                 self.steps.append(Step("assert", {
-                    "expr_text": _flatten_tokens_only(expr_node) if expr_node else "",
-                    "func_calls": func_calls,
-                    "message": msg
-                }))
-
-            elif st.data == "require_statement":
-                expr_node, msg = None, None
-                for ch in st.children:
-                    if isinstance(ch, Tree):
-                        expr_node = ch
-                    if isinstance(ch, Token) and ch.type == "STRING_LITERAL":
-                        msg = ch.value[1:-1]
-                func_calls = _collect_call_like_from_expr(expr_node, sol_symbols)
-                self.steps.append(Step("require", {
                     "expr_text": _flatten_tokens_only(expr_node) if expr_node else "",
                     "func_calls": func_calls,
                     "message": msg

@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional, Tuple
 from lark import Tree, Token
-from spec_parser import (
+from parser_utils import (
     _extract_rule_params,
     _get_function_call_info,
     _is_zero_arg_function_call,
@@ -10,6 +10,17 @@ from spec_parser import (
     _collect_call_like_from_expr
 )
 from spec_method import Method, Step
+
+"""
+    TO-DO:
+    - Tạo hàm to_preconditions() từ require_statement và call_statement, cụ thể ví dụ:
+        + Gọi f(1) thì có precondition n == 1
+        + Hàm define f(uint n) mà gọi f(n) thì phải gắn snapshot n <=> m
+    - TO-DO-1: Observe tất cả các loại call state_var. Nếu là function call thì observe biến return value của hàm
+    - Xử lý chỗ verifier_old_uint trong assert, phải so sánh vị trí define snapshot với vị trí của function call (hiện tại đang so sánh 2 vị trí với nhau)
+    - Câu lệnh forall exist
+    - assert_modify_statement
+"""
 
 class Rule:
     def __init__(self, ast_node: Tree, methods: Dict[str, "Method"], sol_symbols: Dict[str, Any]):
@@ -83,7 +94,7 @@ class Rule:
                         rhs_calls.append(fname)
 
             if isinstance(expr_node, Tree) and expr_node.data == "function_call":
-                zname = _is_zero_arg_function_call(expr_node)
+                zname = _is_zero_arg_function_call(expr_node) # TO-DO-1
                 if zname:
                     observed = zname
 

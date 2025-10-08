@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  solc-verify:
+    image: solc-verify
+    container_name: solc-verify-container
+    ports:
+      - "5000:5000"
+    volumes:
+      - /root/solc-verify-spec:/solc-verify-spec
+    working_dir: /solc-verify-spec
+    stdin_open: true 
+    tty: true         
+    entrypoint: ["/bin/bash"]

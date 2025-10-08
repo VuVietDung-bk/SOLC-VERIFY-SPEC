@@ -7,7 +7,6 @@ from annotations import write_annotations
 from validate import validate_spec_ir
 from utils import build_call_graph, build_sol_symbols, split_sol_and_contract
 from runner import run_sv  
-from loop_invariant import write_loop_invariants
 
 def main():
     parser = argparse.ArgumentParser(
@@ -65,7 +64,6 @@ def main():
 
     if not args.no_run:
         for file in out_files:
-            # TO-DO: Cài thuật toán loop invariant
             run_sv(file)
 
 if __name__ == "__main__":
