@@ -1,5 +1,8 @@
 FROM ubuntu:focal
 
+# TO SPEED UP THE PROCESS MODIFY THE ARCHIVE TO YOUR LOCAL SERVER
+RUN sed -i 's|archive.ubuntu.com|vn.archive.ubuntu.com|g' /etc/apt/sources.list
+
 # Generic packages
 RUN apt update && DEBIAN_FRONTEND="noninteractive" apt install -y \
   cmake \
@@ -26,12 +29,12 @@ RUN wget http://cvc4.cs.stanford.edu/downloads/builds/x86_64-linux-opt/cvc4-1.8-
 RUN apt install z3
 
 # Get .NET
-RUN wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb \
-  && dpkg -i packages-microsoft-prod.deb \
-  && apt update \
-  && apt install -y apt-transport-https \
-  && apt update \
-  && apt install -y dotnet-sdk-3.1
+RUN wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+RUN dpkg -i packages-microsoft-prod.deb
+RUN apt update
+RUN apt install -y apt-transport-https
+RUN apt update
+RUN apt install -y dotnet-sdk-3.1
 
 # Get boogie
 RUN dotnet tool install --global boogie --version 2.8.18
@@ -43,8 +46,8 @@ RUN git clone https://github.com/SRI-CSL/solidity.git \
   && git checkout 0.7 \
   && mkdir -p build \
   && cd build \
-  && cmake .. -DUSE_Z3=Off -DUSE_CVC4=Off \
-  && make \
+  && cmake .. -DUSE_Z3=On -DUSE_CVC4=Off \
+  && make -j $(nproc)\
   && make install
 
 # Set entrypoint
