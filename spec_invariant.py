@@ -35,18 +35,22 @@ class Invariant:
                 continue
 
             if st.data == "assert_statement":
-                expr_node, msg = None, None
-                for ch in st.children:
-                    if isinstance(ch, Tree):
-                        expr_node = ch
-                    if isinstance(ch, Token) and ch.type == "STRING_LITERAL":
-                        msg = ch.value[1:-1]
-                func_calls = _collect_call_like_from_expr(expr_node, sol_symbols)
-                self.steps.append(Step("assert", {
-                    "expr_text": _flatten_tokens_only(expr_node) if expr_node else "",
-                    "func_calls": func_calls,
-                    "message": msg
-                }))
+                expr_node = st.children[0]
+                if is_instance(expr_node.children[0], Token) and expr_node.children[0].type == "QUANTIFIER":
+                    self.parse_quantifier(expr_node, methods, sol_symbols)
+                else:
+                    expr_node, msg = None, None
+                    for ch in st.children:
+                        if isinstance(ch, Tree):
+                            expr_node = ch
+                        if isinstance(ch, Token) and ch.type == "STRING_LITERAL":
+                            msg = ch.value[1:-1]
+                    func_calls = _collect_call_like_from_expr(expr_node, sol_symbols)
+                    self.steps.append(Step("assert", {
+                        "expr_text": _flatten_tokens_only(expr_node) if expr_node else "",
+                        "func_calls": func_calls,
+                        "message": msg
+                    }))
 
             elif st.data == "define_statement":
                 chs = list(st.children)
@@ -57,6 +61,7 @@ class Invariant:
                 cvl_type_node = next((x for x in chs if isinstance(x, Tree) and x.data == "cvl_type"), None)
                 if cvl_type_node:
                     ghost_type = _flatten_tokens_only(cvl_type_node)
+
 
                 ghost_tok = None
                 seen_cvl = False
@@ -90,6 +95,17 @@ class Invariant:
                     "rhs_calls": rhs_calls,
                     "observed": observed,
                 }))
+
+
+    def parse_quantifier(self, node: Tree, methods: Dict[str, "Method"], sol_symbols: Dict[str, Any]):
+        chs = node.iter_subtrees_top_down()
+        # parsing the type for the quantifier.
+        token_quantifier = next(chs)
+        quantifer_type = next(chs)
+        quantifier_variable = next(chs)
+        quantifier_expr = next(chs)
+        func_calls = _collect_call_like_from_expr(quantifier_expr, sol_symbols)
+        pass
 
     @classmethod
     def _pick_compare_op(cls, expr_text: str) -> str:
