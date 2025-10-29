@@ -5,7 +5,7 @@ var __block_number: int;
 var __block_timestamp: int;
 var __alloc_counter: int;
 // 
-// ------- Source: ERC20.transferDoesntRevert.s.sol -------
+// ------- Source: ERC20.transferReverts.s.sol -------
 // Pragma: solidity^0.7.0
 // 
 // ------- Contract: ERC20 -------
@@ -13,21 +13,21 @@ var __alloc_counter: int;
 // Inherits from: IERC20Metadata
 // 
 // State variable: _balances: mapping(address => uint256)
-var {:sourceloc "ERC20.transferDoesntRevert.s.sol", 35, 5} {:message "_balances"} _balances#12: [address_t][address_t]int;
+var {:sourceloc "ERC20.transferReverts.s.sol", 35, 5} {:message "_balances"} _balances#12: [address_t][address_t]int;
 // 
 // State variable: _allowances: mapping(address => mapping(address => uint256))
-var {:sourceloc "ERC20.transferDoesntRevert.s.sol", 37, 5} {:message "_allowances"} _allowances#18: [address_t][address_t][address_t]int;
+var {:sourceloc "ERC20.transferReverts.s.sol", 37, 5} {:message "_allowances"} _allowances#18: [address_t][address_t][address_t]int;
 // 
 // State variable: _totalSupply: uint256
-var {:sourceloc "ERC20.transferDoesntRevert.s.sol", 39, 5} {:message "_totalSupply"} _totalSupply#20: [address_t]int;
+var {:sourceloc "ERC20.transferReverts.s.sol", 39, 5} {:message "_totalSupply"} _totalSupply#20: [address_t]int;
 // 
 // State variable: _owner: address
-var {:sourceloc "ERC20.transferDoesntRevert.s.sol", 41, 5} {:message "_owner"} _owner#22: [address_t]address_t;
+var {:sourceloc "ERC20.transferReverts.s.sol", 41, 5} {:message "_owner"} _owner#22: [address_t]address_t;
 function {:builtin "((as const (Array Int Int)) 0)"} default_address_t_int() returns ([address_t]int);
 function {:builtin "((as const (Array Int (Array Int Int))) ((as const (Array Int Int)) 0))"} default_address_t__k_address_t_v_int() returns ([address_t][address_t]int);
 // 
 // Function: 
-procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 52, 5} {:message "ERC20::[constructor]"} __constructor#582(__this: address_t, __msg_sender: address_t, __msg_value: int)
+procedure {:sourceloc "ERC20.transferReverts.s.sol", 52, 5} {:message "ERC20::[constructor]"} __constructor#582(__this: address_t, __msg_sender: address_t, __msg_value: int)
 {
 	// TCC assumptions
 	assume (__msg_sender != 0);
@@ -48,7 +48,7 @@ var mem_arr_int: [int_arr_ptr]int_arr_type;
 function {:builtin "((as const (Array Int Int)) 0)"} default_int_int() returns ([int]int);
 // 
 // Function: name : function () view returns (string memory)
-procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 63, 5} {:message "ERC20::name"} name#48(__this: address_t, __msg_sender: address_t, __msg_value: int)
+procedure {:sourceloc "ERC20.transferReverts.s.sol", 63, 5} {:message "ERC20::name"} name#48(__this: address_t, __msg_sender: address_t, __msg_value: int)
 	returns (#43: int_arr_ptr)
 {
 	var new_array#0: int_arr_ptr;
@@ -66,7 +66,7 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 63, 5} {:message "ERC2
 
 // 
 // Function: symbol : function () view returns (string memory)
-procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 71, 5} {:message "ERC20::symbol"} symbol#58(__this: address_t, __msg_sender: address_t, __msg_value: int)
+procedure {:sourceloc "ERC20.transferReverts.s.sol", 71, 5} {:message "ERC20::symbol"} symbol#58(__this: address_t, __msg_sender: address_t, __msg_value: int)
 	returns (#53: int_arr_ptr)
 {
 	var new_array#1: int_arr_ptr;
@@ -84,7 +84,7 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 71, 5} {:message "ERC2
 
 // 
 // Function: decimals : function () view returns (uint8)
-procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 88, 5} {:message "ERC20::decimals"} decimals#68(__this: address_t, __msg_sender: address_t, __msg_value: int)
+procedure {:sourceloc "ERC20.transferReverts.s.sol", 88, 5} {:message "ERC20::decimals"} decimals#68(__this: address_t, __msg_sender: address_t, __msg_value: int)
 	returns (#63: int)
 {
 	// TCC assumptions
@@ -98,7 +98,7 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 88, 5} {:message "ERC2
 
 // 
 // Function: totalSupply : function () view returns (uint256)
-procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 95, 5} {:message "ERC20::totalSupply"} totalSupply#78(__this: address_t, __msg_sender: address_t, __msg_value: int)
+procedure {:sourceloc "ERC20.transferReverts.s.sol", 95, 5} {:message "ERC20::totalSupply"} totalSupply#78(__this: address_t, __msg_sender: address_t, __msg_value: int)
 	returns (#73: int)
 {
 	// TCC assumptions
@@ -112,7 +112,7 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 95, 5} {:message "ERC2
 
 // 
 // Function: balanceOf : function (address) view returns (uint256)
-procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 102, 5} {:message "ERC20::balanceOf"} balanceOf#92(__this: address_t, __msg_sender: address_t, __msg_value: int, account#81: address_t)
+procedure {:sourceloc "ERC20.transferReverts.s.sol", 102, 5} {:message "ERC20::balanceOf"} balanceOf#92(__this: address_t, __msg_sender: address_t, __msg_value: int, account#81: address_t)
 	returns (#85: int)
 {
 	// TCC assumptions
@@ -126,15 +126,12 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 102, 5} {:message "ERC
 
 // 
 // Function: transfer : function (address,uint256) returns (bool)
-procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 126, 5} {:message "ERC20::transfer"} transfer#113(__this: address_t, __msg_sender: address_t, __msg_value: int, recipient#95: address_t, amount#97: int)
+procedure {:sourceloc "ERC20.transferReverts.s.sol", 123, 5} {:message "ERC20::transfer"} transfer#113(__this: address_t, __msg_sender: address_t, __msg_value: int, recipient#95: address_t, amount#97: int)
 	returns (#101: bool)
-	requires {:sourceloc "ERC20.transferDoesntRevert.s.sol", 126, 5} {:message "Precondition 'amount >= 0' might not hold when entering function."} (amount#97 >= 0);
-	requires {:sourceloc "ERC20.transferDoesntRevert.s.sol", 126, 5} {:message "Precondition '_balances[msg.sender] > amount' might not hold when entering function."} (_balances#12[__this][__msg_sender] > amount#97);
-	requires {:sourceloc "ERC20.transferDoesntRevert.s.sol", 126, 5} {:message "Precondition 'msg.value == 0' might not hold when entering function."} (__msg_value == 0);
-	requires {:sourceloc "ERC20.transferDoesntRevert.s.sol", 126, 5} {:message "Precondition 'msg.sender != address(0)' might not hold when entering function."} (__msg_sender != 0);
-	requires {:sourceloc "ERC20.transferDoesntRevert.s.sol", 126, 5} {:message "Precondition 'recipient == address(0)' might not hold when entering function."} (recipient#95 == 0);
+	requires {:sourceloc "ERC20.transferReverts.s.sol", 123, 5} {:message "Precondition 'amount >= 0' might not hold when entering function."} (amount#97 >= 0);
+	requires {:sourceloc "ERC20.transferReverts.s.sol", 123, 5} {:message "Precondition '_balances[msg.sender] < amount' might not hold when entering function."} (_balances#12[__this][__msg_sender] < amount#97);
 
-	ensures {:sourceloc "ERC20.transferDoesntRevert.s.sol", 126, 5} {:message "Postcondition '!(msg.sender != recipient) || (_balances[recipient] == __verifier_old_uint(_balances[recipient]) + amount)' might not hold at end of function."} (!((__msg_sender != recipient#95)) || (_balances#12[__this][recipient#95] == (old(_balances#12[__this][recipient#95]) + amount#97)));
+	ensures {:sourceloc "ERC20.transferReverts.s.sol", 123, 5} {:message "Postcondition 'false' might not hold at end of function."} false;
 
 {
 	var call_arg#2: address_t;
@@ -142,7 +139,7 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 126, 5} {:message "ERC
 	assume (__msg_sender != 0);
 	// Function body starts here
 	call_arg#2 := __msg_sender;
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 132, 9} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 129, 9} {:message ""} true;
 	call _transfer#333(__this, __msg_sender, __msg_value, call_arg#2, recipient#95, amount#97);
 	#101 := true;
 	goto $return6;
@@ -152,7 +149,7 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 126, 5} {:message "ERC
 
 // 
 // Function: allowance : function (address,address) view returns (uint256)
-procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 139, 5} {:message "ERC20::allowance"} allowance#131(__this: address_t, __msg_sender: address_t, __msg_value: int, owner#116: address_t, spender#118: address_t)
+procedure {:sourceloc "ERC20.transferReverts.s.sol", 136, 5} {:message "ERC20::allowance"} allowance#131(__this: address_t, __msg_sender: address_t, __msg_value: int, owner#116: address_t, spender#118: address_t)
 	returns (#122: int)
 {
 	// TCC assumptions
@@ -166,7 +163,7 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 139, 5} {:message "ERC
 
 // 
 // Function: approve : function (address,uint256) returns (bool)
-procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 156, 5} {:message "ERC20::approve"} approve#152(__this: address_t, __msg_sender: address_t, __msg_value: int, spender#134: address_t, amount#136: int)
+procedure {:sourceloc "ERC20.transferReverts.s.sol", 153, 5} {:message "ERC20::approve"} approve#152(__this: address_t, __msg_sender: address_t, __msg_value: int, spender#134: address_t, amount#136: int)
 	returns (#140: bool)
 {
 	var call_arg#3: address_t;
@@ -174,7 +171,7 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 156, 5} {:message "ERC
 	assume (__msg_sender != 0);
 	// Function body starts here
 	call_arg#3 := __msg_sender;
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 162, 9} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 159, 9} {:message ""} true;
 	call _approve#511(__this, __msg_sender, __msg_value, call_arg#3, spender#134, amount#136);
 	#140 := true;
 	goto $return8;
@@ -184,10 +181,10 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 156, 5} {:message "ERC
 
 // 
 // Function: transferFrom : function (address,address,uint256) returns (bool)
-procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 179, 5} {:message "ERC20::transferFrom"} transferFrom#199(__this: address_t, __msg_sender: address_t, __msg_value: int, sender#155: address_t, recipient#157: address_t, amount#159: int)
+procedure {:sourceloc "ERC20.transferReverts.s.sol", 176, 5} {:message "ERC20::transferFrom"} transferFrom#199(__this: address_t, __msg_sender: address_t, __msg_value: int, sender#155: address_t, recipient#157: address_t, amount#159: int)
 	returns (#163: bool)
 {
-	var {:sourceloc "ERC20.transferDoesntRevert.s.sol", 184, 9} {:message "currentAllowance"} currentAllowance#166: int;
+	var {:sourceloc "ERC20.transferReverts.s.sol", 181, 9} {:message "currentAllowance"} currentAllowance#166: int;
 	var call_arg#4: int_arr_ptr;
 	var new_array#5: int_arr_ptr;
 	var call_arg#6: address_t;
@@ -201,9 +198,9 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 179, 5} {:message "ERC
 	mem_arr_int := mem_arr_int[call_arg#4 := int_arr#constr(default_int_int()[0 := 69][1 := 82][2 := 67][3 := 50][4 := 48][5 := 58][6 := 32][7 := 116][8 := 114][9 := 97][10 := 110][11 := 115][12 := 102][13 := 101][14 := 114][15 := 32][16 := 97][17 := 109][18 := 111][19 := 117][20 := 110][21 := 116][22 := 32][23 := 101][24 := 120][25 := 99][26 := 101][27 := 101][28 := 100][29 := 115][30 := 32][31 := 97][32 := 108][33 := 108][34 := 111][35 := 119][36 := 97][37 := 110][38 := 99][39 := 101], 40)];
 	assume (currentAllowance#166 >= amount#159);
 	call_arg#6 := __msg_sender;
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 189, 9} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 186, 9} {:message ""} true;
 	call _approve#511(__this, __msg_sender, __msg_value, sender#155, call_arg#6, (currentAllowance#166 - amount#159));
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 191, 9} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 188, 9} {:message ""} true;
 	call _transfer#333(__this, __msg_sender, __msg_value, sender#155, recipient#157, amount#159);
 	#163 := true;
 	goto $return9;
@@ -213,7 +210,7 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 179, 5} {:message "ERC
 
 // 
 // Function: increaseAllowance : function (address,uint256) returns (bool)
-procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 208, 5} {:message "ERC20::increaseAllowance"} increaseAllowance#226(__this: address_t, __msg_sender: address_t, __msg_value: int, spender#202: address_t, addedValue#204: int)
+procedure {:sourceloc "ERC20.transferReverts.s.sol", 205, 5} {:message "ERC20::increaseAllowance"} increaseAllowance#226(__this: address_t, __msg_sender: address_t, __msg_value: int, spender#202: address_t, addedValue#204: int)
 	returns (#207: bool)
 {
 	var call_arg#7: address_t;
@@ -221,7 +218,7 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 208, 5} {:message "ERC
 	assume (__msg_sender != 0);
 	// Function body starts here
 	call_arg#7 := __msg_sender;
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 213, 9} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 210, 9} {:message ""} true;
 	call _approve#511(__this, __msg_sender, __msg_value, call_arg#7, spender#202, (_allowances#18[__this][__msg_sender][spender#202] + addedValue#204));
 	#207 := true;
 	goto $return10;
@@ -231,17 +228,17 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 208, 5} {:message "ERC
 
 // 
 // Function: decreaseAllowance : function (address,uint256) returns (bool)
-procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 235, 5} {:message "ERC20::decreaseAllowance"} decreaseAllowance#257(__this: address_t, __msg_sender: address_t, __msg_value: int, spender#229: address_t, subtractedValue#231: int)
+procedure {:sourceloc "ERC20.transferReverts.s.sol", 232, 5} {:message "ERC20::decreaseAllowance"} decreaseAllowance#257(__this: address_t, __msg_sender: address_t, __msg_value: int, spender#229: address_t, subtractedValue#231: int)
 	returns (#234: bool)
 {
-	var {:sourceloc "ERC20.transferDoesntRevert.s.sol", 240, 9} {:message "currentAllowance"} currentAllowance#237: int;
+	var {:sourceloc "ERC20.transferReverts.s.sol", 237, 9} {:message "currentAllowance"} currentAllowance#237: int;
 	var call_arg#8: address_t;
 	// TCC assumptions
 	assume (__msg_sender != 0);
 	// Function body starts here
 	currentAllowance#237 := _allowances#18[__this][__msg_sender][spender#229];
 	call_arg#8 := __msg_sender;
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 242, 9} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 239, 9} {:message ""} true;
 	call _approve#511(__this, __msg_sender, __msg_value, call_arg#8, spender#229, (currentAllowance#237 - subtractedValue#231));
 	#234 := true;
 	goto $return11;
@@ -251,13 +248,13 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 235, 5} {:message "ERC
 
 // 
 // Function: _transfer : function (address,address,uint256)
-procedure {:inline 1} {:sourceloc "ERC20.transferDoesntRevert.s.sol", 261, 5} {:message "ERC20::_transfer"} _transfer#333(__this: address_t, __msg_sender: address_t, __msg_value: int, sender#260: address_t, recipient#262: address_t, amount#264: int)
+procedure {:inline 1} {:sourceloc "ERC20.transferReverts.s.sol", 258, 5} {:message "ERC20::_transfer"} _transfer#333(__this: address_t, __msg_sender: address_t, __msg_value: int, sender#260: address_t, recipient#262: address_t, amount#264: int)
 {
 	var call_arg#9: int_arr_ptr;
 	var new_array#10: int_arr_ptr;
 	var call_arg#11: int_arr_ptr;
 	var new_array#12: int_arr_ptr;
-	var {:sourceloc "ERC20.transferDoesntRevert.s.sol", 271, 9} {:message "senderBalance"} senderBalance#294: int;
+	var {:sourceloc "ERC20.transferReverts.s.sol", 268, 9} {:message "senderBalance"} senderBalance#294: int;
 	var call_arg#13: int_arr_ptr;
 	var new_array#14: int_arr_ptr;
 	// TCC assumptions
@@ -273,7 +270,7 @@ procedure {:inline 1} {:sourceloc "ERC20.transferDoesntRevert.s.sol", 261, 5} {:
 	call_arg#11 := new_array#12;
 	mem_arr_int := mem_arr_int[call_arg#11 := int_arr#constr(default_int_int()[0 := 69][1 := 82][2 := 67][3 := 50][4 := 48][5 := 58][6 := 32][7 := 116][8 := 114][9 := 97][10 := 110][11 := 115][12 := 102][13 := 101][14 := 114][15 := 32][16 := 116][17 := 111][18 := 32][19 := 116][20 := 104][21 := 101][22 := 32][23 := 122][24 := 101][25 := 114][26 := 111][27 := 32][28 := 97][29 := 100][30 := 100][31 := 114][32 := 101][33 := 115][34 := 115], 35)];
 	assume (recipient#262 != 0);
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 269, 9} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 266, 9} {:message ""} true;
 	call _beforeTokenTransfer#522(__this, __msg_sender, __msg_value, sender#260, recipient#262, amount#264);
 	senderBalance#294 := _balances#12[__this][sender#260];
 	new_array#14 := __alloc_counter;
@@ -283,9 +280,9 @@ procedure {:inline 1} {:sourceloc "ERC20.transferDoesntRevert.s.sol", 261, 5} {:
 	assume (senderBalance#294 >= amount#264);
 	_balances#12 := _balances#12[__this := _balances#12[__this][sender#260 := (senderBalance#294 - amount#264)]];
 	_balances#12 := _balances#12[__this := _balances#12[__this][recipient#262 := (_balances#12[__this][recipient#262] + amount#264)]];
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 279, 14} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 276, 14} {:message ""} true;
 	call Transfer#666(__this, __msg_sender, __msg_value, sender#260, recipient#262, amount#264);
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 281, 9} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 278, 9} {:message ""} true;
 	call _afterTokenTransfer#533(__this, __msg_sender, __msg_value, sender#260, recipient#262, amount#264);
 	$return12:
 	// Function body ends here
@@ -293,7 +290,7 @@ procedure {:inline 1} {:sourceloc "ERC20.transferDoesntRevert.s.sol", 261, 5} {:
 
 // 
 // Function: mint : function (address,uint256)
-procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 293, 5} {:message "ERC20::mint"} mint#392(__this: address_t, __msg_sender: address_t, __msg_value: int, account#336: address_t, amount#338: int)
+procedure {:sourceloc "ERC20.transferReverts.s.sol", 290, 5} {:message "ERC20::mint"} mint#392(__this: address_t, __msg_sender: address_t, __msg_value: int, account#336: address_t, amount#338: int)
 {
 	var call_arg#17: int_arr_ptr;
 	var new_array#18: int_arr_ptr;
@@ -311,15 +308,15 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 293, 5} {:message "ERC
 	mem_arr_int := mem_arr_int[call_arg#17 := int_arr#constr(default_int_int()[0 := 69][1 := 82][2 := 67][3 := 50][4 := 48][5 := 58][6 := 32][7 := 109][8 := 105][9 := 110][10 := 116][11 := 32][12 := 116][13 := 111][14 := 32][15 := 116][16 := 104][17 := 101][18 := 32][19 := 122][20 := 101][21 := 114][22 := 111][23 := 32][24 := 97][25 := 100][26 := 100][27 := 114][28 := 101][29 := 115][30 := 115], 31)];
 	assume (account#336 != 0);
 	call_arg#19 := 0;
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 296, 9} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 293, 9} {:message ""} true;
 	call _beforeTokenTransfer#522(__this, __msg_sender, __msg_value, call_arg#19, account#336, amount#338);
 	_totalSupply#20 := _totalSupply#20[__this := (_totalSupply#20[__this] + amount#338)];
 	_balances#12 := _balances#12[__this := _balances#12[__this][account#336 := (_balances#12[__this][account#336] + amount#338)]];
 	call_arg#20 := 0;
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 300, 14} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 297, 14} {:message ""} true;
 	call Transfer#666(__this, __msg_sender, __msg_value, call_arg#20, account#336, amount#338);
 	call_arg#21 := 0;
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 302, 9} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 299, 9} {:message ""} true;
 	call _afterTokenTransfer#533(__this, __msg_sender, __msg_value, call_arg#21, account#336, amount#338);
 	$return14:
 	// Function body ends here
@@ -329,12 +326,12 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 293, 5} {:message "ERC
 
 // 
 // Function: burn : function (address,uint256)
-procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 316, 5} {:message "ERC20::burn"} burn#466(__this: address_t, __msg_sender: address_t, __msg_value: int, account#395: address_t, amount#397: int)
+procedure {:sourceloc "ERC20.transferReverts.s.sol", 313, 5} {:message "ERC20::burn"} burn#466(__this: address_t, __msg_sender: address_t, __msg_value: int, account#395: address_t, amount#397: int)
 {
 	var call_arg#24: int_arr_ptr;
 	var new_array#25: int_arr_ptr;
 	var call_arg#26: address_t;
-	var {:sourceloc "ERC20.transferDoesntRevert.s.sol", 321, 9} {:message "accountBalance"} accountBalance#423#23: int;
+	var {:sourceloc "ERC20.transferReverts.s.sol", 318, 9} {:message "accountBalance"} accountBalance#423#23: int;
 	var call_arg#27: int_arr_ptr;
 	var new_array#28: int_arr_ptr;
 	var call_arg#29: address_t;
@@ -350,7 +347,7 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 316, 5} {:message "ERC
 	mem_arr_int := mem_arr_int[call_arg#24 := int_arr#constr(default_int_int()[0 := 69][1 := 82][2 := 67][3 := 50][4 := 48][5 := 58][6 := 32][7 := 98][8 := 117][9 := 114][10 := 110][11 := 32][12 := 102][13 := 114][14 := 111][15 := 109][16 := 32][17 := 116][18 := 104][19 := 101][20 := 32][21 := 122][22 := 101][23 := 114][24 := 111][25 := 32][26 := 97][27 := 100][28 := 100][29 := 114][30 := 101][31 := 115][32 := 115], 33)];
 	assume (account#395 != 0);
 	call_arg#26 := 0;
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 319, 9} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 316, 9} {:message ""} true;
 	call _beforeTokenTransfer#522(__this, __msg_sender, __msg_value, account#395, call_arg#26, amount#397);
 	accountBalance#423#23 := _balances#12[__this][account#395];
 	new_array#28 := __alloc_counter;
@@ -361,10 +358,10 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 316, 5} {:message "ERC
 	_balances#12 := _balances#12[__this := _balances#12[__this][account#395 := (accountBalance#423#23 - amount#397)]];
 	_totalSupply#20 := _totalSupply#20[__this := (_totalSupply#20[__this] - amount#397)];
 	call_arg#29 := 0;
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 326, 14} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 323, 14} {:message ""} true;
 	call Transfer#666(__this, __msg_sender, __msg_value, account#395, call_arg#29, amount#397);
 	call_arg#30 := 0;
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 328, 9} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 325, 9} {:message ""} true;
 	call _afterTokenTransfer#533(__this, __msg_sender, __msg_value, account#395, call_arg#30, amount#397);
 	$return16:
 	// Function body ends here
@@ -374,7 +371,7 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 316, 5} {:message "ERC
 
 // 
 // Function: _approve : function (address,address,uint256)
-procedure {:inline 1} {:sourceloc "ERC20.transferDoesntRevert.s.sol", 344, 5} {:message "ERC20::_approve"} _approve#511(__this: address_t, __msg_sender: address_t, __msg_value: int, owner#469: address_t, spender#471: address_t, amount#473: int)
+procedure {:inline 1} {:sourceloc "ERC20.transferReverts.s.sol", 341, 5} {:message "ERC20::_approve"} _approve#511(__this: address_t, __msg_sender: address_t, __msg_value: int, owner#469: address_t, spender#471: address_t, amount#473: int)
 {
 	var call_arg#31: int_arr_ptr;
 	var new_array#32: int_arr_ptr;
@@ -394,7 +391,7 @@ procedure {:inline 1} {:sourceloc "ERC20.transferDoesntRevert.s.sol", 344, 5} {:
 	mem_arr_int := mem_arr_int[call_arg#33 := int_arr#constr(default_int_int()[0 := 69][1 := 82][2 := 67][3 := 50][4 := 48][5 := 58][6 := 32][7 := 97][8 := 112][9 := 112][10 := 114][11 := 111][12 := 118][13 := 101][14 := 32][15 := 116][16 := 111][17 := 32][18 := 116][19 := 104][20 := 101][21 := 32][22 := 122][23 := 101][24 := 114][25 := 111][26 := 32][27 := 97][28 := 100][29 := 100][30 := 114][31 := 101][32 := 115][33 := 115], 34)];
 	assume (spender#471 != 0);
 	_allowances#18 := _allowances#18[__this := _allowances#18[__this][owner#469 := _allowances#18[__this][owner#469][spender#471 := amount#473]]];
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 352, 14} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 349, 14} {:message ""} true;
 	call Approval#675(__this, __msg_sender, __msg_value, owner#469, spender#471, amount#473);
 	$return17:
 	// Function body ends here
@@ -402,7 +399,7 @@ procedure {:inline 1} {:sourceloc "ERC20.transferDoesntRevert.s.sol", 344, 5} {:
 
 // 
 // Function: _beforeTokenTransfer : function (address,address,uint256)
-procedure {:inline 1} {:sourceloc "ERC20.transferDoesntRevert.s.sol", 369, 5} {:message "ERC20::_beforeTokenTransfer"} _beforeTokenTransfer#522(__this: address_t, __msg_sender: address_t, __msg_value: int, from#514: address_t, to#516: address_t, amount#518: int)
+procedure {:inline 1} {:sourceloc "ERC20.transferReverts.s.sol", 366, 5} {:message "ERC20::_beforeTokenTransfer"} _beforeTokenTransfer#522(__this: address_t, __msg_sender: address_t, __msg_value: int, from#514: address_t, to#516: address_t, amount#518: int)
 {
 	// TCC assumptions
 	assume (__msg_sender != 0);
@@ -413,7 +410,7 @@ procedure {:inline 1} {:sourceloc "ERC20.transferDoesntRevert.s.sol", 369, 5} {:
 
 // 
 // Function: _afterTokenTransfer : function (address,address,uint256)
-procedure {:inline 1} {:sourceloc "ERC20.transferDoesntRevert.s.sol", 389, 5} {:message "ERC20::_afterTokenTransfer"} _afterTokenTransfer#533(__this: address_t, __msg_sender: address_t, __msg_value: int, from#525: address_t, to#527: address_t, amount#529: int)
+procedure {:inline 1} {:sourceloc "ERC20.transferReverts.s.sol", 386, 5} {:message "ERC20::_afterTokenTransfer"} _afterTokenTransfer#533(__this: address_t, __msg_sender: address_t, __msg_value: int, from#525: address_t, to#527: address_t, amount#529: int)
 {
 	// TCC assumptions
 	assume (__msg_sender != 0);
@@ -424,7 +421,7 @@ procedure {:inline 1} {:sourceloc "ERC20.transferDoesntRevert.s.sol", 389, 5} {:
 
 // 
 // Function: deposit
-procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 395, 5} {:message "ERC20::deposit"} deposit#545(__this: address_t, __msg_sender: address_t, __msg_value: int)
+procedure {:sourceloc "ERC20.transferReverts.s.sol", 392, 5} {:message "ERC20::deposit"} deposit#545(__this: address_t, __msg_sender: address_t, __msg_value: int)
 {
 	// TCC assumptions
 	assume (__msg_sender != 0);
@@ -452,9 +449,9 @@ procedure {:inline 1} {:message "call"} __call(__this: address_t, __msg_sender: 
 
 // 
 // Function: withdraw
-procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 399, 5} {:message "ERC20::withdraw"} withdraw#581(__this: address_t, __msg_sender: address_t, __msg_value: int, amount#547: int)
+procedure {:sourceloc "ERC20.transferReverts.s.sol", 396, 5} {:message "ERC20::withdraw"} withdraw#581(__this: address_t, __msg_sender: address_t, __msg_value: int, amount#547: int)
 {
-	var {:sourceloc "ERC20.transferDoesntRevert.s.sol", 402, 10} {:message "success"} success#567: bool;
+	var {:sourceloc "ERC20.transferReverts.s.sol", 399, 10} {:message "success"} success#567: bool;
 	var __call_ret#35: bool;
 	var __call_ret#36: int_arr_ptr;
 	// TCC assumptions
@@ -465,7 +462,7 @@ procedure {:sourceloc "ERC20.transferDoesntRevert.s.sol", 399, 5} {:message "ERC
 	// Implicit assumption that we have enough ether
 	assume (__balance[__this] >= amount#547);
 	__balance := __balance[__this := (__balance[__this] - amount#547)];
-	assume {:sourceloc "ERC20.transferDoesntRevert.s.sol", 402, 28} {:message ""} true;
+	assume {:sourceloc "ERC20.transferReverts.s.sol", 399, 28} {:message ""} true;
 	call __call_ret#35, __call_ret#36 := __call(__msg_sender, __this, amount#547);
 	if (__call_ret#35) {
 	havoc _balances#12;

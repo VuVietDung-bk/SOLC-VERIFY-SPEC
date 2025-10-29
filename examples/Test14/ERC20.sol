@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts v4.4.1 (token/ERC20/ERC20.sol)
 
-pragma solidity ^0.7.0;
+pragma solidity ^0.8.0;
 
 import "./IERC20.sol";
 import "./IERC20Metadata.sol";
@@ -38,6 +38,8 @@ contract ERC20 is IERC20, IERC20Metadata {
 
     uint256 private _totalSupply;
 
+    string private _name;
+    string private _symbol;
     address public _owner;
 
     /**
@@ -49,7 +51,9 @@ contract ERC20 is IERC20, IERC20Metadata {
      * All two of these values are immutable: they can only be set once during
      * construction.
      */
-    constructor() {
+    constructor(string memory name_, string memory symbol_) {
+        _name = name_;
+        _symbol = symbol_;
     }
 
     modifier onlyOwner() {
@@ -61,7 +65,7 @@ contract ERC20 is IERC20, IERC20Metadata {
      * @dev Returns the name of the token.
      */
     function name() public view virtual override returns (string memory) {
-        return "name";
+        return _name;
     }
 
     /**
@@ -69,7 +73,7 @@ contract ERC20 is IERC20, IERC20Metadata {
      * name.
      */
     function symbol() public view virtual override returns (string memory) {
-        return "symbol";
+        return _symbol;
     }
 
     /**
@@ -117,13 +121,6 @@ contract ERC20 is IERC20, IERC20Metadata {
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    /// @notice precondition amount >= 0
-    /// @notice precondition _balances[msg.sender] > amount
-    /// @notice precondition msg.value == 0
-    /// @notice precondition msg.sender != address(0)
-    /// @notice precondition recipient != address(0)
-    /// @notice postcondition false
-    /// TO-DO: Find the solution to prove that this function doesn't revert
     function transfer(address recipient, uint256 amount)
         public
         virtual
@@ -187,7 +184,9 @@ contract ERC20 is IERC20, IERC20Metadata {
             currentAllowance >= amount,
             "ERC20: transfer amount exceeds allowance"
         ); 
-        _approve(sender, msg.sender, currentAllowance - amount);
+        unchecked {
+            _approve(sender, msg.sender, currentAllowance - amount);
+        }
 
         _transfer(sender, recipient, amount);
 
@@ -239,8 +238,13 @@ contract ERC20 is IERC20, IERC20Metadata {
         returns (bool)
     {
         uint256 currentAllowance = _allowances[msg.sender][spender];
-        
-        _approve(msg.sender, spender, currentAllowance - subtractedValue);
+        require(
+            currentAllowance >= subtractedValue,
+            "ERC20: decreased allowance below zero"
+        );
+        unchecked {
+            _approve(msg.sender, spender, currentAllowance - subtractedValue);
+        }
 
         return true;
     }
@@ -274,7 +278,9 @@ contract ERC20 is IERC20, IERC20Metadata {
             senderBalance >= amount,
             "ERC20: transfer amount exceeds balance"
         ); 
-        _balances[sender] = senderBalance - amount;
+        unchecked {
+            _balances[sender] = senderBalance - amount;
+        }
         _balances[recipient] += amount;
 
         emit Transfer(sender, recipient, amount);
@@ -321,7 +327,9 @@ contract ERC20 is IERC20, IERC20Metadata {
 
         uint256 accountBalance = _balances[account];
         require(accountBalance >= amount, "ERC20: burn amount exceeds balance");
-        _balances[account] = accountBalance - amount;
+        unchecked {
+            _balances[account] = accountBalance - amount;
+        }
         _totalSupply -= amount;
 
         emit Transfer(account, address(0), amount);
@@ -392,15 +400,4 @@ contract ERC20 is IERC20, IERC20Metadata {
         address to,
         uint256 amount
     ) internal virtual {}
-
-    function deposit() external payable {
-        _balances[msg.sender] += msg.value;
-    }
-
-    function withdraw(uint256 amount) external {
-        require(amount <= _balances[msg.sender]);
-        _balances[msg.sender] -= amount;
-        (bool success, ) = msg.sender.call{value: amount}("");
-        require(success);
-    }
 }
