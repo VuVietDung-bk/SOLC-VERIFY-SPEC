@@ -105,7 +105,14 @@ class Invariant:
         quantifier_variable = next(chs)
         quantifier_expr = next(chs)
         func_calls = _collect_call_like_from_expr(quantifier_expr, sol_symbols)
-        pass
+
+        self.steps.append(
+            Step("assert", {
+                        "quantifier": token_quantifier
+                        "expr_text": _flatten_tokens_only(expr_node) if expr_node else "",
+                        "func_calls": func_calls,
+                        "message": msg
+                    }))
 
     @classmethod
     def _pick_compare_op(cls, expr_text: str) -> str:
