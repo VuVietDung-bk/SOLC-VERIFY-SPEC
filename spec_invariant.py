@@ -9,11 +9,6 @@ from parser_utils import (
 from typing import Dict, List, Optional, Any
 from spec_method import Method, Step
 
-"""
-    TO-DO:
-    - Câu lệnh forall exist
-"""
-
 class Invariant:
     _COMPARE_TOKENS = ["==", "!=", "<=", ">=", "<", ">"]
 
@@ -110,8 +105,7 @@ class Invariant:
             Step("assert", {
                         "quantifier": token_quantifier
                         "expr_text": _flatten_tokens_only(expr_node) if expr_node else "",
-                        "func_calls": func_calls,
-                        "message": msg
+                        "func_calls": func_calls
                     }))
 
     @classmethod
