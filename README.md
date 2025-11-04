@@ -16,7 +16,7 @@ For more information about SOLC-VERIFY, visit the [github page](https://github.c
 The Dockerfile of SOLC-VERIFY can be built with the following command:
 
 ```shell
-docker build -t solc-verify -f docker/Dockerfile.src .
+docker build -t solc-verify -f docker/Dockerfile .
 ```
 
 3. Running SOLC-VERIFY-SPEC

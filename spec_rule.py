@@ -20,6 +20,8 @@ from spec_method import Method, Step
     - Xử lý chỗ verifier_old_uint trong assert, phải so sánh vị trí define snapshot với vị trí của function call (hiện tại đang so sánh 2 vị trí với nhau)
     - Câu lệnh forall exist
     - assert_modify_statement
+    - Chỉnh lại phần snapshot để ghi nhớ những biến được truyền vào hàm.
+    - Xử lý cú pháp if-else
 """
 
 class Rule:

@@ -1,5 +1,4 @@
 import argparse
-from typing import Dict, List
 from lark import Lark
 
 from spec_ir import IR
@@ -7,6 +6,15 @@ from annotations import write_annotations
 from validate import validate_spec_ir
 from utils import build_call_graph, build_sol_symbols, split_sol_and_contract
 from runner import run_sv  
+
+'''
+    TO-DO:
+        - Loại bỏ, thêm hoặc sửa những cú pháp không cần thiết trong ngôn ngữ
+            + Tính năng environment là không cần thiết - không bao giờ dùng nhiều hơn 1 environment
+            + Có thể cân nhắc loại bỏ phần method và thay bằng storage variables
+            + Hỗ trợ phần cú pháp so sánh chữ ký của function
+        - Tạo một hàm chuyển expression về dạng CNF/DNF
+'''
 
 def main():
     parser = argparse.ArgumentParser(

@@ -4,10 +4,11 @@
  */
 
  methods {
-    function totalSupply() external returns (uint256) envfree;
-    function balanceOf(address) external returns (uint256) envfree;
-    function allowance(address,address) external returns (uint256) envfree;
-    function _owner() external returns (address) envfree;
+    // envfree functions 
+    function totalSupply() external returns uint256 envfree;
+    function balanceOf(address) external returns uint256 envfree;
+    function allowance(address,address) external returns uint256 envfree;
+    function _owner() external returns address envfree;
 }
 
 
@@ -16,6 +17,8 @@ rule integrityOfTransferFrom(address sender, address recipient, uint256 amount) 
     env e;
     
     require sender != recipient;
+    require amount != 0;
+
 
     uint256 allowanceBefore = allowance(sender, e.msg.sender);
     transferFrom(e, sender, recipient, amount);
@@ -44,9 +47,11 @@ rule doesNotAffectAThirdPartyBalance(method f) {
     require (thirdParty != from) && (thirdParty != to);
 
     uint256 thirdBalanceBefore = balanceOf(thirdParty);
+    
     uint256 amount;
 
     if (f.selector == sig:transfer(address, uint256).selector) {
+        require e.msg.sender == from;
         transfer(e, to, amount);
     } else if (f.selector == sig:allowance(address, address).selector) {
         allowance(e, from, to);
@@ -91,6 +96,7 @@ rule balanceChangesFromCertainFunctions(method f, address user){
         userBalanceBefore != userBalanceAfter => 
         (
             f.selector == sig:transfer(address, uint256).selector ||
+            f.selector == sig:transferFrom(address, address, uint256).selector ||
             f.selector == sig:mint(address, uint256).selector ||
             f.selector == sig:burn(address, uint256).selector)
         ),
@@ -104,5 +110,5 @@ rule onlyOwnersMayChangeTotalSupply(method f) {
     calldataarg args;
     f(e,args);
     uint256 totalSupplyAfter = totalSupply();
-    assert e.msg.sender == _owner() => totalSupplyAfter != totalSupplyBefore;
+    assert totalSupplyAfter != totalSupplyBefore => e.msg.sender == _owner() ;
 }
