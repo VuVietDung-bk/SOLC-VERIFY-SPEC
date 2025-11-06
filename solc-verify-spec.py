@@ -39,6 +39,7 @@ def main():
         spec_text = f.read()
     try:
         ast = lark.parse(spec_text)
+        print(ast.pretty()) # DEBUG
     except Exception as e:
         line = getattr(e, "line", None)
         column = getattr(e, "column", None)

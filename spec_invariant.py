@@ -9,6 +9,11 @@ from parser_utils import (
 from typing import Dict, List, Optional, Any
 from spec_method import Method, Step
 
+'''
+    TO-DO:
+        - Xử lý phần forall và exist để giải được Test7
+'''
+
 class Invariant:
     _COMPARE_TOKENS = ["==", "!=", "<=", ">=", "<", ">"]
 
@@ -31,7 +36,7 @@ class Invariant:
 
             if st.data == "assert_statement":
                 expr_node = st.children[0]
-                if is_instance(expr_node.children[0], Token) and expr_node.children[0].type == "QUANTIFIER":
+                if isinstance(expr_node.children[0], Token) and expr_node.children[0].type == "QUANTIFIER":
                     self.parse_quantifier(expr_node, methods, sol_symbols)
                 else:
                     expr_node, msg = None, None
@@ -93,7 +98,7 @@ class Invariant:
 
 
     def parse_quantifier(self, node: Tree, methods: Dict[str, "Method"], sol_symbols: Dict[str, Any]):
-        chs = node.iter_subtrees_top_down()
+        chs = node.iter_subtrees_topdown()
         # parsing the type for the quantifier.
         token_quantifier = next(chs)
         quantifer_type = next(chs)
@@ -101,12 +106,11 @@ class Invariant:
         quantifier_expr = next(chs)
         func_calls = _collect_call_like_from_expr(quantifier_expr, sol_symbols)
 
-        self.steps.append(
-            Step("assert", {
-                        "quantifier": token_quantifier
-                        "expr_text": _flatten_tokens_only(expr_node) if expr_node else "",
-                        "func_calls": func_calls
-                    }))
+        self.steps.append(Step("assert", {
+            "quantifier": token_quantifier,
+            "expr_text": _flatten_tokens_only(node) if node else "",
+            "func_calls": func_calls
+        }))
 
     @classmethod
     def _pick_compare_op(cls, expr_text: str) -> str:

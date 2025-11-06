@@ -4,7 +4,12 @@ from slither.slither import Slither
 import shutil
 
 from utils import _rewrite_pragma_to_0_7_0, _insert_lines_before, _scan_function_lines_in_file
-from spec_ir import IR   # IR object
+from spec_ir import IR
+
+"""
+    TO-DO:
+    - Hàm collect_param_preconds phải chèn precondition >= 0 cho các biến với kiểu dữ liệu uint xuất hiện trong hàm
+"""
 
 def collect_param_preconds(sol_file: str, only_contract: Optional[str] = None) -> Dict[str, List[str]]:
     """
@@ -97,6 +102,22 @@ def write_annotations(sol_in: str, ir: IR, only_contract: Optional[str] = None) 
         out_path = base + f".annotated" + ext
         shutil.copyfile(sol_in, out_path)
         _rewrite_pragma_to_0_7_0(out_path)
+
+        target_funcs = sorted(set(list(preconds.keys())))
+        occ = _scan_function_lines_in_file(out_path, target_funcs)
+        inserts: List[tuple[int, List[str]]] = []
+
+        for fn in target_funcs:
+            lines: List[str] = []
+            for pre in preconds.get(fn, []):
+                lines.append(f"    /// @notice precondition {pre}")
+            if not lines:
+                continue
+            for ln in occ.get(fn, []):
+                inserts.append((ln, lines))
+
+        for ln, lines in sorted(inserts, key=lambda x: x[0], reverse=True):
+            _insert_lines_before(out_path, ln, lines)
         
         inv_lines: List[str] = []
         for inv in ir.invariants:
