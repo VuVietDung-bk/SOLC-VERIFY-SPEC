@@ -11,10 +11,12 @@ methods
 
 
 /// @title `highestBid` is the maximal bid
-invariant integrityOfHighestBid(address bidder)
-    bids(bidder) <= highestBid();
-
+invariant integrityOfHighestBid {
+    assert forall address bidder. bids(bidder) <= highestBid();
+}
+    
 
 /// @title Highest bidder has the highest bid
-invariant highestBidderHasHighestBid()
-    (highestBidder() != 0) => (bids(highestBidder()) == highestBid());
+invariant highestBidderHasHighestBid {
+    assert (highestBidder() != 0) => (bids(highestBidder()) == highestBid());
+}

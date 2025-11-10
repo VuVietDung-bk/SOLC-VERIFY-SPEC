@@ -9,6 +9,8 @@ methods {
 }
 
 
-invariant directSumOfTwo(address a, address b)
-    (a != b) => (balanceOf(a) + balanceOf(b) <= to_mathint(totalSupply()));
+invariant directSumOfTwo {
+    assert forall address a. address b. (a != b) => (balanceOf(a) + balanceOf(b) <= to_mathint(totalSupply()));
+}
+    
 

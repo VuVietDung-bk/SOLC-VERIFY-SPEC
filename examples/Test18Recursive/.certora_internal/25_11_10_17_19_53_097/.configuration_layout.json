@@ -1,0 +1,105 @@
+[
+    {
+        "card_title": "general",
+        "content_type": "COMPLEX",
+        "content": [
+            {
+                "inner_title": "Verify",
+                "content_type": "FLAG",
+                "content": "Fibonacci:Fibonacci.spec",
+                "doc_link": "",
+                "tooltip": "",
+                "unsound": "false"
+            },
+            {
+                "inner_title": "CLI Version",
+                "content_type": "FLAG",
+                "content": "7.29.2",
+                "doc_link": "",
+                "tooltip": "",
+                "unsound": "false"
+            },
+            {
+                "inner_title": "flags",
+                "content_type": "COMPLEX",
+                "content": [
+                    {
+                        "inner_title": "contract_recursion_limit",
+                        "content_type": "FLAG",
+                        "content": "5",
+                        "doc_link": "https://docs.certora.com/en/latest/docs/prover/cli/options.html#contract-recursion-limit",
+                        "tooltip": "",
+                        "unsound": "false"
+                    }
+                ],
+                "doc_link": "",
+                "tooltip": "",
+                "unsound": "false"
+            },
+            {
+                "inner_title": "rule",
+                "content_type": "SIMPLE",
+                "content": [
+                    "fifthFibonacciElementIsFive"
+                ],
+                "doc_link": "https://docs.certora.com/en/latest/docs/prover/cli/options.html#rule",
+                "tooltip": "",
+                "unsound": "false"
+            }
+        ]
+    },
+    {
+        "card_title": "files",
+        "content_type": "SIMPLE",
+        "content": [
+            {
+                "inner_title": "files",
+                "content_type": "SIMPLE",
+                "content": [
+                    "Fibonacci.sol"
+                ],
+                "doc_link": "https://docs.certora.com/en/latest/docs/prover/cli/options.html#files",
+                "tooltip": "",
+                "unsound": "false"
+            }
+        ]
+    },
+    {
+        "card_title": "git",
+        "content_type": "COMPLEX",
+        "content": [
+            {
+                "inner_title": "branch",
+                "content_type": "FLAG",
+                "content": "main",
+                "doc_link": "",
+                "tooltip": "",
+                "unsound": "false"
+            },
+            {
+                "inner_title": "dirty",
+                "content_type": "FLAG",
+                "content": "true",
+                "doc_link": "",
+                "tooltip": "",
+                "unsound": "false"
+            },
+            {
+                "inner_title": "origin",
+                "content_type": "FLAG",
+                "content": "https://github.com/VuVietDung-bk/SOLC-VERIFY-SPEC.git",
+                "doc_link": "",
+                "tooltip": "",
+                "unsound": "false"
+            },
+            {
+                "inner_title": "revision",
+                "content_type": "FLAG",
+                "content": "4c7fd2b9b2a3b7150865c25c06d66a5a2c0b0667",
+                "doc_link": "",
+                "tooltip": "",
+                "unsound": "false"
+            }
+        ]
+    }
+]

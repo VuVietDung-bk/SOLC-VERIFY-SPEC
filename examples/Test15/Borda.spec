@@ -79,8 +79,8 @@ rule globallyVoted(address x, method f) {
     Note: The Prover checks that the invariant is established after the constructor. In addition, Prover checks that the invariant holds after the execution of any contract method, assuming that it held before the method was executed.
     Note that c is an unconstrained variable therefore this invariant is checked against all possible values of c. 
 */
-invariant integrityPointsOfWinner(address c) {
-    assert points(winner()) >= points(c);
+invariant integrityPointsOfWinner() {
+    assert forall address c. points(winner()) >= points(c);
 }
             
 

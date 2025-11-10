@@ -34,24 +34,8 @@ rule transferReverts(address recipient, uint amount) {
 
     require balanceOf(e.msg.sender) < amount;
 
-    transfer@withrevert(e, recipient, amount);
+    transfer(e, recipient, amount);
 
-    assert lastReverted,
+    assert_revert,
         "transfer(recipient,amount) must revert if sender's balance is less than `amount`";
-}
-
-
-rule transferDoesntRevert(address recipient, uint amount) {
-    env e;
-
-    require balanceOf(e.msg.sender) > amount;
-    require e.msg.value == 0;  // No payment
-
-    require balanceOf(recipient) + amount < to_mathint(max_uint);
-
-    require e.msg.sender != 0;
-    require recipient != 0;
-
-    transfer@withrevert(e, recipient, amount);
-    assert !lastReverted;
 }

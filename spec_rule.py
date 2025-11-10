@@ -19,9 +19,10 @@ from spec_method import Method, Step
     - TO-DO-1: Observe tất cả các loại call state_var. Nếu là function call thì observe biến return value của hàm
     - Xử lý chỗ verifier_old_uint trong assert, phải so sánh vị trí define snapshot với vị trí của function call (hiện tại đang so sánh 2 vị trí với nhau)
     - Câu lệnh forall exist
-    - assert_modify_statement
+    - assert_modify_statement, emits_statement, assert_revert_statement
     - Chỉnh lại phần snapshot để ghi nhớ những biến được truyền vào hàm.
-    - Xử lý cú pháp if-else
+    - Xử lý cú pháp if-else bằng cách tạo một hàm biến cú pháp if-else thành List[List[Step]], đồng thời ghi nhận điều kiện rẽ nhánh tương tự một require statement
+    - Tìm cách tối ưu xây dựng cú pháp và xử lý rẽ nhánh dựa trên chữ ký hàm (f.selector == sig:transfer(address, uint256).selector)
 """
 
 class Rule:
