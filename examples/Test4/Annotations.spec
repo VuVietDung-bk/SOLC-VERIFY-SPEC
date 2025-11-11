@@ -11,8 +11,8 @@ rule modifyXandY(int n) {
 
     add(n);
 
-    assert_modify x(), n > 0;
-    assert_modify y(), n > 0;
+    assert_modify x() if n > 0;
+    assert_modify y() if n > 0;
 }
 
 invariant equal {

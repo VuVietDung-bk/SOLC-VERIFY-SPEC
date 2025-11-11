@@ -164,6 +164,7 @@ statement:  cvl_type ID ("=" expr)? ";"                 -> define_statement
 
             | "havoc" ID ("assuming" expr)? ";"         -> havoc_statement
             | assert_modify                             -> assert_modify_statement
+            | assert_modify                             -> assert_modify_statement
 
 lhs : ID ("[" expr "]")? ("," lhs)?
 
@@ -220,7 +221,9 @@ rule : ("rule")? ID ("(" params? ")")? ("filtered" "{" ID "->" expr ("," ID "->"
 
 invariant_rule: ("invariant") ID block
 
-assert_modify: "assert_modify" ID "(" params? ")" ("," expr)? ";"
+assert_modify: "assert_modify" ID "(" params? ")" ("if" expr)? ("," STRING_LITERAL)? ";"
+
+assert_revert: "assert_revert" ("if" expr)? ("," STRING_LITERAL)? ";"
 
 // Ignore whitespace
 %import common.WS
