@@ -44,7 +44,7 @@ rule onlyHolderCanChangeAllowance(address holder, address spender, method f) {
     assert (
         allowance_after > allowance_before =>
         (
-            f.selector == sig:approve(address, uint).selector ||
+            f == "approve(address, uint)" ||
             f.selector == sig:increaseAllowance(address, uint).selector
         )
     ),
