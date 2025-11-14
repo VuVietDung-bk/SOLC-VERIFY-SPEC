@@ -1,9 +1,6 @@
 // This spec shows the invariant `nonExistTeamHasNoPlayers` cannot be proven without
 // a preserved block.
-methods {
-    function teamOf(address) external returns (uint8) envfree;
-    function leaderOf(uint8) external returns (address) envfree;
-}
+// Converted to variables mode: remove methods block (calls remain allowed without declarations)
 
 
 /** @title If a team does not exist it has not players

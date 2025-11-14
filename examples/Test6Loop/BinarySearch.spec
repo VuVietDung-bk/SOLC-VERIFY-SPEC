@@ -1,12 +1,9 @@
-methods
+variables
 {
-    function a(uint) external returns (uint) envfree; // a là array, phải có cách phân biệt giữa array và mapping
-    function find(uint) external returns (uint) envfree;
+    uint[] a; // a là array, biểu diễn bằng kiểu mảng trong variables
 }
 
 rule searchTheRightNumber(uint n) {
-
-    env e;
 
     uint index = find(n);
 

@@ -18,24 +18,20 @@
  */
 
 // The methods block below gives various declarations regarding solidity methods.
-methods
+variables
 {
-    // When a function is not using the environment (e.g., `msg.sender`), it can be
-    // declared as `envfree`
-    function balanceOf(address) external returns (uint) envfree;
-    function allowance(address,address) external returns(uint) envfree;
-    function totalSupply() external returns (uint) envfree;
+    uint balanceOf;      // balanceOf(address)
+    uint allowance;      // allowance(address,address)
+    uint totalSupply;    // totalSupply()
 }
 
 
 /// @title Total supply after mint is at least the balance of the receiving account
 rule totalSupplyAfterMint(address account, uint256 amount) {
-    env e; 
-    
-    mint(e, account, amount);
+    mint(account, amount);
     
     uint256 userBalanceAfter = balanceOf(account);
-    uint256 totalAfter = totalSupply();
+    uint256 totalAfter = totalSupply;
     
     // Verify that the total supply of the system is at least the current balance of the account.
     assert totalAfter >=  userBalanceAfter, "total supply is less than a user's balance";
@@ -46,18 +42,16 @@ rule totalSupplyAfterMint(address account, uint256 amount) {
  *  precondition.
  */
 rule totalSupplyAfterMintWithPrecondition(address account, uint256 amount) {
-    env e; 
-    
     // Assume that in the current state before calling mint, the total supply of the 
     // system is at least the user balance.
     uint256 userBalanceBefore =  balanceOf(account);
-    uint256 totalBefore = totalSupply();
+    uint256 totalBefore = totalSupply;
     require totalBefore >= userBalanceBefore; 
     
-    mint(e, account, amount);
+    mint(account, amount);
     
     uint256 userBalanceAfter = balanceOf(account);
-    uint256 totalAfter = totalSupply();
+    uint256 totalAfter = totalSupply;
     
     // Verify that the total supply of the system is at least the current balance of the account.
     assert totalAfter >= userBalanceAfter, "total supply is less than a user's balance ";

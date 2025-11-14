@@ -4,8 +4,6 @@ variables
 }
 
 rule xSpec(uint n) {
-
-    env e;
     
     mathint xBefore = x;
 

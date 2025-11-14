@@ -11,6 +11,9 @@ from spec_invariant import Invariant
 class IR:
     def __init__(self, sol_symbols: Dict[str, Any]):
         self.methods: Dict[str, Method] = {}
+        # variables parsed from a 'variables { ... }' block (new grammar)
+        # stored as mapping name -> {"type": str}
+        self.variables: Dict[str, Dict[str, Any]] = {}
         self.rules: List[Rule] = []
         self.invariants: List[Invariant] = []
         self._sol_symbols = sol_symbols
@@ -18,10 +21,40 @@ class IR:
     @classmethod
     def from_ast(cls, ast, sol_symbols: Dict[str, Any]) -> "IR":
         ir = cls(sol_symbols)
+        # Note: for the new grammar, variables may exist and methods may not.
+        ir._parse_variables(ast, sol_symbols)
         ir._parse_methods(ast, sol_symbols)
         ir._parse_rules(ast, sol_symbols)
         ir._parse_invariants(ast, sol_symbols)
         return ir
+
+    def _parse_variables(self, ast, sol_symbols: Dict[str, Any]) -> None:
+        """
+        Parse a 'variables { ... }' block (as in parser_certora_new.lark):
+          variables: "variables" "{" (variable_spec)* "}"
+          variable_spec: variable_type ID ";"
+          variable_type: cvl_type | mapping
+
+        We store variables as: self.variables[name] = {"type": <flattened type>}.
+        If the grammar doesn't provide these nodes, this is a no-op.
+        """
+        for node in ast.iter_subtrees_topdown():
+            if not (isinstance(node, Tree) and node.data == "variables"):
+                continue
+            # Inside, look for 'variable_spec' nodes
+            for vs in (ch for ch in node.children if isinstance(ch, Tree) and ch.data == "variable_spec"):
+                vname: Any = None
+                vtype_text: Any = None
+                # Expect children: variable_type Tree, then ID token
+                # Be robust: scan subtrees/tokens
+                vtype_node = next((ch for ch in vs.children if isinstance(ch, Tree) and ch.data in ("variable_type", "cvl_type", "mapping")), None)
+                if vtype_node is not None:
+                    vtype_text = _flatten_tokens_only(vtype_node)
+                name_tok = next((t for t in vs.children if isinstance(t, Token) and t.type == "ID"), None)
+                if name_tok is not None:
+                    vname = name_tok.value
+                if vname:
+                    self.variables[vname] = {"type": (str(vtype_text).strip() if vtype_text else None)}
 
     def _parse_methods(self, ast, sol_symbols: Dict[str, Any]) -> None:
         """
@@ -100,7 +133,9 @@ class IR:
     def _parse_invariants(self, ast, sol_symbols: Dict[str, Any]) -> None:
         for node in ast.iter_subtrees_topdown():
             if isinstance(node, Tree) and node.data == "invariant_rule":
-                inv = Invariant(node, self.methods, sol_symbols)
+                # Provide variable types to invariant builder to help choose sum over int/uint
+                var_types_map = {name: info.get("type") for name, info in self.variables.items()}
+                inv = Invariant(node, self.methods, var_types_map, sol_symbols)
                 self.invariants.append(inv)
 
     def __repr__(self):
@@ -109,6 +144,13 @@ class IR:
     def to_dict(self) -> Dict[str, Any]:
         """Nếu cần giữ tương thích ngược với pipeline cũ"""
         return {
+            "variables": [
+                {
+                    "name": name,
+                    "type": info.get("type"),
+                }
+                for name, info in self.variables.items()
+            ],
             "methods": [
                 {
                     "name": m.name,
