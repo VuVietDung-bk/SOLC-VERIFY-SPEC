@@ -1,6 +1,7 @@
 import sys
 from lark import Lark, UnexpectedInput, Tree, Token
-from parser_utils import *
+from parser_utils import to_text
+from logic_utils import *
 
 def main():
     if len(sys.argv) != 3:
