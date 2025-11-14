@@ -374,3 +374,347 @@ def _split_call_args(exprs_node: Optional[Tree], sol_symbols: dict) -> List[str]
 
     # Không thuần atomic → 1 đối số duy nhất
     return [_flatten_expr_with_symbols_list(toks, sol_symbols).strip()]
+
+BIN_PRECEDENCE = {
+    "||": 1,
+    "&&": 2,
+
+    "=>": 3,
+    "<=>": 4,
+
+    "==": 5, "!=": 5,
+
+    "<": 6, "<=": 6, ">": 6, ">=": 6,
+
+    "+": 7, "-": 7,
+
+    "*": 8, "/": 8, "%": 8,
+}
+
+UNARY_PRECEDENCE = 9
+
+UNARY_PRECEDENCE = 7
+
+from lark import Tree, Token
+
+def fmt(node):
+    if isinstance(node, Token):
+        return node.value, 100
+    if not isinstance(node, Tree):
+        return str(node), 100
+
+    # ---- unary ----
+    if node.data == "unary_expr":
+        op = node.children[0].children[0].value
+        t, p = fmt(node.children[1])
+        if p < UNARY_PRECEDENCE: t = f"({t})"
+        return f"{op}{t}", UNARY_PRECEDENCE
+
+    # ---- special_var_attribute_call : ID "." special_var_attribute ----
+    if node.data == "special_var_attribute_call":
+        base = node.children[0]
+        attr = node.children[1]
+        base_txt, _ = fmt(base)
+        attr_tok = attr.children[0]
+        return f"{base_txt}.{attr_tok.value}", 100
+
+    # ---- contract_attribute_call : contract "." field ----
+    if node.data == "contract_attribute_call":
+        c = node.children[0]   # CONTRACT token
+        a = node.children[1]   # field token
+        return f"{c.value}.{a.value}", 100
+
+    # ---- index : "[" expr "]" ... ----
+    if node.data == "index":
+        items = []
+        for e in node.children:
+            t, _ = fmt(e)
+            items.append(f"[{t}]")
+        return "".join(items), 100
+    
+    if node.data == "logic_bi_expr":
+        left = node.children[0]
+        op_node = node.children[1]
+        right = node.children[2]
+
+        op = op_node.children[0].value
+        print(op)
+
+        # precedence của logic operator
+        my_prec = BIN_PRECEDENCE[op]
+
+        # ---- right associative cho "=>" ----
+        if op == "=>":
+            ltxt, lp = fmt(left)
+            rtxt, rp = fmt(right)
+
+            # left phải ngoặc nếu precedence < my_prec
+            if lp < my_prec:
+                ltxt = f"({ltxt})"
+
+            # right phải ngoặc nếu precedence <= my_prec
+            # (vì right-assoc)
+            if rp <= my_prec:
+                rtxt = f"({rtxt})"
+
+            return f"{ltxt} {op} {rtxt}", my_prec
+
+        # ---- mặc định: left-associative ----
+        ltxt, lp = fmt(left)
+        rtxt, rp = fmt(right)
+
+        if lp < my_prec:
+            ltxt = f"({ltxt})"
+        if rp < my_prec:
+            rtxt = f"({rtxt})"
+
+        return f"{ltxt} {op} {rtxt}", my_prec
+
+    # ---- bi_expr ----
+    if node.data == "bi_expr":
+        if (len(node.children) == 3 and
+            isinstance(node.children[1], Tree) and
+            node.children[1].data == "binop"):
+
+            left, op_node, right = node.children
+            op = op_node.children[0].value
+            prec = BIN_PRECEDENCE.get(op, 1)
+
+            ltxt, lp = fmt(left)
+            rtxt, rp = fmt(right)
+            if lp < prec: ltxt = f"({ltxt})"
+            if rp < prec: rtxt = f"({rtxt})"
+
+            return f"{ltxt} {op} {rtxt}", prec
+
+        parts = []
+        mp = 0
+        for c in node.children:
+            t, p = fmt(c)
+            parts.append(t)
+            mp = max(mp, p)
+        return " ".join(parts), mp
+    
+    if node.data == "expr":
+        if len(node.children) == 2 and isinstance(node.children[0], Token) and node.children[0].type == "ID" and isinstance(node.children[1], Tree) and node.children[1].data == "index":
+            base_txt, _ = fmt(node.children[0])
+            idx_txt, _ = fmt(node.children[1])
+            return f"{base_txt}{idx_txt}", 100
+
+    # ---- wrapper (exprs, literal, general trees) ----
+    if len(node.children) == 1:
+        return fmt(node.children[0])
+
+    parts = []
+    mp = 0
+    for c in node.children:
+        t, p = fmt(c)
+        parts.append(t)
+        mp = max(mp, p)
+    return " ".join(parts), mp
+
+def to_text(expr : Tree) -> str:
+    text, _ = fmt(expr)
+    return text
+
+def make_unary_not(child: Tree) -> Tree:
+    return Tree("unary_expr", [
+        Tree("unop", [Token("BANG", "!")]),
+        child
+    ])
+
+def make_binary(left: Tree, op: str, right: Tree) -> Tree:
+    return Tree("bi_expr", [
+        left,
+        Tree("binop", [Token(op, op)]),
+        right
+    ])
+
+def make_binary_logic(left: Tree, op: str, right: Tree) -> Tree:
+    return Tree("logic_bi_expr", [
+        left,
+        Tree("logic_binop", [Token(op, op)]),
+        right
+    ])
+
+NEGATE_BINOP = {
+    "<":  ">=",
+    "<=": ">",
+    ">":  "<=",
+    ">=": "<",
+    "==": "!=",
+    "!=": "==",
+}
+
+def negative(expr: Tree) -> Tree:
+    """
+    Trả về phủ định logic của expression theo cấu trúc AST Lark.
+    Bao gồm literal, unary, binary, exprs và QUANTIFIER.
+    """
+
+    # ---------------------------------------------------------
+    # LITERAL true/false
+    # ---------------------------------------------------------
+    if isinstance(expr, Tree) and expr.data == "literal":
+        tok = expr.children[0]
+        if tok.type == "TRUE":
+            return Tree("literal", [Token("FALSE", "false")])
+        if tok.type == "FALSE":
+            return Tree("literal", [Token("TRUE", "true")])
+        # literal khác → phủ định bằng unary
+        return make_unary_not(expr)
+
+    # ---------------------------------------------------------
+    # QUANTIFIER: forall/exists
+    #
+    # expr = Tree('expr', [
+    #     Tree('QUANTIFIER', [Token(...)]),
+    #     cvl_type,
+    #     Token(ID, name),
+    #     "."  (as token)
+    #     expr_body
+    # ])
+    #
+    # Grammar:
+    # QUANTIFIER cvl_type ID "." expr
+    # ---------------------------------------------------------
+    if isinstance(expr, Tree) and expr.children:
+        # cấu trúc QUANTIFIER rất đặc trưng:
+        if (len(expr.children) >= 4 and 
+            isinstance(expr.children[0], Token) and 
+            expr.children[0].type == "QUANTIFIER"):
+
+            quant_tok   = expr.children[0]   # QUANTIFIER token
+            cvl_type    = expr.children[1]   # type tree
+            var_name    = expr.children[2]   # Token ID
+            body        = expr.children[3]   # expr
+
+            quant = quant_tok.value
+            neg_body = negative(body)
+
+            if quant == "forall":
+                new_quant = Token("QUANTIFIER", "exists")
+            else:
+                new_quant = Token("QUANTIFIER", "forall")
+
+            # tái tạo node:
+            return Tree(expr.data, [
+                new_quant,
+                cvl_type,
+                var_name,
+                neg_body
+            ])
+
+    # ---------------------------------------------------------
+    # UNARY
+    # !(A) → A
+    # -(A) → !( -(A) )  (không đổi, bọc một lớp !)
+    # ---------------------------------------------------------
+    if isinstance(expr, Tree) and expr.data == "unary_expr":
+        unop_node = expr.children[0]         # Tree('unop')
+        op_tok = unop_node.children[0]       # Token
+
+        if op_tok.type == "BANG":
+            # !( !A ) → A
+            return expr.children[1]
+
+        # phủ định các unary khác: -(A), ~(A)
+        return make_unary_not(expr)
+
+    # ---------------------------------------------------------
+    # BINARY (bi_expr)
+    # ---------------------------------------------------------
+    if isinstance(expr, Tree) and expr.data == "bi_expr":
+
+        if (
+            len(expr.children) == 3
+            and isinstance(expr.children[1], Tree)
+            and expr.children[1].data == "binop"
+        ):
+            left = expr.children[0]
+            binop_node = expr.children[1]
+            right = expr.children[2]
+
+            op_tok = binop_node.children[0]
+            op = op_tok.value
+
+            # AND/OR → De Morgan
+            if op == "&&":
+                return make_binary_logic(
+                    negative(left), "||", negative(right)
+                )
+            if op == "||":
+                return make_binary_logic(
+                    negative(left), "&&", negative(right)
+                )
+
+            # So sánh → đổi operator
+            if op in NEGATE_BINOP:
+                new_op = NEGATE_BINOP[op]
+                return make_binary(left, new_op, right)
+
+            # các binary khác → bọc phủ định
+            return make_unary_not(expr)
+
+    # ---------------------------------------------------------
+    # exprs → expr (, expr)*
+    # phủ định exprs một biểu thức
+    # ---------------------------------------------------------
+    if isinstance(expr, Tree) and expr.data == "exprs":
+        if len(expr.children) == 1:
+            return negative(expr.children[0])
+        # nhiều expr, không có nghĩa logic → bọc !
+        return make_unary_not(expr)
+
+    # ---------------------------------------------------------
+    # Default fallback
+    # ---------------------------------------------------------
+    return make_unary_not(expr)
+
+def remove_arrows(expr: Tree) -> Tree:
+    # Token → không chứa => hay <=> nên giữ nguyên
+    if isinstance(expr, Token):
+        return expr
+
+    # Nếu không phải Tree → giữ nguyên
+    if not isinstance(expr, Tree):
+        return expr
+
+    # Duyệt đệ quy trước: rewrite tất cả children
+    new_children = [remove_arrows(c) for c in expr.children]
+
+    # Nếu không phải logic_bi_expr → trả node như bình thường
+    if expr.data != "logic_bi_expr":
+        expr.children = new_children
+        return expr
+
+    # Giờ xử lý P => Q hoặc P <=> Q
+    left  = new_children[0]
+    opnode = new_children[1]      # Tree('binop', [Token])
+    right = new_children[2]
+
+    op = opnode.children[0].value
+
+    # ----- IMPLICATION -----
+    if op == "=>":
+        # P => Q   ⇒   (!P) || Q
+        return make_binary_logic(
+            negative(left),
+            "||",
+            right
+        )
+
+    # ----- EQUIVALENCE -----
+    if op == "<=>":
+        # (P && Q) || (!P && !Q)
+        p_and_q = make_binary_logic(left, "&&", right)
+        np_and_nq = make_binary_logic(
+            negative(left),
+            "&&",
+            negative(right)
+        )
+        return make_binary_logic(p_and_q, "||", np_and_nq)
+
+    # Nếu là logic operator khác (||, &&) thì giữ nguyên
+    expr.children = new_children
+    return expr

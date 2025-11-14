@@ -10,5 +10,5 @@ methods {
  *  This invariant cannot be proven without a preserved block.
  */
 invariant nonExistTeamHasNoPlayers {
-    assert forall uint8 teamId. address player. (teamId != 0 && leaderOf(teamId) == 0) => teamOf(player) != teamId;
+    assert forall uint8 teamId. forall address player. (teamId != 0 && leaderOf(teamId) == 0) => teamOf(player) != teamId;
 }

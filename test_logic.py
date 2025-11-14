@@ -1,5 +1,6 @@
 import sys
-from lark import Lark, UnexpectedInput
+from lark import Lark, UnexpectedInput, Tree, Token
+from parser_utils import *
 
 def main():
     if len(sys.argv) != 3:
@@ -32,15 +33,29 @@ def main():
         )
 
         tree = parser.parse(text)
-        print(tree.pretty())
-        print("Tree:", tree)
-
     except UnexpectedInput as e:
         print("Parse error:", file=sys.stderr)
         print(e, file=sys.stderr)
         sys.exit(1)
 
+    for node in tree.iter_subtrees_topdown():
+        if isinstance(node, Tree) and node.data == "rule":
+            for st in node.iter_subtrees_topdown():
+                if not isinstance(st, Tree):
+                    continue
+                elif st.data == "assert_statement":
+                    for ch in st.children:
+                        if isinstance(ch, Tree):
+                            expr_node = ch
+                            dnf_node = remove_arrows(expr_node)
+                            print(dnf_node)
+                            print(to_text(negative(dnf_node)))
+                elif st.data == "require_statement":
+                    for ch in st.children:
+                        if isinstance(ch, Tree):
+                            expr_node = ch
+                            dnf_node = remove_arrows(expr_node)
+                            print(dnf_node.pretty())
+
 if __name__ == "__main__":
     main()
-
-# python3 test_lark.py parser_certora_new.lark test1.spec 

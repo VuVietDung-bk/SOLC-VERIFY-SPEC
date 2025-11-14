@@ -232,6 +232,16 @@ class Rule:
             #Phân tích từng trường hợp
             break
         return func, postconds
+    
+    def to_dnf(expr: Tree) -> Tree:
+        return expr
+    
+    def negative(expr: Tree) -> Tree:
+        neg_expr: Tree = []
+        return neg_expr
+    
+    def to_text(expr: Tree) -> str:
+        return _flatten_tokens_only(expr) if expr else None
 
     # === BƯỚC 6: sinh hậu-điều-kiện ===
     def to_postconditions(self) -> List[str]:
