@@ -1,10 +1,6 @@
-methods {
-    function justANonPayableFunction() external;
-}
+// Variables-only mode: remove methods block
 
 rule NonPayableRevertingConditions {
-    env e;
-    justANonPayableFunction@withrevert(e);
-
-    assert_revert if e.msg.value > 0;
+    justANonPayableFunction();
+    assert_revert if msg.value > 0;
 }
