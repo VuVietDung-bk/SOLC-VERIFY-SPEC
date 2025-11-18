@@ -1,10 +1,12 @@
 from typing import Dict, List, Optional, Any
+from lark import Tree
 
 class Step:
     """Đại diện cho một bước (define, call, assert, ...) trong Rule."""
-    def __init__(self, kind: str, data: Dict[str, Any]):
+    def __init__(self, kind: str, data: Dict[str, Any], node: Tree):
         self.kind = kind
         self.data = data
+        self.node = node
         
     def __repr__(self):
         return f"<Step {self.kind} {self.data}>"

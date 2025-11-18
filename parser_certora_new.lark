@@ -49,6 +49,7 @@ map_to: mapping | primitive_basic_type | ID
 ?expr:  literal
         | QUANTIFIER cvl_type ID "." expr
         | "(" exprs ")"
+        | expr logic_binop expr -> logic_bi_expr
         | expr binop expr -> bi_expr
         | unop expr -> unary_expr
         | expr "?" expr ":" expr
@@ -57,13 +58,13 @@ map_to: mapping | primitive_basic_type | ID
         | contract_attribute_call
         | ID attribute
         | function_call
-        | expr "in" ID
 
 QUANTIFIER: "forall" | "exists"
 function_call: (ID ".")? ID "(" exprs? ")"?
 
-special_var_attribute: SUM
+special_var_attribute: SUM | LENGTH
 SUM: "sum"
+LENGTH: "length"
 special_var_attribute_call: ID "." special_var_attribute
 
 CONTRACT: "contract"
@@ -84,41 +85,33 @@ unop    : TILDE | BANG | MINUS
 BANG: "!"
 TILDE: "~"
 
-binop: PLUS | MINUS | STAR | SLASH | PERCENT | CARET
+binop: PLUS | MINUS | STAR | SLASH | PERCENT
      | GT | LT | EQEQ | BANGEQ | GTEQ | LTEQ
-     | AMP | PIPE | LSHIFT | RSHIFT | ANDAND | OROR
-     | FAT_ARROW | XOR_ARROW | XOR | RSHIFT3
+
+logic_binop: ANDAND | OROR
+     | FAT_ARROW | XOR_ARROW 
 
 PLUS: "+"
 MINUS: "-"
 STAR: "*"
 SLASH: "/"
 PERCENT: "%"
-CARET: "^"
 GT: ">"
 LT: "<"
 EQEQ: "=="
 BANGEQ: "!="
 GTEQ: ">="
 LTEQ: "<="
-AMP: "&"
-PIPE: "|"
-LSHIFT: "<<"
-RSHIFT: ">>"
 ANDAND: "&&"
 OROR: "||"
 FAT_ARROW: "=>"
 XOR_ARROW: "<=>"
-XOR: "xor"
-RSHIFT3: ">>>"
 
 compare_binop: GT | LT | EQEQ | BANGEQ | GTEQ | LTEQ
 
 special_field: block_field
                  | msg_field
                  | tx_field
-                 | "length"
-                 | "selector" | "isPure" | "isView" | "numberOfArguments" | "isFallback"
 
 block_field: "block" "." ("number" | "timestamp")
 msg_field: "msg" "." ("address" | "sender" | "value")

@@ -3,7 +3,7 @@ from parser_utils import (
     _get_function_call_info,
     _is_zero_arg_function_call,
     _flatten_expr_with_symbols,
-    _flatten_tokens_only,
+    to_text,
     _collect_call_like_from_expr
 )
 from typing import Dict, List, Optional, Any
@@ -49,7 +49,7 @@ class Invariant:
                             msg = ch.value[1:-1]
                     func_calls = _collect_call_like_from_expr(expr_node, sol_symbols)
                     self.steps.append(Step("assert", {
-                        "expr_text": _flatten_tokens_only(expr_node) if expr_node else "",
+                        "expr_text": to_text(expr_node) if expr_node else "",
                         "func_calls": func_calls,
                         "message": msg
                     }))
@@ -62,7 +62,7 @@ class Invariant:
 
                 cvl_type_node = next((x for x in chs if isinstance(x, Tree) and x.data == "cvl_type"), None)
                 if cvl_type_node:
-                    ghost_type = _flatten_tokens_only(cvl_type_node)
+                    ghost_type = to_text(cvl_type_node)
 
 
                 ghost_tok = None
@@ -110,7 +110,7 @@ class Invariant:
 
         self.steps.append(Step("assert", {
             "quantifier": token_quantifier,
-            "expr_text": _flatten_tokens_only(node) if node else "",
+            "expr_text": to_text(node) if node else "",
             "func_calls": func_calls
         }))
 
