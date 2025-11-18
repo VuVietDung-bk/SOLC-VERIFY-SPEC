@@ -4,13 +4,13 @@
  * This is an example specification for using nativeBalances.
  */
 
-methods {
-    function currentBid() external returns uint256 envfree; 
+variables {
+    uint256 currentBid; 
 }
 
 rule bidIncreasesAssets() {
     require(msg.sender != contract.address);
-    require(msg.value > currentBid() );
+    require(msg.value > currentBid);
     uint256 balanceBefore = contract.balance;
     bid();
     assert contract.balance > balanceBefore;
@@ -19,7 +19,7 @@ rule bidIncreasesAssets() {
 rule bidSuccessfullyExpectVacuous() {
     uint256 balanceBefore = contract.balance;
     require(msg.sender != contract.address);
-    require(msg.value > 0 &&  e.msg.value > balanceBefore);
+    require(msg.value > 0 &&  msg.value > balanceBefore);
     require (balanceBefore > 0);
     bid();
     assert contract.balance >= balanceBefore;
