@@ -1,6 +1,6 @@
-methods
+variables
 {
-    function a(uint) external returns (int) envfree; // a là array, phải có cách phân biệt giữa array và mapping
+    int[] a; // a là array
 }
 
 invariant sorted {
