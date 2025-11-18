@@ -1,9 +1,9 @@
-methods
+variables
 {
-    function totalSupply() external returns (uint256) envfree;
-    function balances(address) external returns (uint256) envfree;
+    uint256 totalSupply;
+    uint256 balances;
 }
 
 invariant totalEqualSumBalances {
-    assert totalSupply() == balances.sum;
+    assert totalSupply == balances.sum;
 }
