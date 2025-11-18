@@ -23,27 +23,43 @@ def main():
     )
     parser.add_argument("file_sol", help="Path to the Solidity file, optionally with a contract name (format: path-to-file.sol:ContractName)")
     parser.add_argument("file_spec", help="Path to the specification file (format: path-to-file.spec)")
-    parser.add_argument("--grammar", default=None, help="Path to the .lark grammar (defaults to parser_certora_new.lark)")
+    parser.add_argument("--grammar", default=None, help="Path to the .lark grammar (auto-detects if omitted)")
     parser.add_argument("--no-run", action="store_true", help="Do not run the solc-verify after generating annotations")
     args = parser.parse_args()
 
     sol_path, target_contract = split_sol_and_contract(args.file_sol)
 
-    # Load spec text for parsing
+    # Load spec text first for auto-detection
     print("[1/8] Loading grammar...")
     with open(args.file_spec, "r", encoding="utf-8") as f:
         spec_text_for_detection = f.read()
 
     grammar_path = args.grammar
     if grammar_path is None:
-        # Default to the new simplified grammar
-        grammar_path = "./parser_certora_new.lark"
+        # Heuristic: if file contains a 'variables {', prefer the simplified grammar
+        # otherwise use the full Certora-like grammar.
+        import re
+        has_variables = re.search(r"^\s*variables\s*\{", spec_text_for_detection, re.MULTILINE) is not None
+        has_methods = re.search(r"^\s*methods\s*\{", spec_text_for_detection, re.MULTILINE) is not None
+        if has_variables and not has_methods:
+            grammar_path = "./parser_certora_new.lark"
+        else:
+            grammar_path = "./parser_certora.lark"
 
     def _load_lark(path: str):
         with open(path, "r", encoding="utf-8") as f:
             return Lark(f.read())
-    lark = _load_lark(grammar_path)
-    print(f"[1/8] Using grammar: {grammar_path}")
+
+    # Primary attempt with selected grammar; on failure, try the alternative as fallback.
+    try:
+        lark = _load_lark(grammar_path)
+        selected_grammar = grammar_path
+    except Exception as e:
+        # Fallback to the other grammar
+        alt = "./parser_certora_new.lark" if grammar_path.endswith("parser_certora.lark") else "./parser_certora.lark"
+        lark = _load_lark(alt)
+        selected_grammar = alt
+    print(f"[1/8] Using grammar: {selected_grammar}")
 
     print("[2/8] Parsing spec...")
     spec_text = spec_text_for_detection

@@ -17,8 +17,8 @@
 // We keep calls like allowance(holder, spender) relying on relaxed validation.
 variables
 {
-    mapping (address => mapping (address => uint)) allowance;   // allowance(holder, spender)
-    mapping (address => uint) balanceOf;   // balanceOf(address)
+    uint allowance;   // allowance(holder, spender)
+    uint balanceOf;   // balanceOf(address)
     uint totalSupply; // totalSupply()
 }
 
@@ -26,14 +26,14 @@ variables
 /// @title If `approve` changes a holder's allowance, then it was called by the holder
 rule onlyHolderCanChangeAllowance(address holder, address spender, method f) {
     // Snapshot before
-    mathint allowance_before = allowance[holder][spender];
+    mathint allowance_before = allowance(holder, spender);
 
     // Simplified call: no env, args passed directly if needed.
     calldataarg args;
     f(args);
 
     // Snapshot after
-    mathint allowance_after = allowance[holder][spender];
+    mathint allowance_after = allowance(holder, spender);
 
     // Core property retained (environment removed):
     assert allowance_after > allowance_before => msg.sender == holder,

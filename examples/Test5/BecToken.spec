@@ -1,7 +1,7 @@
 variables
 {
     uint256 totalSupply;
-    mapping (address => uint256) balances;
+    uint256 balances;
 }
 
 invariant totalEqualSumBalances {

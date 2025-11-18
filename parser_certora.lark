@@ -8,7 +8,7 @@ HEXADECIMAL_LITERAL: /0[xX][0-9a-fA-F]+/
 INTEGER_LITERAL: DECIMAL_LITERAL | HEXADECIMAL_LITERAL
 STRING_LITERAL: /"([^"\\]|\\.)*"/
 
-?start: (variables | rule | invariant_rule)+
+?start: (methods | rule | invariant_rule)+
 
 // CVL types
 cvl_type: evm_type
@@ -33,18 +33,12 @@ tuple_type: "(" inner_tuple ")"
 inner_tuple: evm_type ("," evm_type)*
 
 // Tokens
-PRIMITIVE_CVL_TYPE: "mathint" | "calldataarg" | "method"
+PRIMITIVE_CVL_TYPE: "mathint" | "calldataarg" | "storage" | "env" | "method"
 INT_TYPE: /int[0-9]*/
 UINT_TYPE: /uint[0-9]*/
 BYTES_TYPE: /bytes[0-9]*/
 BOOL_TYPE: "bool"
 ID: /[a-zA-Z_][a-zA-Z0-9_]*/
-
-mapping: "mapping" "(" map_from "=>"  ")"
-
-map_from: primitive_basic_type | ID
-
-map_to: mapping | primitive_basic_type | ID
 
 ?expr:  literal
         | QUANTIFIER cvl_type ID "." expr
@@ -60,7 +54,7 @@ map_to: mapping | primitive_basic_type | ID
         | expr "in" ID
 
 QUANTIFIER: "forall" | "exists"
-function_call: (ID ".")? ID "(" exprs? ")"?
+function_call: (ID ".")? ID ("@" CALL_MODIFIER)? "(" exprs? ")" ("at" ID)?
 
 special_var_attribute: SUM
 SUM: "sum"
@@ -72,6 +66,7 @@ BALANCE: "balance"
 ADDRESS: "address"
 contract_attribute_call: CONTRACT "." contract_attribute
 
+CALL_MODIFIER: "norevert" | "withrevert" | "dontsummarize"
 index: "[" expr "]" ("[" expr "]")*
 exprs: expr ("," expr)*
 
@@ -123,35 +118,104 @@ block_field: "block" "." ("number" | "timestamp")
 msg_field: "msg" "." ("address" | "sender" | "value")
 tx_field: "tx" "." "origin"
 
+SPECIAL_VARS:
+           | "lastReverted"
+           | "lastStorage"
+           | "allContracts"
+           | "lastMsgSig"
+           | "_"
+           | MAX_UINT_VAR
+           | "nativeBalances"
+           | "calledContract"
+           | "executingContract"
+
 MAX_UINT_VAR:   
     | "max_uint" | "max_address"
     | "max_uint8" | "max_uint16" | "max_uint32" | "max_uint64" | "max_uint128" | "max_uint256"
+
+REQUIRE_FUNCTION : "require_uint8" | "require_uint16" | "require_uint32" | "require_uint64" | "require_uint128" | "require_uint256" 
+    | "require_int8" | "require_int16" | "require_int32" | "require_int64" | "require_int128" | "require_int256"
+
+TO_FUNCTION : "to_mathint" | "to_bytes1" | "to_bytes2" | "to_bytes8" | "to_bytes4" | "to_bytes16" | "to_bytes32"
+
+ASSERT_FUNCTION : "assert_uint8" | "assert_uint16" | "assert_uint32" | "assert_uint64" | "assert_uint128" | "assert_uint256" 
+    | "assert_int8" | "assert_int16" | "assert_int32" | "assert_int64" | "assert_int128" | "assert_int256" | "assert_address"
+
+cast_functions : REQUIRE_FUNCTION | ASSERT_FUNCTION | TO_FUNCTION
+
+contract : ID | "currentContract"
 
 block: statement+
 
 statement:  cvl_type ID ("=" expr)? ";"                 -> define_statement
             | "require" expr ("," STRING_LITERAL)? ";"  -> require_statement
             | "assert" expr ("," STRING_LITERAL)? ";"   -> assert_statement
+            | "satisfy" expr ("," STRING_LITERAL)? ";"  -> satisfy_statement
+
+            | "requireInvariant" ID "(" exprs ")" ";"   -> requireinv_statement
 
             | lhs "=" expr ";"                          -> assignment_statement
             |"if" expr statement ("else" statement)?    -> ifelse_statement
             | "{" block "}"                             -> block_statement
+            | "return" (expr)? ";"                      -> return_statement
 
             | function_call ";"                         -> funccall_statement
+            | "reset_storage" expr ";"                  -> reset_statement
 
+            | "havoc" ID ("assuming" expr)? ";"         -> havoc_statement
             | assert_modify                             -> assert_modify_statement
             | assert_revert                             -> assert_revert_statement
 
 lhs : ID ("[" expr "]")? ("," lhs)?
 
-params : cvl_type ID? param*
-param: "," cvl_type (ID)?
+import : "import" STRING_LITERAL
+use: "use" "rule" ID ("filtered" "{" ID "->" expr ("," ID "->" expr)*)?
+    | "use" "builtin" "rule" ID
+    | "use" "invariant" ID ("filtered" "{" ID "->" expr "}")? ("{" (preserved_block)* "}" )?
 
-variables: "variables" "{" (variable_spec)* "}"
+using : "using" ID "as" ID
 
-variable_type: cvl_type | mapping
+preserved_block: "preserved" (method_signature)? ("with(" params ")")? block
+method_signature:   (contract_name ".")? ID "(" (cvl_type ID? method_param*)? ")" 
+                    | "fallback" "(" ")"
+method_param : "," cvl_type (ID)?
+contract_name : ID | "_"
+params : cvl_type data_location? ID? param*
+param: "," cvl_type data_location? (ID)?
 
-variable_spec: variable_type ID ";"
+data_location : "memory" | "calldata" | "storage"
+
+methods : "methods" "{" (method_spec)* "}"
+
+method_spec : "function" (exact_pattern | wildcard_pattern | catch_all_pattern | catch_unresolved_calls_pattern) ("returns" "(" cvl_type ")")? ("envfree" | "with" "(" "env" ID ")")? ("optional")? ("=>" method_summary ("UNRESOLVED" | "ALL" | "DELETE")?)? ";"
+
+exact_pattern : (ID ".")? ID "(" params? ")" VISIBILITY ("returns" "(" cvl_type ")")?
+wildcard_pattern : "_" "." ID "(" params? ")" VISIBILITY
+catch_all_pattern : ID "." "_" "external"
+catch_unresolved_calls_pattern : "_" "." "_" "external"
+
+VISIBILITY : "internal" | "external"
+method_summary : "ALWAYS" "(" INTEGER_LITERAL ")"
+                | "CONSTANT"
+                | "PER_CALLEE_CONSTANT"
+                | "NONDET"
+                | "HAVOC_ECF"
+                | "HAVOC_ALL"
+                | "DISPATCHER" ("(" ( "true" | "false" ) ")")?
+                | "AUTO"
+                | "ASSERT_FALSE"
+                | expr ("expect" ID)?
+                | "DISPATCH" ("(optimistic=false)")?  "[" (dispatch_list_patterns)? "]" "default" method_summary
+                | "DISPATCH" ("(optimistic=true)")?  "[" (dispatch_list_patterns)? "]"
+
+dispatch_list_patterns :  dispatch_list_patterns "," dispatch_pattern
+                    | dispatch_pattern
+
+dispatch_param : cvl_type (ID)?
+
+dispatch_pattern : "_" "." ID "(" dispatch_param ")"
+                     | ID "." "_"
+                     | ID "." ID "(" dispatch_param ")"
 
 rule : ("rule")? ID ("(" params? ")")? ("filtered" "{" ID "->" expr ("," ID "->" expr)* "}")? ("description" STRING_LITERAL)? ("good_description" STRING_LITERAL)? block
 

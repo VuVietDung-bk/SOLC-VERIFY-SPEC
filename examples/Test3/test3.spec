@@ -1,7 +1,6 @@
 variables
 {
     uint x;
-    mapping (uint => bool) isSet;
 }
 
 rule xSpec(uint n) {
@@ -11,5 +10,5 @@ rule xSpec(uint n) {
     mathint xAfter = x;
 
     // Operations on mathints can never overflow or underflow. 
-    assert isSet[xAfter];
+    assert isSet(xAfter);
 }
