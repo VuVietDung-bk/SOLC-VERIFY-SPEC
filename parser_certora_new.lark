@@ -40,7 +40,7 @@ BYTES_TYPE: /bytes[0-9]*/
 BOOL_TYPE: "bool"
 ID: /[a-zA-Z_][a-zA-Z0-9_]*/
 
-mapping: "mapping" "(" map_from "=>"  ")"
+mapping: "mapping" "(" map_from "=>" map_to ")"
 
 map_from: primitive_basic_type | ID
 
@@ -53,10 +53,10 @@ map_to: mapping | primitive_basic_type | ID
         | expr binop expr -> bi_expr
         | unop expr -> unary_expr
         | expr "?" expr ":" expr
-        | expr "." ID
         | ID index?
         | special_var_attribute_call
         | contract_attribute_call
+        | ID attribute
         | function_call
 
 QUANTIFIER: "forall" | "exists"
@@ -74,6 +74,7 @@ ADDRESS: "address"
 contract_attribute_call: CONTRACT "." contract_attribute
 
 index: "[" expr "]" ("[" expr "]")*
+attribute: "." expr ("." expr)*
 exprs: expr ("," expr)*
 
 literal : TRUE | FALSE | INTEGER_LITERAL | STRING_LITERAL
@@ -132,8 +133,10 @@ statement:  cvl_type ID ("=" expr)? ";"                 -> define_statement
 
             | function_call ";"                         -> funccall_statement
 
-            | assert_modify                             -> assert_modify_statement
-            | assert_revert                             -> assert_revert_statement
+            | "assert_modify" modify_var ("if" expr)? ("," STRING_LITERAL)? ";" -> assert_modify_statement
+            | "assert_revert" ("if" expr)? ("," STRING_LITERAL)? ";" -> assert_revert_statement
+
+modify_var: ID ("." ID)? index?
 
 lhs : ID ("[" expr "]")? ("," lhs)?
 
@@ -146,13 +149,9 @@ variable_type: cvl_type | mapping
 
 variable_spec: variable_type ID ";"
 
-rule : ("rule")? ID ("(" params? ")")? ("filtered" "{" ID "->" expr ("," ID "->" expr)* "}")? ("description" STRING_LITERAL)? ("good_description" STRING_LITERAL)? block
+rule : ("rule")? ID ("(" params? ")")? block
 
 invariant_rule: ("invariant") ID block
-
-assert_modify: "assert_modify" ID "(" params? ")" ("if" expr)? ("," STRING_LITERAL)? ";"
-
-assert_revert: "assert_revert" ("if" expr)? ("," STRING_LITERAL)? ";"
 
 // Ignore whitespace
 %import common.WS

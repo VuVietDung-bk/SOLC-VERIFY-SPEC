@@ -24,5 +24,9 @@ rule xSpec(uint n) {
 
     assert 2 * xBefore + 2 <= xAfter || false,
         "x must increase";
-    assert forall uint256 i. i < arr.length => arr[i] == 71;
+    assert forall uint256 i. i < arr.a => !(arr[i] == 71);
+
+    assert_modify x.y if x.y > 0;
+
+    assert_revert if x < 0;
 }

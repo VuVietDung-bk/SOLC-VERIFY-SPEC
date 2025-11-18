@@ -432,13 +432,19 @@ def fmt(node):
             items.append(f"[{t}]")
         return "".join(items), 100
     
+    if node.data == "attribute":
+        items = []
+        for e in node.children:
+            t, _ = fmt(e)
+            items.append(f".{t}")
+        return "".join(items), 100
+    
     if node.data == "logic_bi_expr":
         left = node.children[0]
         op_node = node.children[1]
         right = node.children[2]
 
         op = op_node.children[0].value
-        print(op)
 
         # precedence của logic operator
         my_prec = BIN_PRECEDENCE[op]
@@ -497,6 +503,10 @@ def fmt(node):
     
     if node.data == "expr":
         if len(node.children) == 2 and isinstance(node.children[0], Token) and node.children[0].type == "ID" and isinstance(node.children[1], Tree) and node.children[1].data == "index":
+            base_txt, _ = fmt(node.children[0])
+            idx_txt, _ = fmt(node.children[1])
+            return f"{base_txt}{idx_txt}", 100
+        if len(node.children) == 2 and isinstance(node.children[0], Token) and node.children[0].type == "ID" and isinstance(node.children[1], Tree) and node.children[1].data == "attribute":
             base_txt, _ = fmt(node.children[0])
             idx_txt, _ = fmt(node.children[1])
             return f"{base_txt}{idx_txt}", 100

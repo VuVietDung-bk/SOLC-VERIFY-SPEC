@@ -6,8 +6,9 @@ from parser_utils import (
     _is_zero_arg_function_call,
     _split_call_args,
     _flatten_expr_with_symbols,
-    _flatten_tokens_only,
-    _collect_call_like_from_expr
+    to_text,
+    _collect_call_like_from_expr,
+    to_text
 )
 from spec_method import Method, Step
 
@@ -63,6 +64,8 @@ class Rule:
                 self._handle_assign(st)
             elif st.data == "assert_modify_statement":
                 self._handle_assert_modify(st, sol_symbols)
+            elif st.data == "assert_revert_statement":
+                self._handle_assert_revert(st, sol_symbols)
 
     # --- Handlers for each statement type ---
     def _handle_define(self, st: Tree, sol_symbols: Dict[str, Any]):
@@ -73,7 +76,7 @@ class Rule:
 
         cvl_type_node = next((x for x in chs if isinstance(x, Tree) and x.data == "cvl_type"), None)
         if cvl_type_node:
-            ghost_type = _flatten_tokens_only(cvl_type_node)
+            ghost_type = to_text(cvl_type_node)
 
         ghost_tok = None
         seen_cvl = False
@@ -107,7 +110,7 @@ class Rule:
             "expr": rhs_text,
             "rhs_calls": rhs_calls,
             "observed": observed,
-        }))
+        }, st))
 
         if ghost:
             self.snapshots[ghost] = {
@@ -127,7 +130,7 @@ class Rule:
         exprs_node = next((ch for ch in fcall.children if isinstance(ch, Tree) and ch.data == "exprs"), None)
         fargs = _split_call_args(exprs_node, sol_symbols)
         self.calls.append(fname)
-        self.steps.append(Step("call", {"name": fname, "args": fargs}))
+        self.steps.append(Step("call", {"name": fname, "args": fargs}, st))
 
     def _handle_assert(self, st: Tree, sol_symbols: Dict[str, Any]):
         expr_node, msg = None, None
@@ -139,10 +142,10 @@ class Rule:
 
         func_calls = _collect_call_like_from_expr(expr_node, sol_symbols)
         self.steps.append(Step("assert", {
-            "expr_text": _flatten_tokens_only(expr_node) if expr_node else "",
+            "expr_text": to_text(expr_node) if expr_node else "",
             "func_calls": func_calls,
             "message": msg
-        }))
+        }, st))
 
     def _handle_require(self, st: Tree, sol_symbols: Dict[str, Any]):
         expr_node, msg = None, None
@@ -154,10 +157,10 @@ class Rule:
 
         func_calls = _collect_call_like_from_expr(expr_node, sol_symbols)
         self.steps.append(Step("require", {
-            "expr_text": _flatten_tokens_only(expr_node) if expr_node else "",
+            "expr_text": to_text(expr_node) if expr_node else "",
             "func_calls": func_calls,
             "message": msg
-        }))
+        }, st))
 
     def _handle_assign(self, st: Tree):
         lhs_node = next((ch for ch in st.children if isinstance(ch, Tree) and ch.data == "lhs"), None)
@@ -165,27 +168,43 @@ class Rule:
         if lhs_node:
             for t in lhs_node.scan_values(lambda v: isinstance(v, Token) and v.type == "ID"):
                 targets.append(t.value)
-        self.steps.append(Step("assign", {"targets": targets}))
+        self.steps.append(Step("assign", {"targets": targets}, st))
 
     def _handle_assert_modify(self, st: Tree, sol_symbols: Dict[str, Any]):
-        target_name = next((t.value for t in st.children if isinstance(t, Token) and t.type == "ID"), None)
-        param_types: List[str] = []
-        params_node = next((ch for ch in st.children if isinstance(ch, Tree) and ch.data == "params"), None)
-        if params_node:
-            for tnode in params_node.scan_values(lambda v: isinstance(v, Tree) and v.data == "cvl_type"):
-                param_types.append(_flatten_tokens_only(tnode))
+        print(st)
+        
+        # Extract condition and message
         extra_expr_node = None
+        message = None
+        
         for ch in st.children:
-            if isinstance(ch, Tree) and ch.data == "expr":
-                extra_expr_node = ch
-        extra_func_calls = _collect_call_like_from_expr(extra_expr_node, sol_symbols)
+            if isinstance(ch, Tree):
+                if ch.data != "modify_var":
+                    extra_expr_node = ch
+                else: target_node = ch
+            elif isinstance(ch, Token) and ch.type == "STRING_LITERAL":
+                message = ch.value[1:-1]  # Remove quotes
 
         self.steps.append(Step("assert_modify", {
-            "target": target_name,
-            "param_types": param_types,
-            "extra_expr_text": _flatten_tokens_only(extra_expr_node) if extra_expr_node else None,
-            "extra_func_calls": extra_func_calls
-        }))
+            "target": to_text(target_node) if target_node else None,
+            "expr_text": to_text(extra_expr_node) if extra_expr_node else None,
+            "message": message  # Added message field
+        }, st))
+
+    def _handle_assert_revert(self, st: Tree, sol_symbols: Dict[str, Any]):
+        message = None
+        extra_expr_node = None
+        
+        for ch in st.children:
+            if isinstance(ch, Tree):
+                extra_expr_node = ch
+            elif isinstance(ch, Token) and ch.type == "STRING_LITERAL":
+                message = ch.value[1:-1]
+
+        self.steps.append(Step("assert_revert", {
+            "expr_text": to_text(extra_expr_node) if extra_expr_node else None,
+            "message": message
+        }, st))
     
     def to_conditions(self) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
         preconds_dict: Dict[str, List[str]] = {}
@@ -193,30 +212,25 @@ class Rule:
         for path in self.get_all_paths():
             pre_func, preconds = self.get_preconditions_from_path(path)
             if pre_func is not None:
-                if len(preconds_dict[pre_func]) != 0:
-                    print("\033[91mSPEC VALIDATION ERROR:\033[0m")
-                    print(f"Function {pre_func} in rule {self.name} is called more than once")
-                    raise SystemExit(1)
+                if pre_func not in preconds_dict:
+                    preconds_dict[pre_func] = []
                 preconds_dict[pre_func].append(preconds)
-
             post_func, postconds = self.get_postconditions_from_path(path)
             if post_func is not None:
-                if len(postconds_dict[post_func]) != 0:
-                    print("\033[91mSPEC VALIDATION ERROR:\033[0m")
-                    print(f"Function {pre_func} in rule {self.name} is called more than once")
-                    raise SystemExit(1)
+                if post_func not in preconds_dict:
+                    preconds_dict[pre_func] = []
                 postconds_dict[post_func].append(postconds)
         return preconds_dict, postconds_dict
     
     # Hàm sinh tất cả path từ đầu đến cuối Rule
     def get_all_paths(self) -> List[List[Step]]:
-        all_paths: List[List[Step]] = {}
+        all_paths: List[List[Step]] = []
         return all_paths
     
     # Hàm lấy precond từ 1 path
-    def get_preconditions_from_path(steps: List[Step]) -> Tuple[str, List[str]]:
+    def get_preconditions_from_path(self, steps: List[Step]) -> Tuple[str, List[str]]:
         func = None
-        preconds: List[str] = {}
+        preconds: List[str] = []
         var_to_value: Dict[str, Any]
         for step in steps:
             #Phân tích từng trường hợp
@@ -224,24 +238,14 @@ class Rule:
         return func, preconds
     
     # Hàm lấy postcond từ 1 path
-    def get_postconditions_from_path(steps: List[Step]) -> Tuple[str, List[str]]:
+    def get_postconditions_from_path(self, steps: List[Step]) -> Tuple[str, List[str]]:
         func = None
-        postconds: List[str] = {}
+        postconds: List[str] = []
         var_to_value: Dict[str, Any]
         for step in steps:
             #Phân tích từng trường hợp
             break
         return func, postconds
-    
-    def to_dnf(expr: Tree) -> Tree:
-        return expr
-    
-    def negative(expr: Tree) -> Tree:
-        neg_expr: Tree = []
-        return neg_expr
-    
-    def to_text(expr: Tree) -> str:
-        return _flatten_tokens_only(expr) if expr else None
 
     # === BƯỚC 6: sinh hậu-điều-kiện ===
     def to_postconditions(self) -> List[str]:
