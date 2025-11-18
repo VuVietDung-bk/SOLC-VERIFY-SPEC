@@ -82,12 +82,12 @@ def negative(expr: Tree) -> Tree:
         return make_unary_not(expr)
 
 
-    if isinstance(expr, Tree) and expr.data == "bi_expr":
+    if isinstance(expr, Tree) and expr.data == "bi_expr" or expr.data == "logic_bi_expr":
 
         if (
             len(expr.children) == 3
             and isinstance(expr.children[1], Tree)
-            and expr.children[1].data == "binop"
+            and expr.children[1].data == "binop" or expr.children[1].data == "logic_binop"
         ):
             left = expr.children[0]
             binop_node = expr.children[1]
