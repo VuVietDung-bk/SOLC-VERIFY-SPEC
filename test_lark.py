@@ -33,7 +33,6 @@ def main():
 
         tree = parser.parse(text)
         print(tree.pretty())
-        print("Tree:", tree)
 
     except UnexpectedInput as e:
         print("Parse error:", file=sys.stderr)
@@ -42,5 +41,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# python3 test_lark.py parser_certora_new.lark test1.spec 

@@ -1,6 +1,4 @@
-methods {
-    function fibonacci(uint32) external returns (uint32) envfree;
-}
+// Converted to variables-only mode: no methods block needed
 
 rule fifthFibonacciElementIsFive {
     assert fibonacci(5) == 5;

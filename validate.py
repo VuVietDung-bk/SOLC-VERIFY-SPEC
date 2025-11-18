@@ -136,15 +136,23 @@ def validate_spec_ir(ir: dict) -> None:
         # calls must be declared
         seen_params = set()
         for param in r.get("params", []):
-            if not param.get("name") or not param.get("type"):
-                errors.append(f"- Rule '{rname}': parameter missing name or type")
-            if(param.get("name") in seen_params):
-                errors.append(f"- Rule '{rname}': parameter name '{param.get('name')}' is duplicated")
-            seen_params.add(param.get("name"))
+            ptype = param.get("type")
+            pname = param.get("name")
+            # If no methods are declared (variables-only mode), accept params even without types/names.
+            # Otherwise (methods present), require type; name remains optional but must be unique if present.
+            if declared_methods:
+                if not ptype:
+                    errors.append(f"- Rule '{rname}': parameter missing type")
+            if pname:
+                if pname in seen_params:
+                    errors.append(f"- Rule '{rname}': parameter name '{pname}' is duplicated")
+                seen_params.add(pname)
 
-        for fn in r.get("calls", []):
-            if fn not in declared_methods:
-                errors.append(f"- Rule '{rname}': function call '{fn}' is not declared in methods")
+        # If methods are not provided (variables-only grammar), skip enforcing declared calls
+        if declared_methods:
+            for fn in r.get("calls", []):
+                if fn not in declared_methods:
+                    errors.append(f"- Rule '{rname}': function call '{fn}' is not declared in methods")
 
         # ghost vars immutability + type check
         declared_vars: set = set()
@@ -169,8 +177,17 @@ def validate_spec_ir(ir: dict) -> None:
                             errors.append(f"- Rule '{rname}': assignment to '{g}' uses '{rhs_calls[0]}(...)' which returns no value")
                         else:
                             errors.append(f"- Rule '{rname}': assignment to '{g}' has no value (void expression)")
-                    elif lhs_type and not _types_compatible(lhs_type, inferred_rhs):
-                        errors.append(f"- Rule '{rname}': type mismatch in assignment to '{g}': declared '{lhs_type}' but RHS inferred as '{inferred_rhs}'")
+                    else:
+                        # If no methods are declared (variables-only grammar), allow unknown RHS type
+                        # to be assigned to a typed LHS. This accommodates calls like `uint x = f(...);`
+                        # where return types aren't declared via methods block.
+                        if lhs_type:
+                            if inferred_rhs == "unknown" and not declared_methods:
+                                pass
+                            elif not _types_compatible(lhs_type, inferred_rhs):
+                                errors.append(
+                                    f"- Rule '{rname}': type mismatch in assignment to '{g}': declared '{lhs_type}' but RHS inferred as '{inferred_rhs}'"
+                                )
 
             elif kind == "assign":
                 for tgt in st.get("targets", []):

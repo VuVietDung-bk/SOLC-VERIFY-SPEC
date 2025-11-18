@@ -23,20 +23,30 @@ def main():
     )
     parser.add_argument("file_sol", help="Path to the Solidity file, optionally with a contract name (format: path-to-file.sol:ContractName)")
     parser.add_argument("file_spec", help="Path to the specification file (format: path-to-file.spec)")
-    parser.add_argument("--grammar", default="./parser_certora.lark", help="Path to the .lark grammar")
+    parser.add_argument("--grammar", default=None, help="Path to the .lark grammar (defaults to parser_certora_new.lark)")
     parser.add_argument("--no-run", action="store_true", help="Do not run the solc-verify after generating annotations")
     args = parser.parse_args()
 
     sol_path, target_contract = split_sol_and_contract(args.file_sol)
 
+    # Load spec text for parsing
     print("[1/8] Loading grammar...")
-    with open(args.grammar, "r", encoding="utf-8") as f:
-        grammar_text = f.read()
-    lark = Lark(grammar_text)
+    with open(args.file_spec, "r", encoding="utf-8") as f:
+        spec_text_for_detection = f.read()
+
+    grammar_path = args.grammar
+    if grammar_path is None:
+        # Default to the new simplified grammar
+        grammar_path = "./parser_certora_new.lark"
+
+    def _load_lark(path: str):
+        with open(path, "r", encoding="utf-8") as f:
+            return Lark(f.read())
+    lark = _load_lark(grammar_path)
+    print(f"[1/8] Using grammar: {grammar_path}")
 
     print("[2/8] Parsing spec...")
-    with open(args.file_spec, "r", encoding="utf-8") as f:
-        spec_text = f.read()
+    spec_text = spec_text_for_detection
     try:
         ast = lark.parse(spec_text)
         print(ast.pretty()) # DEBUG

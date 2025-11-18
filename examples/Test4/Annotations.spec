@@ -1,13 +1,10 @@
-methods
+variables
 {
-    function x() external returns (int) envfree;
-    function y() external returns (int) envfree;
-    function add(int) external envfree;
+    int x;
+    int y;
 }
 
 rule modifyXandY(int n) {
-
-    env e;
 
     add(n);
 
@@ -16,5 +13,5 @@ rule modifyXandY(int n) {
 }
 
 invariant equal {
-    assert x() == y();
+    assert x == y;
 }
