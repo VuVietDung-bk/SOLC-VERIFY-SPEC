@@ -186,62 +186,6 @@ class Rule:
             "extra_expr_text": _flatten_tokens_only(extra_expr_node) if extra_expr_node else None,
             "extra_func_calls": extra_func_calls
         }))
-    
-    def to_conditions(self) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
-        preconds_dict: Dict[str, List[str]] = {}
-        postconds_dict: Dict[str, List[str]] = {}
-        for path in self.get_all_paths():
-            pre_func, preconds = self.get_preconditions_from_path(path)
-            if pre_func is not None:
-                if len(preconds_dict[pre_func]) != 0:
-                    print("\033[91mSPEC VALIDATION ERROR:\033[0m")
-                    print(f"Function {pre_func} in rule {self.name} is called more than once")
-                    raise SystemExit(1)
-                preconds_dict[pre_func].append(preconds)
-
-            post_func, postconds = self.get_postconditions_from_path(path)
-            if post_func is not None:
-                if len(postconds_dict[post_func]) != 0:
-                    print("\033[91mSPEC VALIDATION ERROR:\033[0m")
-                    print(f"Function {pre_func} in rule {self.name} is called more than once")
-                    raise SystemExit(1)
-                postconds_dict[post_func].append(postconds)
-        return preconds_dict, postconds_dict
-    
-    # Hàm sinh tất cả path từ đầu đến cuối Rule
-    def get_all_paths(self) -> List[List[Step]]:
-        all_paths: List[List[Step]] = {}
-        return all_paths
-    
-    # Hàm lấy precond từ 1 path
-    def get_preconditions_from_path(steps: List[Step]) -> Tuple[str, List[str]]:
-        func = None
-        preconds: List[str] = {}
-        var_to_value: Dict[str, Any]
-        for step in steps:
-            #Phân tích từng trường hợp
-            break
-        return func, preconds
-    
-    # Hàm lấy postcond từ 1 path
-    def get_postconditions_from_path(steps: List[Step]) -> Tuple[str, List[str]]:
-        func = None
-        postconds: List[str] = {}
-        var_to_value: Dict[str, Any]
-        for step in steps:
-            #Phân tích từng trường hợp
-            break
-        return func, postconds
-    
-    def to_dnf(expr: Tree) -> Tree:
-        return expr
-    
-    def negative(expr: Tree) -> Tree:
-        neg_expr: Tree = []
-        return neg_expr
-    
-    def to_text(expr: Tree) -> str:
-        return _flatten_tokens_only(expr) if expr else None
 
     # === BƯỚC 6: sinh hậu-điều-kiện ===
     def to_postconditions(self) -> List[str]:

@@ -17,10 +17,12 @@ from spec_method import Method, Step
 class Invariant:
     _COMPARE_TOKENS = ["==", "!=", "<=", ">=", "<", ">"]
 
-    def __init__(self, ast_node: Tree, methods: Dict[str, "Method"], sol_symbols: Dict[str, Any]):
+    def __init__(self, ast_node: Tree, methods: Dict[str, "Method"], var_types: Dict[str, Optional[str]], sol_symbols: Dict[str, Any]):
         self.name: str = "<unnamed_invariant>"
         self.steps: List[Step] = []
         self._methods = methods
+        # Map variable name -> declared type string (possibly None)
+        self._var_types = var_types or {}
         self._parse(ast_node, methods, sol_symbols)
 
     def _parse(self, node: Tree, methods: Dict[str, "Method"], sol_symbols: Dict[str, Any]):
@@ -125,6 +127,15 @@ class Invariant:
         if t is None: return None
         s = str(t).strip()
         if not s: return None
+        # If it's a mapping type string, unwrap to the value (right-hand) type.
+        # Supports nested mapping by repeatedly unwrapping.
+        if s.startswith("mapping"):
+            import re
+            while isinstance(s, str) and s.startswith("mapping"):
+                m = re.match(r"^mapping\s*\(\s*(.+?)\s*=>\s*(.+?)\s*\)\s*$", s)
+                if not m:
+                    break
+                s = m.group(2).strip()
         if s == "bool": return "bool"
         if s == "mathint": return "mathint"
         if s.startswith("uint"): return "uint"
@@ -142,6 +153,17 @@ class Invariant:
     def _method_returns_map(methods: Dict[str, Any]) -> Dict[str, Optional[str]]:
         return {m.name: m.returns for m in methods.values() if m.name}
 
+    def _name_to_type_map(self) -> Dict[str, Optional[str]]:
+        """
+        Merge method return types and variable declared types into one name->type map.
+        Variables override methods with the same name.
+        """
+        out = self._method_returns_map(self._methods)
+        # normalize variable type values to strings
+        for n, t in (self._var_types or {}).items():
+            out[n] = t
+        return out
+
     # ---------------- Core ----------------
 
     def _build_invariant_from_assert_step(self, step: Step) -> Optional[str]:
@@ -150,7 +172,7 @@ class Invariant:
         op = self._pick_compare_op(expr_text)
 
         parts: List[str] = []
-        name_to_returns = self._method_returns_map(self._methods)
+        name_to_type = self._name_to_type_map()
 
         for fc in func_calls:
             kind = fc.get("decl_kind")
@@ -163,7 +185,7 @@ class Invariant:
             if kind == "state_var_attr":
                 attr = fc.get("attr")
                 if attr == "sum":
-                    vtyp = name_to_returns.get(name)
+                    vtyp = name_to_type.get(name)
                     sum_fun = self._sum_fun_for_value_type(vtyp)
                     parts.append(f"{sum_fun}({name})")
                 else:
