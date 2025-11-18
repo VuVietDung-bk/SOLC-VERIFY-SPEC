@@ -7,9 +7,9 @@ rule searchTheRightNumber(uint n) {
 
     uint index = find(n);
 
-    assert forall uint i. a(i) != n || i == index;
+    assert forall uint i. a[i] != n || i == index;
 }
 
 invariant sorted {
-    assert forall uint i. forall uint j. i >= j || a(i) < a(j);
+    assert forall uint i. forall uint j. i >= j || a[i] < a[j];
 }

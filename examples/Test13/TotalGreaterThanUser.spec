@@ -20,8 +20,8 @@
 // The methods block below gives various declarations regarding solidity methods.
 variables
 {
-    uint balanceOf;      // balanceOf(address)
-    uint allowance;      // allowance(address,address)
+    mapping (address => uint) balanceOf;      // balanceOf(address)
+    mapping (address => mapping (address => uint)) allowance;      // allowance(address,address)
     uint totalSupply;    // totalSupply()
 }
 
@@ -30,7 +30,7 @@ variables
 rule totalSupplyAfterMint(address account, uint256 amount) {
     mint(account, amount);
     
-    uint256 userBalanceAfter = balanceOf(account);
+    uint256 userBalanceAfter = balanceOf[account];
     uint256 totalAfter = totalSupply;
     
     // Verify that the total supply of the system is at least the current balance of the account.
@@ -44,13 +44,13 @@ rule totalSupplyAfterMint(address account, uint256 amount) {
 rule totalSupplyAfterMintWithPrecondition(address account, uint256 amount) {
     // Assume that in the current state before calling mint, the total supply of the 
     // system is at least the user balance.
-    uint256 userBalanceBefore =  balanceOf(account);
+    uint256 userBalanceBefore =  balanceOf[account];
     uint256 totalBefore = totalSupply;
     require totalBefore >= userBalanceBefore; 
     
     mint(account, amount);
     
-    uint256 userBalanceAfter = balanceOf(account);
+    uint256 userBalanceAfter = balanceOf[account];
     uint256 totalAfter = totalSupply;
     
     // Verify that the total supply of the system is at least the current balance of the account.

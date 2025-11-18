@@ -127,6 +127,15 @@ class Invariant:
         if t is None: return None
         s = str(t).strip()
         if not s: return None
+        # If it's a mapping type string, unwrap to the value (right-hand) type.
+        # Supports nested mapping by repeatedly unwrapping.
+        if s.startswith("mapping"):
+            import re
+            while isinstance(s, str) and s.startswith("mapping"):
+                m = re.match(r"^mapping\s*\(\s*(.+?)\s*=>\s*(.+?)\s*\)\s*$", s)
+                if not m:
+                    break
+                s = m.group(2).strip()
         if s == "bool": return "bool"
         if s == "mathint": return "mathint"
         if s.startswith("uint"): return "uint"

@@ -5,9 +5,17 @@ class Step:
     def __init__(self, kind: str, data: Dict[str, Any]):
         self.kind = kind
         self.data = data
-
+        
     def __repr__(self):
         return f"<Step {self.kind} {self.data}>"
+    
+class Variable:
+    def __init__(self, name: str, vtype: str):
+        self.name = name
+        self.vtype = vtype
+
+    def __repr__(self):
+        return f"<Variable name={self.name} type={self.vtype}>"
     
 class Method:
     def __init__(self,

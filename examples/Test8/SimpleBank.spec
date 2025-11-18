@@ -1,6 +1,6 @@
 variables
 {
-    uint balances; 
+    mapping (address => uint) balances; 
 }
 
 invariant sorted {
