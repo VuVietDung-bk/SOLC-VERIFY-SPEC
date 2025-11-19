@@ -1,5 +1,3 @@
-// Converted to variables-only mode: no methods block needed
-
 rule fifthFibonacciElementIsFive {
     assert fibonacci(5) == 5;
 }

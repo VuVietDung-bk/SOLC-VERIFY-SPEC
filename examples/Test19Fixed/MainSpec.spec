@@ -1,9 +1,3 @@
-/**
- * @title  Native balances Example
- *
- * This is an example specification for using nativeBalances.
- */
-
 variables {
     uint256 currentBid; 
 }

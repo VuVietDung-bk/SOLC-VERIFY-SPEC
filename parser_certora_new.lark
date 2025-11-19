@@ -56,7 +56,8 @@ map_to: mapping | primitive_basic_type | ID
         | ID index?
         | special_var_attribute_call
         | contract_attribute_call
-        | ID attribute
+        | ID index? attribute
+        | "funcCompare(" ID "," STRING_LITERAL ")" -> func_compare_expr
         | function_call
 
 QUANTIFIER: "forall" | "exists"
@@ -123,6 +124,8 @@ MAX_UINT_VAR:
 
 block: statement+
 
+event_call: ID "(" exprs? ")"
+
 statement:  cvl_type ID ("=" expr)? ";"                 -> define_statement
             | "require" expr ("," STRING_LITERAL)? ";"  -> require_statement
             | "assert" expr ("," STRING_LITERAL)? ";"   -> assert_statement
@@ -135,6 +138,8 @@ statement:  cvl_type ID ("=" expr)? ";"                 -> define_statement
 
             | "assert_modify" modify_var ("if" expr)? ("," STRING_LITERAL)? ";" -> assert_modify_statement
             | "assert_revert" ("if" expr)? ("," STRING_LITERAL)? ";" -> assert_revert_statement
+            | "assert_emit" event_call ";"              -> assert_emit_statement
+            | "emits" event_call ";"                         -> emits_statement
 
 modify_var: ID ("." ID)? index?
 

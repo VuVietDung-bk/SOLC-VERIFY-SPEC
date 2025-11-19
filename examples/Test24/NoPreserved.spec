@@ -1,8 +1,3 @@
-// This spec shows the invariant `nonExistTeamHasNoPlayers` cannot be proven without
-// a preserved block.
-// Converted to variables mode: remove methods block (calls remain allowed without declarations)
-
-
 /** @title If a team does not exist it has not players
  *  This invariant cannot be proven without a preserved block.
  */

@@ -1,11 +1,8 @@
-/**
- * # English auction spec - invariants example
- */
 variables
 {
-    address highestBidder; // highestBidder()
-    uint highestBid;       // highestBid()
-    mapping (address => uint) bids;             // bids(address)
+    address highestBidder; 
+    uint highestBid;     
+    mapping (address => uint) bids;         
 }
 
 

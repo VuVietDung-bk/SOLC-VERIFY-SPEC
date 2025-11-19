@@ -1,16 +1,10 @@
-/**
- * @title  Native balances Example
- *
- * This is an example specification for using nativeBalances.
- */
-
-methods {
-    function currentBid() external returns uint256 envfree; 
+variables {
+    uint256 currentBid;
 }
 
 rule bidIncreasesAssets() {
     require(msg.sender != contract.address);
-    require(msg.value > currentBid() );
+    require(msg.value > currentBid);
     uint256 balanceBefore = contract.balance;
     bid();
     assert contract.balance > balanceBefore;

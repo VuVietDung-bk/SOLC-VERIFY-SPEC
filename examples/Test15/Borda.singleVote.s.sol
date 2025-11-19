@@ -16,7 +16,8 @@ contract Borda is IBorda{
     // current maximum points of all candidates.
     uint256 public pointsOfWinner;
 
-    /// @notice postcondition !__verifier_old_bool(_voted[msg.sender]) || false
+    /// @notice precondition _voted[msg.sender]
+    /// @notice postcondition false
     function vote(address f, address s, address t) public override {
         require(!_voted[msg.sender], "this voter has already cast its vote");
         require( f != s && f != t && s != t, "candidates are not different");

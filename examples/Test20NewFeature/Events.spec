@@ -1,3 +1,7 @@
+variables {
+    mapping(address=>Entry) entries;
+}
+
 rule addSpec(int x) {
     add(x);
     assert_emit new_entry(msg.sender, value);
@@ -19,7 +23,7 @@ rule emitNewEntry(){
     int x;
     require(!entries[a].set);
     emits new_entry(msg.sender, x);
-    assert entries[a].set && entries[a].data == x
+    assert entries[a].set && entries[a].data == x;
 }
 
 rule emitUpdateEntry(){
@@ -27,5 +31,5 @@ rule emitUpdateEntry(){
     int x;
     require(entries[a].set && entries[a].data < x);
     emits update_entry(msg.sender, x);
-    assert entries[a].set && entries[a].data == x
+    assert entries[a].set && entries[a].data == x;
 }

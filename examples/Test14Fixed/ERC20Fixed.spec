@@ -1,28 +1,23 @@
-/*
- * ERC20 Example
- * -------------
- */
-
- methods {
-    // envfree functions 
-    function totalSupply() external returns uint256 envfree;
-    function balanceOf(address) external returns uint256 envfree;
-    function allowance(address,address) external returns uint256 envfree;
-    function _owner() external returns address envfree;
+variables
+{
+    mapping (address => uint) _balances;      
+    mapping (address => mapping (address => uint)) _allowances;      
+    uint _totalSupply;  
+    address _owner;
 }
 
 
-// @title Checks that `transferFrom()`  decreases allowance of `e.msg.sender`
+// @title Checks that `transferFrom()`  decreases allowance of `msg.sender`
 rule integrityOfTransferFrom(address sender, address recipient, uint256 amount) {
-    env e;
+    
     
     require sender != recipient;
     require amount != 0;
 
 
-    uint256 allowanceBefore = allowance(sender, e.msg.sender);
-    transferFrom(e, sender, recipient, amount);
-    uint256 allowanceAfter = allowance(sender, e.msg.sender);
+    uint256 allowanceBefore = _allowances[sender][msg.sender];
+    transferFrom(sender, recipient, amount);
+    uint256 allowanceAfter = _allowances[sender][msg.sender];
     
     assert (
         allowanceBefore > allowanceAfter
@@ -31,7 +26,7 @@ rule integrityOfTransferFrom(address sender, address recipient, uint256 amount) 
 }
 
 /*
-    Given addresses [e.msg.sender], [from], [to] and [thirdParty], we check that 
+    Given addresses [msg.sender], [from], [to] and [thirdParty], we check that 
     there is no method [f] that would:
     1] not take [thirdParty] as an input argument, and
     2] yet changed the balance of [thirdParty].
@@ -39,40 +34,40 @@ rule integrityOfTransferFrom(address sender, address recipient, uint256 amount) 
     changes the balance of [thirdParty]. 
 */
 rule doesNotAffectAThirdPartyBalance(method f) {
-    env e;  
+      
     address from;
     address to;
     address thirdParty;
 
     require (thirdParty != from) && (thirdParty != to);
 
-    uint256 thirdBalanceBefore = balanceOf(thirdParty);
+    uint256 thirdBalanceBefore = _balances[thirdParty];
     
     uint256 amount;
 
-    if (f.selector == sig:transfer(address, uint256).selector) {
-        require e.msg.sender == from;
-        transfer(e, to, amount);
-    } else if (f.selector == sig:allowance(address, address).selector) {
-        allowance(e, from, to);
-    } else if (f.selector == sig:approve(address, uint256).selector) {
-        approve(e, to, amount);
-    } else if (f.selector == sig:transferFrom(address, address, uint256).selector) {
-        transferFrom(e, from, to, amount);
-    } else if (f.selector == sig:increaseAllowance(address, uint256).selector) {
-        increaseAllowance(e, to, amount);
-    } else if (f.selector == sig:decreaseAllowance(address, uint256).selector) {
-        decreaseAllowance(e, to, amount);
-    } else if (f.selector == sig:mint(address, uint256).selector) {
-        mint(e, to, amount);
-    } else if (f.selector == sig:burn(address, uint256).selector) {
-        burn(e, from, amount);
+    if (funcCompare(f, "transfer")) {
+        require msg.sender == from;
+        transfer(to, amount);
+    } else if (funcCompare(f, "allowance")) {
+        allowance(from, to);
+    } else if (funcCompare(f, "approve")) {
+        approve(to, amount);
+    } else if (funcCompare(f, "transferFrom")) {
+        transferFrom(from, to, amount);
+    } else if (funcCompare(f, "increaseAllowance")) {
+        increaseAllowance(to, amount);
+    } else if (funcCompare(f, "decreaseAllowance")) {
+        decreaseAllowance(to, amount);
+    } else if (funcCompare(f, "mint")) {
+        mint(to, amount);
+    } else if (funcCompare(f, "burn")) {
+        burn(from, amount);
     } else {
         calldataarg args;
-        f(e, args);
+        f(args);
     }
 
-    assert balanceOf(thirdParty) == thirdBalanceBefore;
+    assert _balances[thirdParty] == thirdBalanceBefore;
 }
 
 
@@ -86,29 +81,30 @@ rule doesNotAffectAThirdPartyBalance(method f) {
  * `f.selector` to specify the functions that may change the balance.
  */
 rule balanceChangesFromCertainFunctions(method f, address user){
-    env e;
+    
     calldataarg args;
-    uint256 userBalanceBefore = balanceOf(user);
-    f(e, args);
-    uint256 userBalanceAfter = balanceOf(user);
+    uint256 userBalanceBefore = _balances[user];
+    f(args);
+    uint256 userBalanceAfter = _balances[user];
 
-    assert (
-        userBalanceBefore != userBalanceAfter => 
+    assert(
+        userBalanceBefore != userBalanceAfter =>
         (
-            f.selector == sig:transfer(address, uint256).selector ||
-            f.selector == sig:transferFrom(address, address, uint256).selector ||
-            f.selector == sig:mint(address, uint256).selector ||
-            f.selector == sig:burn(address, uint256).selector)
+            funcCompare(f, "transfer") ||
+            funcCompare(f, "transferFrom") ||
+            funcCompare(f, "mint") ||
+            funcCompare(f, "burn")
         ),
-        "user's balance changed as a result function other than transfer(), transferFrom(), mint() or burn()";
+        "user's balance changed as a result function other than transfer(), transferFrom(), mint() or burn()"
+    );
 }
 
 
 rule onlyOwnersMayChangeTotalSupply(method f) {
-    env e;
-    uint256 totalSupplyBefore = totalSupply();
+    
+    uint256 totalSupplyBefore = _totalSupply;
     calldataarg args;
-    f(e,args);
-    uint256 totalSupplyAfter = totalSupply();
-    assert totalSupplyAfter != totalSupplyBefore => e.msg.sender == _owner() ;
+    f(args);
+    uint256 totalSupplyAfter = _totalSupply;
+    assert totalSupplyAfter != totalSupplyBefore => msg.sender == _owner ;
 }
