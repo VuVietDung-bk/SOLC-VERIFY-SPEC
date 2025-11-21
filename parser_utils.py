@@ -395,8 +395,6 @@ UNARY_PRECEDENCE = 9
 
 UNARY_PRECEDENCE = 7
 
-from lark import Tree, Token
-
 def fmt(node):
     if isinstance(node, Token):
         return node.value, 100
@@ -501,15 +499,20 @@ def fmt(node):
             mp = max(mp, p)
         return " ".join(parts), mp
     
-    if node.data == "expr":
+    if node.data == "expr" or node.data == "modify_var":
         if len(node.children) == 2 and isinstance(node.children[0], Token) and node.children[0].type == "ID" and isinstance(node.children[1], Tree) and node.children[1].data == "index":
             base_txt, _ = fmt(node.children[0])
             idx_txt, _ = fmt(node.children[1])
             return f"{base_txt}{idx_txt}", 100
         if len(node.children) == 2 and isinstance(node.children[0], Token) and node.children[0].type == "ID" and isinstance(node.children[1], Tree) and node.children[1].data == "attribute":
             base_txt, _ = fmt(node.children[0])
+            attr_txt, _ = fmt(node.children[1])
+            return f"{base_txt}{attr_txt}", 100
+        if len(node.children) == 3 and isinstance(node.children[0], Token) and node.children[0].type == "ID" and isinstance(node.children[1], Tree) and node.children[1].data == "index" and isinstance(node.children[2], Tree) and node.children[2].data == "attribute":
+            base_txt, _ = fmt(node.children[0])
             idx_txt, _ = fmt(node.children[1])
-            return f"{base_txt}{idx_txt}", 100
+            attr_txt, _ = fmt(node.children[2])
+            return f"{base_txt}{idx_txt}{attr_txt}", 100
 
     # ---- wrapper (exprs, literal, general trees) ----
     if len(node.children) == 1:

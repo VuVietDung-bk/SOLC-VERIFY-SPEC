@@ -36,39 +36,70 @@ class Rule:
 
         self._parse(ast_node, methods, sol_symbols)
 
-    def _parse(self, node: Tree, methods: Dict[str, "Method"], sol_symbols: Dict[str, Any]):
-        # --- Rule name ---
-        for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "ID"):
-            self.name = t.value
-            break
-
-        # --- Params ---
-        params_node = next((ch for ch in node.children if isinstance(ch, Tree) and ch.data == "params"), None)
-        if params_node is not None:
+    def _parse(self, node: Tree, methods, sol_symbols):
+        self.name = next(node.scan_values(lambda v: isinstance(v, Token) and v.type == "ID"))
+        params_node = next((c for c in node.children if isinstance(c, Tree) and c.data == "params"), None)
+        if params_node:
             self.params = _extract_rule_params(params_node)
 
-        # --- Steps ---
-        for st in node.iter_subtrees_topdown():
-            if not isinstance(st, Tree):
-                continue
+        # Lấy block chính của rule
+        block_node = next((c for c in node.children if isinstance(c, Tree) and c.data == "block"), None)
+        if block_node:
+            self.steps = self._parse_block(block_node, methods, sol_symbols)
 
-            if st.data == "define_statement":
-                self._handle_define(st, sol_symbols)
-            elif st.data == "funccall_statement":
-                self._handle_call(st, sol_symbols)
-            elif st.data == "assert_statement":
-                self._handle_assert(st, sol_symbols)
-            elif st.data == "require_statement":
-                self._handle_require(st, sol_symbols)
-            elif st.data == "assignment_statement":
-                self._handle_assign(st)
-            elif st.data == "assert_modify_statement":
-                self._handle_assert_modify(st, sol_symbols)
-            elif st.data == "assert_revert_statement":
-                self._handle_assert_revert(st, sol_symbols)
+    def _parse_block(self, block_node: Tree, methods, sol_symbols) -> List[Step]:
+        steps = []
+        for st in block_node.children:
+            if isinstance(st, Tree):
+                result = self._parse_statement(st, methods, sol_symbols)
+                if result:
+                    steps.extend(result)
+
+        return steps
+
+    def _parse_statement(self, st: Tree, methods, sol_symbols) -> List[Step]:
+
+        kind = st.data
+
+        if kind == "define_statement":
+            return [self._handle_define(st, sol_symbols)]
+
+        elif kind == "require_statement":
+            return [self._handle_require(st, sol_symbols)]
+
+        elif kind == "assert_statement":
+            return [self._handle_assert(st, sol_symbols)]
+
+        elif kind == "assignment_statement":
+            return [self._handle_assign(st)]
+
+        elif kind == "funccall_statement":
+            return [self._handle_call(st, sol_symbols)]
+
+        elif kind == "assert_modify_statement":
+            return [self._handle_assert_modify(st, sol_symbols)]
+
+        elif kind == "assert_revert_statement":
+            return [self._handle_assert_revert(st, sol_symbols)]
+
+        elif kind == "assert_emit_statement":
+            return [self._handle_assert_emit(st, sol_symbols)]
+
+        elif kind == "emits_statement":
+            return [self._handle_emits(st, sol_symbols)]
+        
+        elif kind == "ifelse_statement":
+            return [self._parse_ifelse(st, methods, sol_symbols)]
+
+        elif kind == "block_statement":
+            block = next(ch for ch in st.children if isinstance(ch, Tree) and ch.data == "block")
+            return self._parse_block(block, methods, sol_symbols)
+        
+        else:
+            return None
 
     # --- Handlers for each statement type ---
-    def _handle_define(self, st: Tree, sol_symbols: Dict[str, Any]):
+    def _handle_define(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
         chs = list(st.children)
         ghost, ghost_type, rhs_text = None, None, None
         rhs_calls: List[str] = []
@@ -92,7 +123,7 @@ class Rule:
 
         expr_node = next((x for x in chs if isinstance(x, Tree) and x.data in ("expr", "function_call")), None)
         if expr_node:
-            rhs_text = _flatten_expr_with_symbols(expr_node, sol_symbols)
+            rhs_text = to_text(expr_node)
             for fc in expr_node.iter_subtrees_topdown():
                 if isinstance(fc, Tree) and fc.data == "function_call":
                     fname, _ = _get_function_call_info(fc)
@@ -104,14 +135,6 @@ class Rule:
                 if zname:
                     observed = zname
 
-        self.steps.append(Step("define", {
-            "ghost": ghost,
-            "type": ghost_type,
-            "expr": rhs_text,
-            "rhs_calls": rhs_calls,
-            "observed": observed,
-        }, st))
-
         if ghost:
             self.snapshots[ghost] = {
                 "type": ghost_type,
@@ -120,7 +143,15 @@ class Rule:
                 "observed": observed,
             }
 
-    def _handle_call(self, st: Tree, sol_symbols: Dict[str, Any]):
+        return Step("define", {
+            "ghost": ghost,
+            "type": ghost_type,
+            "expr": rhs_text,
+            "rhs_calls": rhs_calls,
+            "observed": observed,
+        }, st)
+
+    def _handle_call(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
         fcall = next((ch for ch in st.children if isinstance(ch, Tree) and ch.data == "function_call"), None)
         if not fcall:
             return
@@ -130,9 +161,9 @@ class Rule:
         exprs_node = next((ch for ch in fcall.children if isinstance(ch, Tree) and ch.data == "exprs"), None)
         fargs = _split_call_args(exprs_node, sol_symbols)
         self.calls.append(fname)
-        self.steps.append(Step("call", {"name": fname, "args": fargs}, st))
+        return Step("call", {"name": fname, "args": fargs}, st)
 
-    def _handle_assert(self, st: Tree, sol_symbols: Dict[str, Any]):
+    def _handle_assert(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
         expr_node, msg = None, None
         for ch in st.children:
             if isinstance(ch, Tree):
@@ -141,13 +172,13 @@ class Rule:
                 msg = ch.value[1:-1]
 
         func_calls = _collect_call_like_from_expr(expr_node, sol_symbols)
-        self.steps.append(Step("assert", {
+        return Step("assert", {
             "expr_text": to_text(expr_node) if expr_node else "",
             "func_calls": func_calls,
             "message": msg
-        }, st))
+        }, st)
 
-    def _handle_require(self, st: Tree, sol_symbols: Dict[str, Any]):
+    def _handle_require(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
         expr_node, msg = None, None
         for ch in st.children:
             if isinstance(ch, Tree):
@@ -156,22 +187,21 @@ class Rule:
                 msg = ch.value[1:-1]
 
         func_calls = _collect_call_like_from_expr(expr_node, sol_symbols)
-        self.steps.append(Step("require", {
+        return Step("require", {
             "expr_text": to_text(expr_node) if expr_node else "",
             "func_calls": func_calls,
             "message": msg
-        }, st))
+        }, st)
 
-    def _handle_assign(self, st: Tree):
+    def _handle_assign(self, st: Tree) -> Step:
         lhs_node = next((ch for ch in st.children if isinstance(ch, Tree) and ch.data == "lhs"), None)
         targets: List[str] = []
         if lhs_node:
             for t in lhs_node.scan_values(lambda v: isinstance(v, Token) and v.type == "ID"):
                 targets.append(t.value)
-        self.steps.append(Step("assign", {"targets": targets}, st))
+        return Step("assign", {"targets": targets}, st)
 
-    def _handle_assert_modify(self, st: Tree, sol_symbols: Dict[str, Any]):
-        print(st)
+    def _handle_assert_modify(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
         
         # Extract condition and message
         extra_expr_node = None
@@ -185,13 +215,13 @@ class Rule:
             elif isinstance(ch, Token) and ch.type == "STRING_LITERAL":
                 message = ch.value[1:-1]  # Remove quotes
 
-        self.steps.append(Step("assert_modify", {
+        return Step("assert_modify", {
             "target": to_text(target_node) if target_node else None,
             "expr_text": to_text(extra_expr_node) if extra_expr_node else None,
             "message": message  # Added message field
-        }, st))
+        }, st)
 
-    def _handle_assert_revert(self, st: Tree, sol_symbols: Dict[str, Any]):
+    def _handle_assert_revert(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
         message = None
         extra_expr_node = None
         
@@ -201,10 +231,76 @@ class Rule:
             elif isinstance(ch, Token) and ch.type == "STRING_LITERAL":
                 message = ch.value[1:-1]
 
-        self.steps.append(Step("assert_revert", {
+        return Step("assert_revert", {
             "expr_text": to_text(extra_expr_node) if extra_expr_node else None,
             "message": message
-        }, st))
+        }, st)
+
+    def _handle_assert_emit(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
+        event_node = next((ch for ch in st.children if isinstance(ch, Tree) and ch.data == "event_call"), None)
+        msg = None
+
+        if not event_node:
+            return
+
+        # Lấy tên event
+        event_name_tok = next(event_node.scan_values(lambda v: isinstance(v, Token) and v.type == "ID"), None)
+        event_name = event_name_tok.value if event_name_tok else None
+
+        # Lấy args
+        exprs_node = next((ch for ch in event_node.children if isinstance(ch, Tree) and ch.data == "exprs"), None)
+        args = _split_call_args(exprs_node, sol_symbols)
+
+        # Optional message
+        for ch in st.children:
+            if isinstance(ch, Token) and ch.type == "STRING_LITERAL":
+                msg = ch.value[1:-1]
+
+        return Step("assert_emit", {
+            "event": event_name,
+            "args": args,
+            "message": msg
+        }, st)
+
+    def _handle_emits(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
+        event_node = next((ch for ch in st.children if isinstance(ch, Tree) and ch.data == "event_call"), None)
+        if not event_node:
+            return
+
+        event_name_tok = next(event_node.scan_values(lambda v: isinstance(v, Token) and v.type == "ID"), None)
+        event_name = event_name_tok.value if event_name_tok else None
+
+        exprs_node = next((ch for ch in event_node.children if isinstance(ch, Tree) and ch.data == "exprs"), None)
+        args = _split_call_args(exprs_node, sol_symbols)
+
+        return Step("emits", {
+            "event": event_name,
+            "args": args,
+        }, st)
+
+    def _parse_ifelse(self, node:Tree, methods, sol_symbols) -> Step:
+        cond_expr = node.children[0]
+        then_stmt = node.children[1]
+        else_stmt = node.children[2] if len(node.children) == 3 else None
+
+        cond_text = to_text(cond_expr)
+
+        then_steps = self._parse_statement(then_stmt, methods, sol_symbols)
+        if not isinstance(then_steps, list):
+            then_steps = [then_steps]
+
+        if else_stmt:
+            else_steps = self._parse_statement(else_stmt, methods, sol_symbols)
+            if not isinstance(else_steps, list):
+                else_steps = [else_steps]
+        else:
+            else_steps = []
+
+        return Step("ifelse", {
+            "cond": cond_text,
+            "then": then_steps,
+            "else": else_steps
+        }, node)
     
     def to_conditions(self) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
         preconds_dict: Dict[str, List[str]] = {}

@@ -54,6 +54,7 @@ def main():
                         if isinstance(ch, Tree):
                             expr_node = ch
                             dnf_node = remove_arrows(expr_node)
+                            print(expr_node)
                             print(to_text(negative(dnf_node)))
                 elif st.data == "require_statement":
                     for ch in st.children:

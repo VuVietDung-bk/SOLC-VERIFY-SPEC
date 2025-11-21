@@ -1,35 +1,35 @@
-variables {
-    mapping(address=>Entry) entries;
+variables
+{
+    uint x;
 }
 
-rule addSpec(int x) {
-    add(x);
-    assert_emit new_entry(msg.sender, value);
-}
+rule xSpec(uint n) {
 
-rule updateSpec(int x) {
-    update(x);
-    assert_emit updated_entry(msg.sender, value);
-}
+    env e;
+    
+    mathint xBefore = x + 1;
 
-rule addOrUpdateSpec(int x) {
-    add_or_update(x);
-    assert_emit new_entry(msg.sender, value);
-    assert_emit updated_entry(msg.sender, value);
-}
+    add_to_x(n);
 
-rule emitNewEntry(){
-    address a;
-    int x;
-    require(!entries[a].set);
-    emits new_entry(msg.sender, x);
-    assert entries[a].set && entries[a].data == x;
-}
+    if (funcCompare(f, "transfer")) {
+        transfer(to, amount);
+    } else if (f == "allowance(address, address)") {
+        allowance(from, to);
+    } else {
+        calldataarg args;
+        f(args);
+    }
 
-rule emitUpdateEntry(){
-    address a;
-    int x;
-    require(entries[a].set && entries[a].data < x);
-    emits update_entry(msg.sender, x);
-    assert entries[a].set && entries[a].data == x;
+    mathint xAfter = x;
+
+    assert 2 * xBefore + 2 <= xAfter || false,
+        "x must increase";
+    assert forall uint256 i. i < arr[i] => !(arr[i] == 71);
+
+    assert_modify x.y if x.y > 0;
+
+    assert_revert if x < 0;
+
+    assert_emit XChanged(xBefore, xAfter);
+    emits XChanged(xBefore, xAfter);
 }

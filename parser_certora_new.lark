@@ -57,11 +57,12 @@ map_to: mapping | primitive_basic_type | ID
         | special_var_attribute_call
         | contract_attribute_call
         | ID index? attribute
-        | "funcCompare(" ID "," STRING_LITERAL ")" -> func_compare_expr
+        | func_compare_expr
         | function_call
 
 QUANTIFIER: "forall" | "exists"
 function_call: (ID ".")? ID "(" exprs? ")"?
+func_compare_expr: "funcCompare(" ID "," STRING_LITERAL ")"
 
 special_var_attribute: SUM | LENGTH
 SUM: "sum"
@@ -141,7 +142,7 @@ statement:  cvl_type ID ("=" expr)? ";"                 -> define_statement
             | "assert_emit" event_call ";"              -> assert_emit_statement
             | "emits" event_call ";"                         -> emits_statement
 
-modify_var: ID ("." ID)? index?
+modify_var: ID index? attribute
 
 lhs : ID ("[" expr "]")? ("," lhs)?
 
@@ -154,9 +155,9 @@ variable_type: cvl_type | mapping
 
 variable_spec: variable_type ID ";"
 
-rule : ("rule")? ID ("(" params? ")")? block
+rule : ("rule")? ID ("(" params? ")")? "{" block "}"
 
-invariant_rule: ("invariant") ID block
+invariant_rule: ("invariant") ID "{" block "}"
 
 // Ignore whitespace
 %import common.WS
