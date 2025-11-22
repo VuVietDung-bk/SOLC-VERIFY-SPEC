@@ -97,15 +97,8 @@ class IR:
     def _parse_invariants(self, ast: Tree, sol_symbols: Dict[str, Any]) -> None:
         for node in ast.iter_subtrees_topdown():
             if isinstance(node, Tree) and node.data == "invariant_rule":
-                # Provide variable types to invariant builder to help choose sum over int/uint
-                # For mappings, pass the value type (map_to) to invariants; otherwise pass the declared type
-                var_types_map = {}
-                for name, var in self.variables.items():
-                    if var.mapping_info:
-                        var_types_map[name] = self._render_type(var.mapping_info.to_type)
-                    else:
-                        var_types_map[name] = var.vtype
-                inv = Invariant(node, var_types_map, sol_symbols)
+                # Pass the full variables dict to invariant for proper type resolution
+                inv = Invariant(node, self.variables, sol_symbols)
                 self.invariants.append(inv)
 
     def __repr__(self):
