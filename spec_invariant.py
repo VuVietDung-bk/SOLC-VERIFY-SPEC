@@ -7,7 +7,7 @@ from parser_utils import (
     _collect_call_like_from_expr
 )
 from typing import Dict, List, Optional, Any
-from spec_method import Method, Step
+from spec_method import Step, Variable, Mapping
 
 '''
     TO-DO:
@@ -17,15 +17,14 @@ from spec_method import Method, Step
 class Invariant:
     _COMPARE_TOKENS = ["==", "!=", "<=", ">=", "<", ">"]
 
-    def __init__(self, ast_node: Tree, methods: Dict[str, "Method"], var_types: Dict[str, Optional[str]], sol_symbols: Dict[str, Any]):
+    def __init__(self, ast_node: Tree, variables: List[Variable], sol_symbols: Dict[str, Any]):
         self.name: str = "<unnamed_invariant>"
         self.steps: List[Step] = []
-        self._methods = methods
         # Map variable name -> declared type string (possibly None)
-        self._var_types = var_types or {}
-        self._parse(ast_node, methods, sol_symbols)
+        self.variables = variables
+        self._parse(ast_node, sol_symbols)
 
-    def _parse(self, node: Tree, methods: Dict[str, "Method"], sol_symbols: Dict[str, Any]):
+    def _parse(self, node: Tree, sol_symbols: Dict[str, Any]):
         # --- Invariant name ---
         inv_name_tok = next((t for t in node.children if isinstance(t, Token) and t.type == "ID"), None)
         if inv_name_tok:
@@ -39,7 +38,7 @@ class Invariant:
             if st.data == "assert_statement":
                 expr_node = st.children[0]
                 if isinstance(expr_node.children[0], Token) and expr_node.children[0].type == "QUANTIFIER":
-                    self.parse_quantifier(expr_node, methods, sol_symbols)
+                    self.parse_quantifier(expr_node, sol_symbols)
                 else:
                     expr_node, msg = None, None
                     for ch in st.children:
@@ -99,7 +98,7 @@ class Invariant:
                 }))
 
 
-    def parse_quantifier(self, node: Tree, methods: Dict[str, "Method"], sol_symbols: Dict[str, Any]):
+    def parse_quantifier(self, node: Tree, sol_symbols: Dict[str, Any]):
         chs = node.iter_subtrees_topdown()
         # parsing the type for the quantifier.
         token_quantifier = next(chs)
@@ -149,20 +148,11 @@ class Invariant:
         if nt == "int": return "__verifier_sum_int"
         return "__verifier_sum_uint"
 
-    @staticmethod
-    def _method_returns_map(methods: Dict[str, Any]) -> Dict[str, Optional[str]]:
-        return {m.name: m.returns for m in methods.values() if m.name}
-
     def _name_to_type_map(self) -> Dict[str, Optional[str]]:
         """
-        Merge method return types and variable declared types into one name->type map.
-        Variables override methods with the same name.
+        Build name->type map from declared variables for invariant expression helpers.
         """
-        out = self._method_returns_map(self._methods)
-        # normalize variable type values to strings
-        for n, t in (self._var_types or {}).items():
-            out[n] = t
-        return out
+        return dict(self._var_types or {})
 
     # ---------------- Core ----------------
 

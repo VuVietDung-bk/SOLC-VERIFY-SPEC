@@ -10,7 +10,7 @@ from parser_utils import (
     _collect_call_like_from_expr,
     to_text
 )
-from spec_method import Method, Step
+from spec_method import Step, Variable, Mapping
 
 """
     TO-DO:
@@ -25,16 +25,17 @@ from spec_method import Method, Step
 """
 
 class Rule:
-    def __init__(self, ast_node: Tree, methods: Dict[str, "Method"], sol_symbols: Dict[str, Any]):
+    def __init__(self, ast_node: Tree, variables: List[Variable], sol_symbols: Dict[str, Any]):
         self.name: str = "<unnamed>"
         self.params: List[Dict[str, str]] = []
         self.steps: List[Step] = []
         self.calls: List[str] = []
         self.snapshots: Dict[str, Dict[str, Any]] = {}
+        self.variables = variables
 
-        self._parse(ast_node, methods, sol_symbols)
+        self._parse(ast_node, sol_symbols)
 
-    def _parse(self, node: Tree, methods, sol_symbols):
+    def _parse(self, node: Tree, sol_symbols):
         self.name = next(node.scan_values(lambda v: isinstance(v, Token) and v.type == "ID"))
         params_node = next((c for c in node.children if isinstance(c, Tree) and c.data == "params"), None)
         if params_node:
@@ -43,19 +44,19 @@ class Rule:
         # Lấy block chính của rule
         block_node = next((c for c in node.children if isinstance(c, Tree) and c.data == "block"), None)
         if block_node:
-            self.steps = self._parse_block(block_node, methods, sol_symbols)
+            self.steps = self._parse_block(block_node, sol_symbols)
 
-    def _parse_block(self, block_node: Tree, methods, sol_symbols) -> List[Step]:
+    def _parse_block(self, block_node: Tree, sol_symbols) -> List[Step]:
         steps = []
         for st in block_node.children:
             if isinstance(st, Tree):
-                result = self._parse_statement(st, methods, sol_symbols)
+                result = self._parse_statement(st, sol_symbols)
                 if result:
                     steps.extend(result)
 
         return steps
 
-    def _parse_statement(self, st: Tree, methods, sol_symbols) -> List[Step]:
+    def _parse_statement(self, st: Tree, sol_symbols) -> List[Step]:
 
         kind = st.data
 
@@ -87,11 +88,11 @@ class Rule:
             return [self._handle_emits(st, sol_symbols)]
         
         elif kind == "ifelse_statement":
-            return [self._parse_ifelse(st, methods, sol_symbols)]
+            return [self._parse_ifelse(st, sol_symbols)]
 
         elif kind == "block_statement":
             block = next(ch for ch in st.children if isinstance(ch, Tree) and ch.data == "block")
-            return self._parse_block(block, methods, sol_symbols)
+            return self._parse_block(block, sol_symbols)
         
         else:
             return None
@@ -276,19 +277,19 @@ class Rule:
             "args": args,
         }, st)
 
-    def _parse_ifelse(self, node:Tree, methods, sol_symbols) -> Step:
+    def _parse_ifelse(self, node:Tree, sol_symbols: Dict[str, Any]) -> Step:
         cond_expr = node.children[0]
         then_stmt = node.children[1]
         else_stmt = node.children[2] if len(node.children) == 3 else None
 
         cond_text = to_text(cond_expr)
 
-        then_steps = self._parse_statement(then_stmt, methods, sol_symbols)
+        then_steps = self._parse_statement(then_stmt, sol_symbols)
         if not isinstance(then_steps, list):
             then_steps = [then_steps]
 
         if else_stmt:
-            else_steps = self._parse_statement(else_stmt, methods, sol_symbols)
+            else_steps = self._parse_statement(else_stmt, sol_symbols)
             if not isinstance(else_steps, list):
                 else_steps = [else_steps]
         else:

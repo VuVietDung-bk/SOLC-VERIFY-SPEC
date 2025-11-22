@@ -1,8 +1,5 @@
 from lark import Tree, Token
-from parser_utils import (
-    _flatten_tokens_only,
-    _extract_param_types_from_pattern
-)
+from parser_utils import _flatten_tokens_only
 from typing import Dict, List, Any, Optional
 from spec_rule import Rule
 from spec_method import Variable, Mapping
@@ -94,7 +91,7 @@ class IR:
     def _parse_rules(self, ast: Tree, sol_symbols: Dict[str, Any]) -> None:
         for node in ast.iter_subtrees_topdown():
             if isinstance(node, Tree) and node.data == "rule":
-                r = Rule(node, self.methods, sol_symbols)
+                r = Rule(node, self.variables, sol_symbols)
                 self.rules.append(r)
     
     def _parse_invariants(self, ast: Tree, sol_symbols: Dict[str, Any]) -> None:
@@ -108,7 +105,7 @@ class IR:
                         var_types_map[name] = self._render_type(var.mapping_info.to_type)
                     else:
                         var_types_map[name] = var.vtype
-                inv = Invariant(node, self.methods, var_types_map, sol_symbols)
+                inv = Invariant(node, var_types_map, sol_symbols)
                 self.invariants.append(inv)
 
     def __repr__(self):
