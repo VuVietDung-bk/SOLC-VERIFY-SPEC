@@ -62,22 +62,16 @@ def write_annotations(sol_in: str, ir: IR, only_contract: Optional[str] = None) 
         shutil.copyfile(sol_in, out_path)
         _rewrite_pragma_to_0_7_0(out_path)
 
-        posts = rule.to_postconditions()
-        post_by_func = {}
-        for fn in rule.calls:
-            if posts:
-                post_by_func.setdefault(fn, [])
-                for p in posts:
-                    if p not in post_by_func[fn]:
-                        post_by_func[fn].append(p)
-
-        target_funcs = sorted(set(list(post_by_func.keys()) + list(preconds.keys())))
+        rule_preconds, rule_postconds = rule.to_conditions()
+        post_by_func = {fn: list(dict.fromkeys(vals)) for fn, vals in rule_postconds.items()}
+        target_funcs = sorted(set(list(post_by_func.keys()) + list(preconds.keys()) + list(rule_preconds.keys())))
         occ = _scan_function_lines_in_file(out_path, target_funcs)
         inserts: List[tuple[int, List[str]]] = []
 
         for fn in target_funcs:
             lines: List[str] = []
-            for pre in preconds.get(fn, []):
+            pre_list = list(dict.fromkeys(preconds.get(fn, []) + rule_preconds.get(fn, [])))
+            for pre in pre_list:
                 lines.append(f"    /// @notice precondition {pre}")
             for post in post_by_func.get(fn, []):
                 lines.append(f"    /// @notice postcondition {post}")

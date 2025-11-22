@@ -6,6 +6,8 @@ contract Example1 {
     uint public y;
 
     /// @notice precondition n >= 0
+    /// @notice precondition n == n
+    /// @notice postcondition temp_postcondition_placeholder
     function add_to_x(uint n) external {
         x = x + n;
         //require(x >= y); // Ensures that there is no overflow

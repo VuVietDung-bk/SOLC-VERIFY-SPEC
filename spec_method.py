@@ -26,23 +26,6 @@ class Variable:
     def __repr__(self):
         return f"<Variable name={self.name} type={self.vtype}>"
     
-class Method:
-    def __init__(self,
-                 name: str,
-                 kind: str,
-                 visibility: Optional[str],
-                 returns: Optional[str],
-                 decl_kind: str,
-                 params: List[str]):
-        self.name = name
-        self.kind = kind
-        self.visibility = visibility
-        self.returns = returns
-        self.decl_kind = decl_kind  # "function" | "state_var" | "unknown"
-        self.params = params
-
-    def __repr__(self) -> str:
-        return f"<Method name={self.name} kind={self.kind} returns={self.returns} decl={self.decl_kind}>"
 #python3 solc-verify-spec.py examples/Test3/test3.sol:Example3 examples/Test3/test3.spec
 #python3 solc-verify-spec.py examples/Test4/Annotations.sol:C examples/Test4/Annotations.spec
 #python3 solc-verify-spec.py examples/Test5/BecToken.sol:BecToken examples/Test5/BecToken.spec

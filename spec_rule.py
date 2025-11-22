@@ -20,10 +20,8 @@ from spec_method import Method, Step
     - TO-DO-1: Observe tất cả các loại call state_var. Nếu là function call thì observe biến return value của hàm
     - Xử lý chỗ verifier_old_uint trong assert, phải so sánh vị trí define snapshot với vị trí của function call (hiện tại đang so sánh 2 vị trí với nhau)
     - Câu lệnh forall exist
-    - assert_modify_statement, emits_statement, assert_revert_statement
     - Chỉnh lại phần snapshot để ghi nhớ những biến được truyền vào hàm.
     - Xử lý cú pháp if-else bằng cách tạo một hàm biến cú pháp if-else thành List[List[Step]], đồng thời ghi nhận điều kiện rẽ nhánh tương tự một require statement
-    - Tìm cách tối ưu xây dựng cú pháp và xử lý rẽ nhánh dựa trên chữ ký hàm (f.selector == sig:transfer(address, uint256).selector)
 """
 
 class Rule:
@@ -302,46 +300,176 @@ class Rule:
             "else": else_steps
         }, node)
     
-    def to_conditions(self) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
-        preconds_dict: Dict[str, List[str]] = {}
-        postconds_dict: Dict[str, List[str]] = {}
-        for path in self.get_all_paths():
-            pre_func, preconds = self.get_preconditions_from_path(path)
-            if pre_func is not None:
-                if pre_func not in preconds_dict:
-                    preconds_dict[pre_func] = []
-                preconds_dict[pre_func].append(preconds)
-            post_func, postconds = self.get_postconditions_from_path(path)
-            if post_func is not None:
-                if post_func not in preconds_dict:
-                    preconds_dict[pre_func] = []
-                postconds_dict[post_func].append(postconds)
-        return preconds_dict, postconds_dict
-    
     # Hàm sinh tất cả path từ đầu đến cuối Rule
     def get_all_paths(self) -> List[List[Step]]:
         all_paths: List[List[Step]] = []
+        # DFS qua danh sách step, bung rộng if-else thành các path tuyến tính
+        def _normalize(seq):
+            """Đảm bảo seq là List[Step] phẳng."""
+            if seq is None:
+                return []
+            if isinstance(seq, list):
+                out = []
+                for s in seq:
+                    if isinstance(s, list):
+                        out.extend(_normalize(s))
+                    else:
+                        out.append(s)
+                return out
+            return [seq]
+
+        def _dfs(remaining: List[Step], acc: List[Step]):
+            if not remaining:
+                all_paths.append(list(acc))
+                return
+
+            cur, rest = remaining[0], remaining[1:]
+            if cur.kind == "ifelse":
+                from copy import deepcopy
+                from logic_utils import negative
+
+                cond_text = cur.data.get("cond", "")
+                then_steps = _normalize(cur.data.get("then"))
+                else_steps = _normalize(cur.data.get("else"))
+
+                cond_node = None
+                if isinstance(cur.node, Tree) and cur.node.children:
+                    cond_node = cur.node.children[0]
+
+                then_node = Tree("require_statement", [deepcopy(cond_node)]) if cond_node else cur.node
+                # Nhánh then: yêu cầu điều kiện đúng
+                then_require = Step("require", {
+                    "expr_text": cond_text,
+                    "func_calls": [],
+                    "message": None
+                }, then_node)
+                _dfs(then_steps + rest, acc + [then_require])
+
+                # Nhánh else: điều kiện sai
+                neg_expr = negative(deepcopy(cond_node)) if cond_node else None
+                else_cond = to_text(neg_expr) if neg_expr is not None else ""
+                else_node = Tree("require_statement", [neg_expr]) if neg_expr is not None else cur.node
+                else_require = Step("require", {
+                    "expr_text": else_cond,
+                    "func_calls": [],
+                    "message": None
+                }, else_node)
+                _dfs(else_steps + rest, acc + [else_require])
+            else:
+                _dfs(rest, acc + [cur])
+
+        _dfs(self.steps, [])
         return all_paths
     
     # Hàm lấy precond từ 1 path
-    def get_preconditions_from_path(self, steps: List[Step]) -> Tuple[str, List[str]]:
-        func = None
+    def get_preconditions_from_path(self, steps: List[Step]) -> Dict[str, List[str]]:
+        import re
+        # Khởi tạo map biến → giá trị đại diện
+        var_to_value: Dict[str, Optional[str]] = {}
+        for p in self.params:
+            if isinstance(p, dict) and p.get("name"):
+                var_to_value[p["name"]] = None
+
         preconds: List[str] = []
-        var_to_value: Dict[str, Any]
+        func_name: Optional[str] = None
+        unknown_call = False
+
+        def _subst(text: Optional[str]) -> Optional[str]:
+            if text is None:
+                return None
+            out = text
+            for v, val in var_to_value.items():
+                if val is None:
+                    continue
+                out = re.sub(rf"\\b{re.escape(v)}\\b", val, out)
+            return out
+
         for step in steps:
-            #Phân tích từng trường hợp
-            break
-        return func, preconds
+            if step.kind == "define":
+                ghost = step.data.get("ghost")
+                expr = step.data.get("expr")
+                if not ghost:
+                    continue
+                if ghost in var_to_value:
+                    raise SystemExit(f"[ERROR] Variable '{ghost}' declared twice in rule '{self.name}'.")
+                var_to_value[ghost] = _subst(expr)
+
+            elif step.kind == "assign":
+                for tgt in step.data.get("targets", []):
+                    if tgt in var_to_value:
+                        raise SystemExit(f"[ERROR] Variable '{tgt}' assigned after declaration in rule '{self.name}'.")
+                    var_to_value[tgt] = None
+
+            elif step.kind == "require":
+                expr_text = step.data.get("expr_text") or ""
+                expr_subst = _subst(expr_text)
+                if expr_subst:
+                    preconds.append(expr_subst)
+
+            elif step.kind == "call":
+                name = step.data.get("name")
+                args = step.data.get("args", [])
+                if func_name is None:
+                    func_name = name
+                elif name != func_name:
+                    raise SystemExit(f"[ERROR] Multiple function calls detected in one path of rule '{self.name}'.")
+
+                if name and name not in self.calls:
+                    unknown_call = True
+
+                # ghép đối số với params (nếu có) để tạo precondition n == arg
+                param_names = [p.get("name") for p in self.params if isinstance(p, dict) and p.get("name")]
+                for idx, arg in enumerate(args):
+                    if idx >= len(param_names):
+                        break
+                    resolved_arg = _subst(arg) or arg
+                    preconds.append(f"{param_names[idx]} == {resolved_arg}")
+
+        if func_name is None:
+            return {}
+
+        preconds = list(dict.fromkeys(preconds))
+
+        if unknown_call:
+            # ghi nhận để xử lý sau (không thay đổi key để không phá namespace)
+            self._has_unknown_call = True
+
+        return {func_name: preconds}
     
     # Hàm lấy postcond từ 1 path
-    def get_postconditions_from_path(self, steps: List[Step]) -> Tuple[str, List[str]]:
-        func = None
+    def get_postconditions_from_path(self, steps: List[Step]) -> Dict[str, List[str]]:
+        func = "None"
         postconds: List[str] = []
         var_to_value: Dict[str, Any]
         for step in steps:
             #Phân tích từng trường hợp
             break
-        return func, postconds
+        return {func: postconds}
+    
+    def to_conditions(self) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
+        """
+        Thu thập pre/post theo mọi path, dựa trên dict đầu ra của
+        get_preconditions_from_path và get_postconditions_from_path.
+        """
+        preconds_dict: Dict[str, List[str]] = {}
+        postconds_dict: Dict[str, List[str]] = {}
+
+        for path in self.get_all_paths():
+            path_pre = self.get_preconditions_from_path(path) or {}
+            for fn, conds in path_pre.items():
+                bucket = preconds_dict.setdefault(fn, [])
+                for c in conds:
+                    if c not in bucket:
+                        bucket.append(c)
+
+            path_post = self.get_postconditions_from_path(path) or {}
+            for fn, conds in path_post.items():
+                bucket = postconds_dict.setdefault(fn, [])
+                for c in conds:
+                    if c not in bucket:
+                        bucket.append(c)
+
+        return preconds_dict, postconds_dict
 
     # === BƯỚC 6: sinh hậu-điều-kiện ===
     def to_postconditions(self) -> List[str]:
