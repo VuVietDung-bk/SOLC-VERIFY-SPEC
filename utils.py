@@ -68,7 +68,8 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
       {
         "functions": {name1, name2, ...},        # tên function public/external/internal,... trong contract chọn
         "state_vars": {var1, var2, ...},         # tên state variables (kể cả mapping) trong contract chọn
-        "functions_returns": {fname: [ret1, ret2, ...]}
+        "functions_returns": {fname: [ret1, ret2, ...]},
+        "functions_params": {fname: [param1, param2, ...]}
       }
     Nếu only_contract=None → gộp từ tất cả contract trong file.
     """
@@ -76,6 +77,7 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
     functions: Set[str] = set()
     state_vars: Set[str] = set()
     functions_returns: Dict[str, list] = {}
+    functions_params: Dict[str, List[str]] = {}
 
     def _collect_from_contract(c):
         # State vars
@@ -85,6 +87,14 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
         for f in c.functions:
             # Dùng f.name (không bao gồm signature) vì trong spec cũng viết theo tên
             functions.add(f.name)
+            # Params
+            params = []
+            for p in getattr(f, "parameters", []):
+                pname = getattr(p, "name", None)
+                if pname:
+                    params.append(pname)
+            if params:
+                functions_params[f.name] = params
             rets = []
             for r in getattr(f, "returns", getattr(f, "return_parameters", [])):
                 rname = getattr(r, "name", None)
@@ -110,7 +120,12 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
         for c in sl.contracts:
             _collect_from_contract(c)
 
-    return {"functions": functions, "state_vars": state_vars, "functions_returns": functions_returns}
+    return {
+        "functions": functions,
+        "state_vars": state_vars,
+        "functions_returns": functions_returns,
+        "functions_params": functions_params,
+    }
 
 
 def split_sol_and_contract(arg: str) -> Tuple[str, Optional[str]]:

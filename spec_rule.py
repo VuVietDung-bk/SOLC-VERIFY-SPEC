@@ -136,8 +136,8 @@ class Rule:
                     observed = zname
         else :
             print(chs)
-            id_node: Token = chs[2]
-            rhs_text = id_node.value
+            id_node: Token = chs[2] if len(chs) >=3 else None
+            rhs_text = id_node.value if id_node else ""
 
         if ghost:
             self.snapshots[ghost] = {
@@ -406,6 +406,7 @@ class Rule:
                 var_to_value[p["name"]] = None
 
         preconds: List[str] = []
+        require_steps: List[Step] = []
         func_name: Optional[str] = None
         unknown_call = False
 
@@ -458,7 +459,7 @@ class Rule:
                 if len(node.children) >= 3:
                     id_node: Token = node.children[2]
                     return id_node
-                else:
+                elif node.data == "assign_statement" and len(node.children) >= 2:
                     id_node: Token = node.children[1]
                     return id_node
             return rhs
@@ -467,9 +468,12 @@ class Rule:
             node = step.node
             if not isinstance(node, Tree):
                 return None
+            print(node)
             for ch in node.children:
                 if isinstance(ch, Tree):
                     return ch
+                if isinstance(ch, Token) and ch.type == "ID":
+                    return Tree("expr", [Token(ch.type, ch.value)])
             return None
 
         def _call_names(expr_node: Optional[Tree]) -> List[str]:
@@ -600,11 +604,7 @@ class Rule:
             elif step.kind == "require":
                 if func_name is not None:
                     raise SystemExit(f"\033[91m[ERROR] All require statements must appear before function calls in rule '{self.name}'.\033[0m")
-                expr_node = _require_expr_from_step(step)
-                expr_subst = _subst_expr(expr_node)
-                expr_text = to_text(expr_subst or expr_node) if (expr_subst or expr_node) else ""
-                if expr_text:
-                    preconds.append(expr_text)
+                require_steps.append(step)
 
             elif step.kind == "call":
                 name = step.data.get("name")
@@ -617,15 +617,48 @@ class Rule:
                 if name and name not in sol_declared_funcs:
                     unknown_call = True
 
-                # ghép đối số với params (nếu có) để tạo precondition n == arg
-                param_names = [p.get("name") for p in self.params if isinstance(p, dict) and p.get("name")]
-                for idx, arg in enumerate(args):
+                # ghép đối số với params của hàm được gọi (lấy từ sol_symbols nếu có)
+                fn_params_map = self.sol_symbols.get("functions_params", {}) if isinstance(self.sol_symbols, dict) else {}
+                param_names = fn_params_map.get(name, []) if isinstance(fn_params_map, dict) else []
+                def _is_const(s: Optional[str]) -> bool:
+                    if s is None:
+                        return False
+                    s = s.strip()
+                    return bool(re.fullmatch(r"\d+", s)) or s in ("true", "false") or (len(s) >= 2 and s[0] == "\"" and s[-1] == "\"")
+
+                rendered_args: List[Optional[str]] = []
+                for arg in args:
+                    ra = _subst_text(arg)
+                    if ra is None and arg in var_to_value and var_to_value[arg] is not None:
+                        ra = _render_val(var_to_value[arg])
+                    rendered_args.append(ra or arg)
+
+                # Nếu cùng một biểu thức truyền cho nhiều param (vd f(n,n)) → thêm a==b
+                for i in range(len(rendered_args)):
+                    for j in range(i + 1, len(rendered_args)):
+                        if i >= len(param_names) or j >= len(param_names):
+                            continue
+                        if rendered_args[i] == rendered_args[j]:
+                            preconds.append(f"{param_names[i]} == {param_names[j]}")
+
+                for idx, arg in enumerate(rendered_args):
                     if idx >= len(param_names):
                         break
-                    resolved_arg = _subst_text(arg) or arg
-                    preconds.append(f"{param_names[idx]} == {resolved_arg}")
+                    if arg is not None and (arg != args[idx] or _is_const(arg)):
+                        preconds.append(f"{param_names[idx]} == {arg}")
+
+                for idx, arg in enumerate(args):
+                    if var_to_value[arg] is None:
+                        var_to_value[arg] = Token("ID", param_names[idx])
 
         print(var_to_value)
+
+        for step in require_steps:
+            expr_node = _require_expr_from_step(step)
+            expr_subst = _subst_expr(expr_node)
+            expr_text = to_text(expr_subst or expr_node) if (expr_subst or expr_node) else ""
+            if expr_text:
+                preconds.append(expr_text)
 
         if func_name is None:
             return {}
@@ -672,107 +705,6 @@ class Rule:
                         bucket.append(c)
 
         return preconds_dict, postconds_dict
-
-    # === BƯỚC 6: sinh hậu-điều-kiện ===
-    def to_postconditions(self) -> List[str]:
-        posts: List[str] = []
-
-        # --- A) Mapping-like assertions ---
-        def _resolve_arg(a: str) -> str:
-            info = self.snapshots.get(a)
-            if isinstance(info, dict):
-                et = info.get("expr_text")
-                if et:
-                    return et
-            return a
-
-        for st in self.steps:
-            if st.kind != "assert":
-                continue
-            for fc in st.data.get("func_calls", []):
-                if fc.get("decl_kind") == "state_var":
-                    name = fc.get("name")
-                    args = fc.get("args", [])
-                    if not name:
-                        continue
-                    if len(args) == 0:
-                        posts.append(f"{name}")
-                    elif len(args) == 1:
-                        resolved = [_resolve_arg(a) for a in args]
-                        posts.append(f"{name}[{', '.join(resolved)}]")
-                    else:
-                        resolved = [_resolve_arg(a) for a in args]
-                        posts.append(f"{name}[" + "][".join(resolved) + "]")
-
-        # --- B) Relational/delta assertions ---
-        simple_snaps: Dict[str, str] = {}
-        for g, info in self.snapshots.items():
-            if isinstance(info, dict) and info.get("observed"):
-                simple_snaps[g] = info["observed"]
-
-        for st in self.steps:
-            if st.kind != "assert":
-                continue
-            expr = st.data.get("expr_text", "") or st.data.get("text", "") or ""
-            eq = self._infer_total_change_post(expr, simple_snaps)
-            if eq:
-                posts.append(eq)
-                continue
-            rel = self._infer_rel_post(expr, simple_snaps)
-            if rel:
-                posts.append(rel)
-
-        # unique giữ thứ tự
-        seen, out = set(), []
-        for p in posts:
-            if p not in seen:
-                seen.add(p)
-                out.append(p)
-        return out
-
-    # === helpers (private) ===
-    @staticmethod
-    def _infer_total_change_post(assert_text: str, snapshots: Dict[str, str]) -> Optional[str]:
-        s = assert_text.strip()
-        if "==" not in s:
-            return None
-        left, right = [p.strip() for p in s.split("==", 1)]
-
-        def parse_minus(expr: str) -> Optional[Tuple[str, str]]:
-            if " - " not in expr:
-                return None
-            a, b = expr.split(" - ", 1)
-            a, b = a.strip(), b.strip()
-            if a in snapshots:
-                return snapshots[a], b
-            return None
-
-        if left in snapshots:
-            pr = parse_minus(right)
-            if pr and pr[0] == snapshots[left]:
-                obs, expr_total = pr
-                return f"__verifier_old_uint({obs}) == {obs} - {expr_total}"
-        if right in snapshots:
-            pl = parse_minus(left)
-            if pl and pl[0] == snapshots[right]:
-                obs, expr_total = pl
-                return f"{obs} - {expr_total} == __verifier_old_uint({obs})"
-        return None
-
-    @staticmethod
-    def _infer_rel_post(assert_text: str, snapshots: Dict[str, str]) -> Optional[str]:
-        s = assert_text.strip()
-        ops = ["<=", ">=", "==", "!=", "<", ">"]
-        op = next((o for o in ops if f" {o} " in s), None)
-        if not op:
-            return None
-        left, right = [p.strip() for p in s.split(f" {op} ", 1)]
-        if left not in snapshots or right not in snapshots:
-            return None
-        obsL, obsR = snapshots[left], snapshots[right]
-        if obsL != obsR:
-            return None
-        return f"__verifier_old_uint({obsL}) {op} {obsR}"
     
     def __repr__(self):
         return f"<Rule name={self.name} steps={len(self.steps)} snapshots={self.snapshots}>"

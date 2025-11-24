@@ -6,9 +6,6 @@ variables
 
 rule xSpec(uint n) {
 
-    mathint xBefore = x;
-    require xBefore;
-
     setNextIndex(n);
 
     mathint xAfter = x;
