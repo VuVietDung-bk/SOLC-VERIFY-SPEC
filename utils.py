@@ -1,5 +1,5 @@
 import os, re
-from typing import Dict, List, Set, Optional, Tuple
+from typing import Dict, List, Set, Optional, Tuple, Any
 from slither.slither import Slither
 from slither.core.declarations import Function as SlitherFunction
 
@@ -62,18 +62,20 @@ def build_call_graph(sol_file: str) -> Dict[str, List[str]]:
             graph[src_name] = sorted(set(callees))
     return graph
 
-def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dict[str, Set[str]]:
+def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dict[str, Any]:
     """
     Trả về bảng symbol để render biểu thức:
       {
         "functions": {name1, name2, ...},        # tên function public/external/internal,... trong contract chọn
-        "state_vars": {var1, var2, ...}          # tên state variables (kể cả mapping) trong contract chọn
+        "state_vars": {var1, var2, ...},         # tên state variables (kể cả mapping) trong contract chọn
+        "functions_returns": {fname: [ret1, ret2, ...]}
       }
     Nếu only_contract=None → gộp từ tất cả contract trong file.
     """
     sl = Slither(os.path.abspath(sol_file))
     functions: Set[str] = set()
     state_vars: Set[str] = set()
+    functions_returns: Dict[str, list] = {}
 
     def _collect_from_contract(c):
         # State vars
@@ -83,6 +85,16 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
         for f in c.functions:
             # Dùng f.name (không bao gồm signature) vì trong spec cũng viết theo tên
             functions.add(f.name)
+            rets = []
+            for r in getattr(f, "returns", getattr(f, "return_parameters", [])):
+                rname = getattr(r, "name", None)
+                if rname:
+                    rets.append(rname)
+            if rets:
+                functions_returns.setdefault(f.name, [])
+                for r in rets:
+                    if r not in functions_returns[f.name]:
+                        functions_returns[f.name].append(r)
         # Modifiers cũng là callable theo Slither; thêm vào nếu cần phân biệt
         for m in getattr(c, "modifiers", []):
             functions.add(m.name)
@@ -98,7 +110,7 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
         for c in sl.contracts:
             _collect_from_contract(c)
 
-    return {"functions": functions, "state_vars": state_vars}
+    return {"functions": functions, "state_vars": state_vars, "functions_returns": functions_returns}
 
 
 def split_sol_and_contract(arg: str) -> Tuple[str, Optional[str]]:

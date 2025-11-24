@@ -1,3 +1,5 @@
+import re
+from copy import deepcopy
 from typing import List, Dict, Any, Optional, Tuple
 from lark import Tree, Token
 from parser_utils import (
@@ -7,8 +9,7 @@ from parser_utils import (
     _split_call_args,
     _flatten_expr_with_symbols,
     to_text,
-    _collect_call_like_from_expr,
-    to_text
+    _collect_call_like_from_expr
 )
 from spec_method import Step, Variable, Mapping
 
@@ -29,8 +30,8 @@ class Rule:
         self.name: str = "<unnamed>"
         self.params: List[Dict[str, str]] = []
         self.steps: List[Step] = []
-        self.calls: List[str] = []
         self.snapshots: Dict[str, Dict[str, Any]] = {}
+        self.sol_symbols = sol_symbols
         self.variables = variables
 
         self._parse(ast_node, sol_symbols)
@@ -120,7 +121,6 @@ class Rule:
         if ghost_tok:
             ghost = ghost_tok.value
 
-        print(chs)
         expr_node = next((x for x in chs if isinstance(x, Tree) and x.data in ("expr", "logic_bi_expr", "bi_expr", "unary_expr", "function_call")), None)
         if expr_node:
             rhs_text = to_text(expr_node)
@@ -135,6 +135,7 @@ class Rule:
                 if zname:
                     observed = zname
         else :
+            print(chs)
             id_node: Token = chs[2]
             rhs_text = id_node.value
 
@@ -163,7 +164,6 @@ class Rule:
             return
         exprs_node = next((ch for ch in fcall.children if isinstance(ch, Tree) and ch.data == "exprs"), None)
         fargs = _split_call_args(exprs_node, sol_symbols)
-        self.calls.append(fname)
         return Step("call", {"name": fname, "args": fargs}, st)
 
     def _handle_assert(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
@@ -180,15 +180,17 @@ class Rule:
         }, st)
 
     def _handle_require(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
-        expr_node, msg = None, None
+        expr_node, msg, id_text = None, None, None
         for ch in st.children:
             if isinstance(ch, Tree):
                 expr_node = ch
             if isinstance(ch, Token) and ch.type == "STRING_LITERAL":
                 msg = ch.value[1:-1]
+            elif isinstance(ch, Token) and ch.type == "ID":
+                id_text = ch.value
 
         return Step("require", {
-            "expr_text": to_text(expr_node) if expr_node else "",
+            "expr_text": to_text(expr_node) if expr_node else id_text,
             "message": msg
         }, st)
 
@@ -397,9 +399,8 @@ class Rule:
     
     # Hàm lấy precond từ 1 path
     def get_preconditions_from_path(self, steps: List[Step]) -> Dict[str, List[str]]:
-        import re
-        # Khởi tạo map biến → giá trị đại diện
-        var_to_value: Dict[str, Optional[str]] = {}
+        # Khởi tạo map biến → giá trị đại diện (Token/Tree/str)
+        var_to_value: Dict[str, Any] = {}
         for p in self.params:
             if isinstance(p, dict) and p.get("name"):
                 var_to_value[p["name"]] = None
@@ -408,46 +409,202 @@ class Rule:
         func_name: Optional[str] = None
         unknown_call = False
 
-        def _subst(text, skip:List[str]=[]):
+        returns_map: Dict[str, List[str]] = {}
+        if isinstance(self.params, list) and isinstance(getattr(self, "sol_symbols", None), dict):
+            rm = self.sol_symbols.get("functions_returns", {})
+            if isinstance(rm, dict):
+                returns_map = rm
+        sol_declared_funcs = set(self.sol_symbols.get("functions", [])) if isinstance(getattr(self, "sol_symbols", None), dict) else set()
+
+        def _render_val(val: Any) -> str:
+            if isinstance(val, Token):
+                return val.value
+            if isinstance(val, Tree):
+                return to_text(val)
+            return str(val)
+
+        def _subst_text(text: Optional[str], skip=None) -> Optional[str]:
             if text is None:
                 return None
+            skip_set = set(skip) if skip else set()
             out = text
             for v, val in var_to_value.items():
-                if v in skip:
+                if val is None or v in skip_set:
                     continue
-                if val is None:
-                    continue
-                out = re.sub(rf"\b{re.escape(v)}\b", val, out)
+                out = re.sub(rf"\b{re.escape(v)}\b", _render_val(val), out)
             return out
+
+        def _subst_expr(expr_node: Optional[Tree], skip=None) -> Optional[Tree]:
+            if expr_node is None:
+                return None
+            skip_set = set(skip) if skip else set()
+            from logic_utils import subst_expr
+            subst_map: Dict[str, Any] = {}
+            for v, val in var_to_value.items():
+                if val is None or v in skip_set:
+                    continue
+                subst_map[v] = val if isinstance(val, (Tree, Token)) else Token("ID", str(val))
+            return subst_expr(deepcopy(expr_node), subst_map)
+
+        def _rhs_node_from_step(step: Step) -> Optional[Tree]:
+            node = step.node
+            if not isinstance(node, Tree):
+                return None
+            rhs = None
+            for ch in node.children:
+                if isinstance(ch, Tree) and ch.data in ("expr", "logic_bi_expr", "bi_expr", "unary_expr", "function_call"):
+                    rhs = ch
+            if not rhs:
+                if len(node.children) >= 3:
+                    id_node: Token = node.children[2]
+                    return id_node
+                else:
+                    id_node: Token = node.children[1]
+                    return id_node
+            return rhs
+
+        def _require_expr_from_step(step: Step) -> Optional[Tree]:
+            node = step.node
+            if not isinstance(node, Tree):
+                return None
+            for ch in node.children:
+                if isinstance(ch, Tree):
+                    return ch
+            return None
+
+        def _call_names(expr_node: Optional[Tree]) -> List[str]:
+            if expr_node is None or not isinstance(expr_node, Tree):
+                return []
+            names: List[str] = []
+            for fc in expr_node.iter_subtrees_topdown():
+                if isinstance(fc, Tree) and fc.data == "function_call":
+                    fname, _ = _get_function_call_info(fc)
+                    if fname:
+                        names.append(fname)
+            return names
+
+        def _replace_call(expr_node: Optional[Tree], fn: str, ret_name: str) -> Optional[Tree]:
+            if expr_node is None:
+                return None
+            if isinstance(expr_node, Token):
+                return expr_node
+            if isinstance(expr_node, Tree) and expr_node.data == "function_call":
+                fname, _ = _get_function_call_info(expr_node)
+                if fname == fn:
+                    return Token("ID", ret_name)
+            if isinstance(expr_node, Tree):
+                new_children = [_replace_call(ch, fn, ret_name) for ch in expr_node.children]
+                return Tree(expr_node.data, new_children)
+            return expr_node
+
+        def _first_ret(fn: str) -> Optional[str]:
+            vals = returns_map.get(fn)
+            if vals is None:
+                return None
+            if isinstance(vals, list):
+                for v in vals:
+                    if v:
+                        return v
+                return None
+            if isinstance(vals, str):
+                return vals or None
+            return None
+
+        def _all_rets(fn: str) -> List[str]:
+            vals = returns_map.get(fn)
+            if vals is None:
+                return []
+            if isinstance(vals, list):
+                return [v for v in vals if v]
+            if isinstance(vals, str):
+                return [vals] if vals else []
+            return []
 
         for step in steps:
             if step.kind == "define":
                 ghost = step.data.get("ghost")
-                expr = step.data.get("expr")
+                rhs_node = _rhs_node_from_step(step)
+                called_fn = None
+                print("RHS Node:", rhs_node)  # DEBUG
                 if not ghost:
                     continue
                 if ghost in var_to_value:
                     raise SystemExit(f"\033[91m[ERROR] Variable '{ghost}' declared twice in rule '{self.name}'.\033[0m")
-                print(var_to_value)
-                var_to_value[ghost] = _subst(expr, skip=[ghost])
-                print(var_to_value[ghost])
+                if isinstance(rhs_node, Tree):
+                    call_names = _call_names(rhs_node)
+                    if len(call_names) > 1:
+                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in assignment of rule '{self.name}'.\033[0m")
+                    called_fn = call_names[0] if call_names else None
+                if called_fn:
+                    if func_name is None:
+                        func_name = called_fn
+                    else:
+                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in one path of rule '{self.name}'.\033[0m")
+                    if called_fn not in sol_declared_funcs:
+                        unknown_call = True
+                    ret = _first_ret(called_fn)
+                    if not ret:
+                        raise SystemExit(
+                            f"\033[91m[ERROR] Function '{called_fn}' in rule '{self.name}' has unnamed return; cannot assign to '{ghost}'.\033[0m"
+                        )
+                    rhs_subst = _subst_expr(rhs_node, skip=[ghost])
+                    replaced = _replace_call(rhs_subst or rhs_node, called_fn, ret)
+                    var_to_value[ghost] = replaced
+                else:
+                    var_to_value[ghost] = _subst_expr(rhs_node, skip=[ghost]) or rhs_node
 
             elif step.kind == "assign":
-                rhs_text = step.data.get("rhs_text")
-                print(rhs_text)
                 targets = step.data.get("targets", [])
-                resolved_rhs = _subst(rhs_text, skip=targets) if rhs_text else None
-                # Cho phép gán lại biến đã define; cập nhật giá trị thay thế để dùng cho require sau đó
-                for tgt in targets:
-                    var_to_value[tgt] = resolved_rhs
+                rhs_node = _rhs_node_from_step(step)
+                called_fn = None
+                print("RHS Node:", rhs_node)  # DEBUG
+                if isinstance(rhs_node, Tree):
+                    call_names = _call_names(rhs_node)
+                    if len(call_names) > 1:
+                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in assignment of rule '{self.name}'.\033[0m")
+                    called_fn = call_names[0] if call_names else None
+                if called_fn:
+                    if func_name is None:
+                        func_name = called_fn
+                    else:
+                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in one path of rule '{self.name}'.\033[0m")
+                    if called_fn not in sol_declared_funcs:
+                        unknown_call = True
+                if called_fn and len(targets) > 1:
+                    ret_list = _all_rets(called_fn)
+                    if len(ret_list) != len(targets):
+                        raise SystemExit(
+                            f"\033[91m[ERROR] Function '{called_fn}' in rule '{self.name}' returns {len(ret_list)} value(s) but assignment targets {len(targets)} variable(s).\033[0m"
+                        )
+                    if any(not r for r in ret_list):
+                        raise SystemExit(
+                            f"\033[91m[ERROR] Function '{called_fn}' in rule '{self.name}' has unnamed return values; cannot assign to {targets}.\033[0m"
+                        )
+                    for tgt, retname in zip(targets, ret_list):
+                        var_to_value[tgt] = Token("ID", retname)
+                elif called_fn:
+                    ret = _first_ret(called_fn)
+                    if not ret:
+                        raise SystemExit(
+                            f"\033[91m[ERROR] Function '{called_fn}' in rule '{self.name}' has unnamed return; cannot assign to {targets}.\033[0m"
+                        )
+                    rhs_subst = _subst_expr(rhs_node, skip=targets)
+                    replaced = _replace_call(rhs_subst or rhs_node, called_fn, ret)
+                    for tgt in targets:
+                        var_to_value[tgt] = replaced
+                else:
+                    rhs_subst = _subst_expr(rhs_node, skip=targets)
+                    for tgt in targets:
+                        var_to_value[tgt] = deepcopy(rhs_subst) if rhs_subst is not None else rhs_node
 
             elif step.kind == "require":
                 if func_name is not None:
                     raise SystemExit(f"\033[91m[ERROR] All require statements must appear before function calls in rule '{self.name}'.\033[0m")
-                expr_text = step.data.get("expr_text") or ""
-                expr_subst = _subst(expr_text)
-                if expr_subst:
-                    preconds.append(expr_subst)
+                expr_node = _require_expr_from_step(step)
+                expr_subst = _subst_expr(expr_node)
+                expr_text = to_text(expr_subst or expr_node) if (expr_subst or expr_node) else ""
+                if expr_text:
+                    preconds.append(expr_text)
 
             elif step.kind == "call":
                 name = step.data.get("name")
@@ -457,7 +614,7 @@ class Rule:
                 elif name != func_name:
                     raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in one path of rule '{self.name}'.\033[0m")
 
-                if name and name not in self.calls:
+                if name and name not in sol_declared_funcs:
                     unknown_call = True
 
                 # ghép đối số với params (nếu có) để tạo precondition n == arg
@@ -465,7 +622,7 @@ class Rule:
                 for idx, arg in enumerate(args):
                     if idx >= len(param_names):
                         break
-                    resolved_arg = _subst(arg) or arg
+                    resolved_arg = _subst_text(arg) or arg
                     preconds.append(f"{param_names[idx]} == {resolved_arg}")
 
         print(var_to_value)
@@ -618,4 +775,4 @@ class Rule:
         return f"__verifier_old_uint({obsL}) {op} {obsR}"
     
     def __repr__(self):
-        return f"<Rule name={self.name} steps={len(self.steps)} calls={self.calls} snapshots={self.snapshots}>"
+        return f"<Rule name={self.name} steps={len(self.steps)} snapshots={self.snapshots}>"

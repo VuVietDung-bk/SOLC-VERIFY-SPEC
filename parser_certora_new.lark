@@ -127,9 +127,9 @@ block: statement+
 
 event_call: ID "(" exprs? ")"
 
-statement:  cvl_type ID ("=" expr)? ";"                 -> define_statement
-            | "require" expr ("," STRING_LITERAL)? ";"  -> require_statement
+statement:  "require" expr ("," STRING_LITERAL)? ";"  -> require_statement
             | "assert" expr ("," STRING_LITERAL)? ";"   -> assert_statement
+            | cvl_type ID ("=" expr)? ";"                 -> define_statement
 
             | lhs "=" expr ";"                          -> assignment_statement
             |"if" expr statement ("else" statement)?    -> ifelse_statement

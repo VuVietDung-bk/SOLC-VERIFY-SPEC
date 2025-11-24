@@ -1,4 +1,5 @@
 from lark import Tree, Token
+from typing import Dict, Any
 
 def make_unary_not(child: Tree) -> Tree:
     return Tree("unary_expr", [
@@ -159,3 +160,16 @@ def remove_arrows(expr: Tree) -> Tree:
 
     expr.children = new_children
     return expr
+
+def subst_expr(expr: Tree, subst_dict: Dict[str, Any]) -> Tree:
+    """Hàm thay thế biến trong biểu thức theo subst_dict."""
+    if isinstance(expr, Token):
+        if expr.type == "ID" and expr.value in subst_dict:
+            new_value = subst_dict[expr.value]
+            return new_value
+        return expr
+    elif isinstance(expr, Tree):
+        new_children = [subst_expr(ch, subst_dict) for ch in expr.children]
+        return Tree(expr.data, new_children)
+    else:
+        return expr
