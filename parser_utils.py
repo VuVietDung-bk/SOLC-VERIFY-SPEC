@@ -375,6 +375,7 @@ def _split_call_args(exprs_node: Optional[Tree], sol_symbols: dict) -> List[str]
     # Không thuần atomic → 1 đối số duy nhất
     return [_flatten_expr_with_symbols_list(toks, sol_symbols).strip()]
 
+
 BIN_PRECEDENCE = {
     "||": 1,
     "&&": 2,
@@ -529,3 +530,42 @@ def fmt(node):
 def to_text(expr : Tree) -> str:
     text, _ = fmt(expr)
     return text
+
+def normalize_nested_quantifiers(text: str) -> str:
+    if not isinstance(text, str):
+        return text
+
+    s = text.strip()
+    if not s:
+        return s
+
+    quant_list = []  
+    pattern = re.compile(r"^(forall)\s+([^.]*)\.\s*(.*)$", re.IGNORECASE | re.DOTALL)
+
+    original = s
+    while True:
+        m = pattern.match(s)
+        if not m:
+            break
+        kind = m.group(1).lower()
+        var_decl = m.group(2).strip()
+        rest = m.group(3).strip()
+        if not var_decl:
+            break
+        quant_list.append((kind, var_decl))
+        s = rest
+
+    if not quant_list:
+        return original
+    first_kind = quant_list[0][0]
+
+    for k, _ in quant_list:
+        if k != first_kind:
+            return original
+
+    vars_combined = ", ".join(v for _, v in quant_list)
+    merged = f"{first_kind}({vars_combined}). {s}" if s else f"{first_kind}({vars_combined})"
+    return merged
+
+def handle_forall(text: str) -> str:
+    return normalize_nested_quantifiers(text)
