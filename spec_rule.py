@@ -7,9 +7,13 @@ from parser_utils import (
     _get_function_call_info,
     _is_zero_arg_function_call,
     _split_call_args,
-    _flatten_expr_with_symbols,
     to_text,
-    _collect_call_like_from_expr
+    _collect_call_like_from_expr,
+)
+from logic_utils import (
+    wrap_expr,
+    make_eq_expr,
+    unique_exprs,
 )
 from spec_method import Step, Variable, Mapping
 
@@ -135,7 +139,6 @@ class Rule:
                 if zname:
                     observed = zname
         else :
-            print(chs)
             id_node: Token = chs[2] if len(chs) >=3 else None
             rhs_text = id_node.value if id_node else ""
 
@@ -398,14 +401,14 @@ class Rule:
         return all_paths
     
     # Hàm lấy precond từ 1 path
-    def get_preconditions_from_path(self, steps: List[Step]) -> Dict[str, List[str]]:
+    def get_preconditions_from_path(self, steps: List[Step]) -> Dict[str, List[Tree]]:
         # Khởi tạo map biến → giá trị đại diện (Token/Tree/str)
         var_to_value: Dict[str, Any] = {}
         for p in self.params:
             if isinstance(p, dict) and p.get("name"):
                 var_to_value[p["name"]] = None
 
-        preconds: List[str] = []
+        preconds: List[Any] = []
         require_steps: List[Step] = []
         func_name: Optional[str] = None
         unknown_call = False
@@ -468,7 +471,6 @@ class Rule:
             node = step.node
             if not isinstance(node, Tree):
                 return None
-            print(node)
             for ch in node.children:
                 if isinstance(ch, Tree):
                     return ch
@@ -529,7 +531,6 @@ class Rule:
                 ghost = step.data.get("ghost")
                 rhs_node = _rhs_node_from_step(step)
                 called_fn = None
-                print("RHS Node:", rhs_node)  # DEBUG
                 if not ghost:
                     continue
                 if ghost in var_to_value:
@@ -626,11 +627,14 @@ class Rule:
                     return bool(re.fullmatch(r"\d+", s)) or s in ("true", "false") or (len(s) >= 2 and s[0] == "\"" and s[-1] == "\"")
 
                 rendered_args: List[Optional[str]] = []
+                rendered_arg_nodes: List[Optional[Tree]] = []
                 for arg in args:
                     ra = _subst_text(arg)
                     if ra is None and arg in var_to_value and var_to_value[arg] is not None:
                         ra = _render_val(var_to_value[arg])
                     rendered_args.append(ra or arg)
+                    prefer_val = var_to_value.get(arg)
+                    rendered_arg_nodes.append(wrap_expr(prefer_val if prefer_val is not None else (ra or arg)))
 
                 # Nếu cùng một biểu thức truyền cho nhiều param (vd f(n,n)) → thêm a==b
                 for i in range(len(rendered_args)):
@@ -638,13 +642,17 @@ class Rule:
                         if i >= len(param_names) or j >= len(param_names):
                             continue
                         if rendered_args[i] == rendered_args[j]:
-                            preconds.append(f"{param_names[i]} == {param_names[j]}")
+                            eq_expr = make_eq_expr(param_names[i], param_names[j])
+                            if eq_expr:
+                                preconds.append(eq_expr)
 
                 for idx, arg in enumerate(rendered_args):
                     if idx >= len(param_names):
                         break
                     if arg is not None and (arg != args[idx] or _is_const(arg)):
-                        preconds.append(f"{param_names[idx]} == {arg}")
+                        eq_expr = make_eq_expr(param_names[idx], rendered_arg_nodes[idx] or arg)
+                        if eq_expr:
+                            preconds.append(eq_expr)
 
                 for idx, arg in enumerate(args):
                     if var_to_value[arg] is None:
@@ -653,29 +661,27 @@ class Rule:
         for step in require_steps:
             expr_node = _require_expr_from_step(step)
             expr_subst = _subst_expr(expr_node)
-            expr_text = to_text(expr_subst or expr_node) if (expr_subst or expr_node) else ""
-            if expr_text:
-                preconds.append(expr_text)
+            cond_expr = expr_subst or expr_node
+            if cond_expr:
+                preconds.append(cond_expr)
 
         if func_name is None:
             return {}
 
-        preconds = list(dict.fromkeys(preconds))
-
         if unknown_call:
-            # ghi nhận để xử lý sau (không thay đổi key để không phá namespace)
+                # ghi nhận để xử lý sau (không thay đổi key để không phá namespace)
             self._has_unknown_call = True
 
-        return {func_name: preconds}
+        return {func_name: unique_exprs(preconds)}
     
     # Hàm lấy postcond từ 1 path 
-    def get_postconditions_from_path(self, steps: List[Step]) -> Dict[str, List[str]]:
+    def get_postconditions_from_path(self, steps: List[Step]) -> Dict[str, List[Tree]]:
         var_to_value: Dict[str, Any] = {}
         for p in self.params:
             if isinstance(p, dict) and p.get("name"):
                 var_to_value[p["name"]] = None
 
-        postconds: List[str] = []
+        postconds: List[Any] = []
         func_name: Optional[str] = None
         unknown_call = False
 
@@ -912,7 +918,6 @@ class Rule:
                         var_to_value[tgt] = deepcopy(rhs_subst) if rhs_subst is not None else rhs_node
 
             elif step.kind == "call":
-                print("Processing call step:", step)
                 name = step.data.get("name")
                 args = step.data.get("args", [])
                 if func_name is None:
@@ -925,19 +930,6 @@ class Rule:
 
                 # ghi chú param mapping cho các assert sau (tương tự precondition)
                 param_names = fn_params_map.get(name, []) if isinstance(fn_params_map, dict) else []
-                print("Param names:", param_names)
-                def _is_const(s: Optional[str]) -> bool:
-                    if s is None:
-                        return False
-                    s = s.strip()
-                    return bool(re.fullmatch(r"\d+", s)) or s in ("true", "false") or (len(s) >= 2 and s[0] == "\"" and s[-1] == "\"")
-
-                rendered_args: List[Optional[str]] = []
-                for arg in args:
-                    ra = _subst_text(arg)
-                    if ra is None and arg in var_to_value and var_to_value[arg] is not None:
-                        ra = _render_val(var_to_value[arg])
-                    rendered_args.append(ra or arg)
 
                 for idx, arg in enumerate(args):
                     if var_to_value[arg] is None:
@@ -951,47 +943,67 @@ class Rule:
 
         for step in assert_steps:
             expr_node = _assert_expr_from_step(step)
-            print(expr_node)
             expr_subst = _subst_expr(expr_node)
-            print(expr_subst)
-            expr_text = to_text(expr_subst or expr_node) if (expr_subst or expr_node) else ""
-            if expr_text:
-                postconds.append(expr_text)
+            cond_expr = expr_subst or expr_node
+            if cond_expr:
+                postconds.append(cond_expr)
 
         if func_name is None:
             return {}
 
-        postconds = list(dict.fromkeys(postconds))
-
         if unknown_call:
             self._has_unknown_call = True
 
-        return {func_name: postconds}
+        return {func_name: unique_exprs(postconds)}
     
     def to_conditions(self) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
         """
         Thu thập pre/post theo mọi path, dựa trên dict đầu ra của
         get_preconditions_from_path và get_postconditions_from_path.
         """
-        preconds_dict: Dict[str, List[str]] = {}
-        postconds_dict: Dict[str, List[str]] = {}
+        preconds_dict: Dict[str, List[Any]] = {}
+        postconds_dict: Dict[str, List[Any]] = {}
+
+        def _append_unique(bucket: List[Any], expr: Any):
+            if expr is None:
+                return
+            key = to_text(expr) if isinstance(expr, Tree) else str(expr)
+            for existing in bucket:
+                cmp_key = to_text(existing) if isinstance(existing, Tree) else str(existing)
+                if cmp_key == key:
+                    return
+            bucket.append(expr)
 
         for path in self.get_all_paths():
             path_pre = self.get_preconditions_from_path(path) or {}
             for fn, conds in path_pre.items():
                 bucket = preconds_dict.setdefault(fn, [])
                 for c in conds:
-                    if c not in bucket:
-                        bucket.append(c)
+                    _append_unique(bucket, c)
 
             path_post = self.get_postconditions_from_path(path) or {}
             for fn, conds in path_post.items():
                 bucket = postconds_dict.setdefault(fn, [])
                 for c in conds:
-                    if c not in bucket:
-                        bucket.append(c)
+                    _append_unique(bucket, c)
 
-        return preconds_dict, postconds_dict
+        def _exprs_to_text_map(expr_dict: Dict[str, List[Any]]) -> Dict[str, List[str]]:
+            out: Dict[str, List[str]] = {}
+            for fn, exprs in expr_dict.items():
+                seen = set()
+                texts: List[str] = []
+                for ex in exprs:
+                    txt = to_text(ex) if isinstance(ex, Tree) else str(ex)
+                    if txt in seen:
+                        continue
+                    seen.add(txt)
+                    texts.append(txt)
+                # TO-DO: giữ nguyên biểu thức (Tree) thay vì to_text sau khi cập nhật downstream
+                out[fn] = texts
+            return out
+
+        # TO-DO: gộp pre/post ở dạng AST trước khi stringify để tối ưu dedup
+        return _exprs_to_text_map(preconds_dict), _exprs_to_text_map(postconds_dict)
     
     def __repr__(self):
         return f"<Rule name={self.name} steps={len(self.steps)} snapshots={self.snapshots}>"

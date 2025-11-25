@@ -1,5 +1,6 @@
 # spec_parser.py
 import re
+from copy import deepcopy
 from typing import Dict, List, Tuple, Optional, Any
 from lark import Tree, Token
 

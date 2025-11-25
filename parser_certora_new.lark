@@ -51,6 +51,7 @@ map_to: mapping | primitive_basic_type | ID
         | "(" exprs ")"
         | expr logic_binop expr -> logic_bi_expr
         | expr compare_binop expr -> compare_bi_expr
+        | expr binop_high expr -> bi_expr
         | expr binop expr -> bi_expr
         | unop expr -> unary_expr
         | expr "?" expr ":" expr
@@ -88,7 +89,8 @@ unop    : TILDE | BANG | MINUS
 BANG: "!"
 TILDE: "~"
 
-binop: PLUS | MINUS | STAR | SLASH | PERCENT
+binop_high: STAR | SLASH | PERCENT
+binop: PLUS | MINUS 
 
 logic_binop: ANDAND | OROR
      | FAT_ARROW | XOR_ARROW 

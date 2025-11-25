@@ -1,5 +1,8 @@
 from lark import Tree, Token
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
+import re
+from copy import deepcopy
+from parser_utils import to_text
 
 def make_unary_not(child: Tree) -> Tree:
     return Tree("unary_expr", [
@@ -90,12 +93,12 @@ def negative(expr: Tree) -> Tree:
         return make_unary_not(expr)
 
 
-    if isinstance(expr, Tree) and expr.data == "bi_expr" or expr.data == "logic_bi_expr" or expr.data == "compare_bi_expr":
+    if isinstance(expr, Tree) and expr.data == "logic_bi_expr" or expr.data == "compare_bi_expr":
 
         if (
             len(expr.children) == 3
             and isinstance(expr.children[1], Tree)
-            and expr.children[1].data == "binop" or expr.children[1].data == "logic_binop" or expr.children[1].data == "compare_bi_expr"
+            and expr.children[1].data == "logic_binop" or expr.children[1].data == "compare_binop"
         ):
             left = expr.children[0]
             binop_node = expr.children[1]
@@ -117,7 +120,7 @@ def negative(expr: Tree) -> Tree:
             # So sánh → đổi operator
             if op in NEGATE_BINOP:
                 new_op = NEGATE_BINOP[op]
-                return make_binary(left, new_op, right)
+                return make_binary_compare(left, new_op, right)
 
             # các binary khác → bọc phủ định
             return make_unary_not(expr)
@@ -180,3 +183,73 @@ def subst_expr(expr: Tree, subst_dict: Dict[str, Any]) -> Tree:
         return Tree(expr.data, new_children)
     else:
         return expr
+    
+def to_expr_piece(val: Any) -> Any:
+    """
+    Chuẩn hoá giá trị thành Token/Tree để nhúng vào biểu thức.
+    """
+    if val is None:
+        return None
+    if isinstance(val, Tree):
+        return deepcopy(val)
+    if isinstance(val, Token):
+        return Token(val.type, val.value)
+    if isinstance(val, str):
+        v = val.strip()
+        if re.fullmatch(r"\d+", v):
+            return Token("INTEGER_LITERAL", v)
+        if v == "true":
+            return Token("TRUE", v)
+        if v == "false":
+            return Token("FALSE", v)
+        if len(v) >= 2 and ((v[0] == "\"" and v[-1] == "\"") or (v[0] == "'" and v[-1] == "'")):
+            return Token("STRING_LITERAL", v)
+        return Token("ID", v)
+    return Token("ID", str(val))
+
+
+def wrap_expr(val: Any) -> Optional[Tree]:
+    """
+    Bọc giá trị thành Tree('expr', ...) nếu cần.
+    """
+    if val is None:
+        return None
+    if isinstance(val, Tree):
+        return deepcopy(val)
+    if isinstance(val, Token):
+        return Tree("expr", [Token(val.type, val.value)])
+    piece = to_expr_piece(val)
+    if isinstance(piece, Tree):
+        return deepcopy(piece)
+    if isinstance(piece, Token):
+        return Tree("expr", [piece])
+    return None
+
+
+def make_eq_expr(lhs: Any, rhs: Any) -> Optional[Tree]:
+    lhs_expr = wrap_expr(lhs)
+    rhs_expr = wrap_expr(rhs)
+    if lhs_expr is None or rhs_expr is None:
+        return None
+    return Tree("compare_bi_expr", [
+        lhs_expr,
+        Tree("compare_binop", [Token("EQEQ", "==")]),
+        rhs_expr
+    ])
+
+
+def unique_exprs(exprs: List[Any]) -> List[Any]:
+    """
+    Dedupe danh sách biểu thức theo chuỗi to_text.
+    """
+    seen = set()
+    out: List[Any] = []
+    for e in exprs:
+        if e is None:
+            continue
+        key = to_text(e) if isinstance(e, Tree) else str(e)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(e)
+    return out

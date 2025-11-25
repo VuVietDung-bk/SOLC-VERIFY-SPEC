@@ -6,7 +6,7 @@ contract Example2 {
     uint public y;
 
     /// @notice precondition n >= 0
-    /// @notice postcondition __verifier_old_uint(x) == (x - 2) * n
+    /// @notice postcondition __verifier_old_uint(x) == x - 2 * n
     /// @notice postcondition __verifier_old_uint(x) <= x
     function add_to_x(uint n) external {
         x = x + n;
