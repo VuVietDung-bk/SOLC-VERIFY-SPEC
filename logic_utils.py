@@ -1,4 +1,5 @@
 from lark import Tree, Token
+from typing import Dict, Any
 
 def make_unary_not(child: Tree) -> Tree:
     return Tree("unary_expr", [
@@ -17,6 +18,13 @@ def make_binary_logic(left: Tree, op: str, right: Tree) -> Tree:
     return Tree("logic_bi_expr", [
         left,
         Tree("logic_binop", [Token(op, op)]),
+        right
+    ])
+
+def make_binary_compare(left: Tree, op: str, right: Tree) -> Tree:
+    return Tree("compare_bi_expr", [
+        left,
+        Tree("compare_bi_expr", [Token(op, op)]),
         right
     ])
 
@@ -82,12 +90,12 @@ def negative(expr: Tree) -> Tree:
         return make_unary_not(expr)
 
 
-    if isinstance(expr, Tree) and expr.data == "bi_expr" or expr.data == "logic_bi_expr":
+    if isinstance(expr, Tree) and expr.data == "bi_expr" or expr.data == "logic_bi_expr" or expr.data == "compare_bi_expr":
 
         if (
             len(expr.children) == 3
             and isinstance(expr.children[1], Tree)
-            and expr.children[1].data == "binop" or expr.children[1].data == "logic_binop"
+            and expr.children[1].data == "binop" or expr.children[1].data == "logic_binop" or expr.children[1].data == "compare_bi_expr"
         ):
             left = expr.children[0]
             binop_node = expr.children[1]
@@ -159,3 +167,16 @@ def remove_arrows(expr: Tree) -> Tree:
 
     expr.children = new_children
     return expr
+
+def subst_expr(expr: Tree, subst_dict: Dict[str, Any]) -> Tree:
+    """Hàm thay thế biến trong biểu thức theo subst_dict."""
+    if isinstance(expr, Token):
+        if expr.type == "ID" and expr.value in subst_dict:
+            new_value = subst_dict[expr.value]
+            return new_value
+        return expr
+    elif isinstance(expr, Tree):
+        new_children = [subst_expr(ch, subst_dict) for ch in expr.children]
+        return Tree(expr.data, new_children)
+    else:
+        return expr

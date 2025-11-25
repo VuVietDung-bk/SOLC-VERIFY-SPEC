@@ -126,7 +126,6 @@ class IR:
                     "name": r.name,
                     "params": r.params,
                     "steps": [ {"kind": s.kind, **s.data} for s in r.steps ],
-                    "calls": r.calls,
                     "snapshots": r.snapshots,
                 }
                 for r in self.rules
