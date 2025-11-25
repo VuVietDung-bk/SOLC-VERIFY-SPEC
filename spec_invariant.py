@@ -17,12 +17,17 @@ from spec_method import Step, Variable, Mapping
 class Invariant:
     _COMPARE_TOKENS = ["==", "!=", "<=", ">=", "<", ">"]
 
-    def __init__(self, ast_node: Tree, variables: Dict[str, Variable], sol_symbols: Dict[str, Any]):
+    def __init__(self, ast_node: Tree, variables: List[Variable], sol_symbols: Dict[str, Any]):
         self.name: str = "<unnamed_invariant>"
         self.steps: List[Step] = []
-        # Map variable name -> Variable object
+        # Map variable name -> declared type string (possibly None)
         self.variables = variables
-        self._var_types = {name: var.vtype for name, var in variables.items()}
+        # build name->type map for helper functions (variables may be list or dict)
+        try:
+            # variables as list of Variable
+            self._var_types = {v.name: v.vtype for v in variables} if isinstance(variables, list) else {k: v.vtype for k, v in variables.items()}
+        except Exception:
+            self._var_types = {}
         self._parse(ast_node, sol_symbols)
 
     def _parse(self, node: Tree, sol_symbols: Dict[str, Any]):
@@ -38,10 +43,8 @@ class Invariant:
 
             if st.data == "assert_statement":
                 expr_node = st.children[0]
-                # Check if first child is a quantifier
-                first_child = expr_node.children[0] if isinstance(expr_node, Tree) and expr_node.children else None
-                if isinstance(first_child, Token) and first_child.type == "QUANTIFIER":
-                    self._handle_quantifier_assert(expr_node, sol_symbols, st)
+                if isinstance(expr_node.children[0], Token) and expr_node.children[0].type == "QUANTIFIER":
+                    self.parse_quantifier(expr_node, sol_symbols, st)
                 else:
                     expr_node, msg = None, None
                     for ch in st.children:
@@ -54,7 +57,7 @@ class Invariant:
                         "expr_text": to_text(expr_node) if expr_node else "",
                         "func_calls": func_calls,
                         "message": msg
-                    }, st))
+                    }))
 
             elif st.data == "define_statement":
                 chs = list(st.children)
@@ -98,86 +101,63 @@ class Invariant:
                     "expr": rhs_text,
                     "rhs_calls": rhs_calls,
                     "observed": observed,
-                }, st))
+                }))
 
 
-    def _handle_quantifier_assert(self, qnode: Tree, sol_symbols: Dict[str, Any], st: Tree):
-        """Parse quantifier expression: QUANTIFIER cvl_type ID "." expr
-        Extract condition and body for proper implication rendering.
-        """
-        qtok = None
-        vtype_node = None
-        var_tok = None
-        body_expr = None
-        
-        for ch in qnode.children:
-            if isinstance(ch, Token) and ch.type == "QUANTIFIER":
-                qtok = ch
-            elif isinstance(ch, Tree) and ch.data == "cvl_type":
-                vtype_node = ch
-            elif isinstance(ch, Token) and ch.type == "ID" and var_tok is None:
-                var_tok = ch
-            elif isinstance(ch, Tree) and ch.data == "expr":
-                body_expr = ch
-        
-        qkind = qtok.value if qtok else "forall"
-        vtype_text = to_text(vtype_node) if vtype_node else "uint"
-        var_name = var_tok.value if var_tok else "_i"
-        
-        # Parse body to extract condition and main expression
-        condition_text, main_expr_text = self._parse_quantifier_body(body_expr)
-        
-        func_calls = _collect_call_like_from_expr(body_expr, sol_symbols) if body_expr else []
-        
+    def parse_quantifier(self, node: Tree, sol_symbols: Dict[str, Any], st: Tree):
+        quant_vars: List[tuple[str, str]] = []
+        qkind: Optional[str] = None
+        cur = node
+
+        while isinstance(cur, Tree) and cur.children:
+            first = cur.children[0]
+            if not (isinstance(first, Token) and getattr(first, "type", None) == "QUANTIFIER"):
+                break
+            
+            if qkind is None:
+                qkind = first.value
+
+            vtype_node = next((ch for ch in cur.children if isinstance(ch, Tree) and ch.data == "cvl_type"), None)
+            id_tok = next((ch for ch in cur.children if isinstance(ch, Token) and ch.type == "ID"), None)
+            typ = to_text(vtype_node) if vtype_node is not None else "uint"
+            name = id_tok.value if id_tok is not None else f"_i{len(quant_vars)}"
+            quant_vars.append((typ, name))
+
+            next_body = next((ch for ch in cur.children if isinstance(ch, Tree) and ch.data == "expr"), None)
+            if next_body is None:
+                # no deeper expr, stop
+                break
+            cur = next_body
+
+        # cur should now be the innermost expr (or original node if none)
+        body_node = cur if isinstance(cur, Tree) else None
+        body_text = to_text(body_node) if body_node is not None else "true"
+        func_calls = _collect_call_like_from_expr(body_node, sol_symbols) if body_node is not None else []
+
+        # Compose quantifier string
+        qkind = qkind or "forall"
+        quant_str = f"{qkind}(" + ", ".join(f"{t} {n}" for t, n in quant_vars) + ")"
+
+        # Try to extract condition/main expression (implication or conjunction)
+        condition_text, main_expr_text = None, body_text
+        try:
+            cond, main = self._parse_quantifier_body(body_node)
+            if main is not None:
+                condition_text, main_expr_text = cond, main
+        except Exception:
+            pass
+
         self.steps.append(Step("quant_assert", {
             "quantifier": qkind,
-            "var_type": vtype_text,
-            "var_name": var_name,
+            "var_type": ", ".join(t for t, _ in quant_vars),
+            "var_name": ", ".join(n for _, n in quant_vars),
+            "quant_str": quant_str,
             "condition": condition_text,
             "main_expr": main_expr_text,
-            "func_calls": func_calls
+            "func_calls": func_calls,
+            "expr_node": body_node
         }, st))
 
-    def _parse_quantifier_body(self, body_expr: Optional[Tree]) -> tuple[Optional[str], str]:
-        """Parse quantifier body to extract condition and main expression.
-        Handles patterns like: !(cond) || expr  →  cond => expr
-        Or: cond && expr (for exists)
-        """
-        if not body_expr:
-            return None, "true"
-        
-        body_text = to_text(body_expr)
-        
-        # Check if it's a logic_bi_expr (binary logical operation)
-        if isinstance(body_expr, Tree) and body_expr.data == "logic_bi_expr":
-            children = list(body_expr.children)
-            if len(children) >= 3:
-                left = children[0]
-                op_tok = children[1]
-                right = children[2]
-                
-                op = op_tok.value if isinstance(op_tok, Token) else str(op_tok)
-                
-                # Pattern: !(cond) || expr → condition: cond, main: expr
-                if op == "||" and isinstance(left, Tree) and left.data == "unary_expr":
-                    unary_children = list(left.children)
-                    if len(unary_children) >= 2:
-                        unop = unary_children[0]
-                        if isinstance(unop, Token) and unop.value == "!":
-                            # Extract condition (negated part)
-                            condition = to_text(unary_children[1])
-                            main_expr = to_text(right)
-                            return condition, main_expr
-                
-                # Pattern: cond && expr → for exists, keep as is
-                elif op == "&&":
-                    condition = to_text(left)
-                    main_expr = to_text(right)
-                    return condition, main_expr
-        
-        # No clear condition/expression split, return whole body as main expression
-        return None, body_text
-    
     @classmethod
     def _pick_compare_op(cls, expr_text: str) -> str:
         s = expr_text or ""
@@ -243,9 +223,6 @@ class Invariant:
                     vtyp = name_to_type.get(name)
                     sum_fun = self._sum_fun_for_value_type(vtyp)
                     parts.append(f"{sum_fun}({name})")
-                elif attr == "length":
-                    # For arrays: a.length
-                    parts.append(rendered or f"{name}.length")
                 else:
                     parts.append(rendered or f"{name}.{attr}" if attr else name)
                 continue
@@ -276,23 +253,17 @@ class Invariant:
                 if inv_expr:
                     out.append(f"/// @notice invariant {inv_expr}")
             elif st.kind == "quant_assert":
-                # Render quantifier invariants with proper implication format
                 q = st.data.get("quantifier", "forall")
-                vt = st.data.get("var_type", "uint")
-                vn = st.data.get("var_name", "_i")
+                quant_str = st.data.get("quant_str") or f"{q} ({st.data.get('var_type')} {st.data.get('var_name')})"
                 condition = st.data.get("condition")
                 main_expr = st.data.get("main_expr", "true")
-                
                 if condition:
-                    # Render as implication: forall (type var) (condition => main_expr)
                     if q == "forall":
-                        inv_text = f"{q} ({vt} {vn}) ({condition} => {main_expr})"
-                    else:  # exists
-                        inv_text = f"{q} ({vt} {vn}) ({condition} && {main_expr})"
+                        inv_text = f"{quant_str} ({condition} => {main_expr})"
+                    else:
+                        inv_text = f"{quant_str} ({condition} && {main_expr})"
                 else:
-                    # No condition, just the main expression
-                    inv_text = f"{q} ({vt} {vn}) {main_expr}"
-                
+                    inv_text = f"{quant_str} {main_expr}"
                 out.append(f"/// @notice invariant {inv_text}")
 
         seen, uniq = set(), []
@@ -304,3 +275,5 @@ class Invariant:
 
     def __repr__(self):
         return f"<Invariant name={self.name} steps={len(self.steps)}>"
+
+
