@@ -21,6 +21,13 @@ def make_binary_logic(left: Tree, op: str, right: Tree) -> Tree:
         right
     ])
 
+def make_binary_compare(left: Tree, op: str, right: Tree) -> Tree:
+    return Tree("compare_bi_expr", [
+        left,
+        Tree("compare_bi_expr", [Token(op, op)]),
+        right
+    ])
+
 NEGATE_BINOP = {
     "<":  ">=",
     "<=": ">",
@@ -83,12 +90,12 @@ def negative(expr: Tree) -> Tree:
         return make_unary_not(expr)
 
 
-    if isinstance(expr, Tree) and expr.data == "bi_expr" or expr.data == "logic_bi_expr":
+    if isinstance(expr, Tree) and expr.data == "bi_expr" or expr.data == "logic_bi_expr" or expr.data == "compare_bi_expr":
 
         if (
             len(expr.children) == 3
             and isinstance(expr.children[1], Tree)
-            and expr.children[1].data == "binop" or expr.children[1].data == "logic_binop"
+            and expr.children[1].data == "binop" or expr.children[1].data == "logic_binop" or expr.children[1].data == "compare_bi_expr"
         ):
             left = expr.children[0]
             binop_node = expr.children[1]

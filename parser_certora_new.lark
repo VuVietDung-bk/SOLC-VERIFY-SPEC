@@ -50,6 +50,7 @@ map_to: mapping | primitive_basic_type | ID
         | QUANTIFIER cvl_type ID "." expr
         | "(" exprs ")"
         | expr logic_binop expr -> logic_bi_expr
+        | expr compare_binop expr -> compare_bi_expr
         | expr binop expr -> bi_expr
         | unop expr -> unary_expr
         | expr "?" expr ":" expr
@@ -88,7 +89,6 @@ BANG: "!"
 TILDE: "~"
 
 binop: PLUS | MINUS | STAR | SLASH | PERCENT
-     | GT | LT | EQEQ | BANGEQ | GTEQ | LTEQ
 
 logic_binop: ANDAND | OROR
      | FAT_ARROW | XOR_ARROW 

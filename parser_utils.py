@@ -475,10 +475,10 @@ def fmt(node):
         return f"{ltxt} {op} {rtxt}", my_prec
 
     # ---- bi_expr ----
-    if node.data == "bi_expr":
+    if node.data == "bi_expr" or node.data == "compare_bi_expr":
         if (len(node.children) == 3 and
             isinstance(node.children[1], Tree) and
-            node.children[1].data == "binop"):
+            node.children[1].data == "binop" or node.children[1].data == "compare_binop"):
 
             left, op_node, right = node.children
             op = op_node.children[0].value
