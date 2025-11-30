@@ -9,7 +9,7 @@ class IR:
     def __init__(self, sol_symbols: Dict[str, Any]):
         # variables parsed from a 'variables { ... }' block (new grammar)
         # stored as mapping name -> Variable
-        self.variables: Dict[str, Variable] = {}
+        self.variables: List[Variable] = []
         self.rules: List[Rule] = []
         self.invariants: List[Invariant] = []
         self._sol_symbols = sol_symbols
@@ -86,7 +86,7 @@ class IR:
                 vtype = _flatten_tokens_only(vtype_node).strip()
 
             if vname:
-                self.variables[vname] = Variable(name=vname, vtype=vtype or "", mapping_info=mapping_info)
+                self.variables.append(Variable(name=vname, vtype=vtype or "", mapping_info=mapping_info))
 
     def _parse_rules(self, ast: Tree, sol_symbols: Dict[str, Any]) -> None:
         for node in ast.iter_subtrees_topdown():
@@ -97,15 +97,7 @@ class IR:
     def _parse_invariants(self, ast: Tree, sol_symbols: Dict[str, Any]) -> None:
         for node in ast.iter_subtrees_topdown():
             if isinstance(node, Tree) and node.data == "invariant_rule":
-                # Provide variable types to invariant builder to help choose sum over int/uint
-                # For mappings, pass the value type (map_to) to invariants; otherwise pass the declared type
-                var_types_map = {}
-                for name, var in self.variables.items():
-                    if var.mapping_info:
-                        var_types_map[name] = self._render_type(var.mapping_info.to_type)
-                    else:
-                        var_types_map[name] = var.vtype
-                inv = Invariant(node, var_types_map, sol_symbols)
+                inv = Invariant(node, self.variables, sol_symbols)
                 self.invariants.append(inv)
 
     def __repr__(self):
@@ -119,7 +111,7 @@ class IR:
                     "name": var.name,
                     "type": var.vtype,
                 }
-                for var in self.variables.values()
+                for var in self.variables
             ],
             "rules": [
                 {

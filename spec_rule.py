@@ -15,18 +15,15 @@ from logic_utils import (
     make_eq_expr,
     unique_exprs,
 )
-from spec_method import Step, Variable, Mapping
+from spec_method import Step, Variable
 
 """
     TO-DO:
-    - Tạo hàm to_preconditions() từ require_statement và call_statement, cụ thể ví dụ:
-        + Gọi f(1) thì có precondition n == 1
-        + Hàm define f(uint n) mà gọi f(n) thì phải gắn snapshot n <=> m
-    - TO-DO-1: Observe tất cả các loại call state_var. Nếu là function call thì observe biến return value của hàm
-    - Xử lý chỗ verifier_old_uint trong assert, phải so sánh vị trí define snapshot với vị trí của function call (hiện tại đang so sánh 2 vị trí với nhau)
-    - Câu lệnh forall exist
-    - Chỉnh lại phần snapshot để ghi nhớ những biến được truyền vào hàm.
-    - Xử lý cú pháp if-else bằng cách tạo một hàm biến cú pháp if-else thành List[List[Step]], đồng thời ghi nhận điều kiện rẽ nhánh tương tự một require statement
+    - Tìm biến tự do trong precondition và postcondition, rồi xử lý tương ứng để tạo postcondition chính xác hơn.
+    - Xử lý trường hợp hàm không xác định, lọc danh sách hàm cần chèn từ precondition và postcondition.
+    - Xử lý các loại cú pháp còn lại
+    - Type-checking, bọc casting address cho các hằng số address
+    - Xử lý song song emits và function call
 """
 
 class Rule:

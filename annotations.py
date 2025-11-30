@@ -128,7 +128,6 @@ def _indent_of_line(line: str) -> str:
     m = re.match(r"^(\s*)", line)
     return m.group(1) if m else ""
 
-
 def _find_contract_line_numbers(sol_text: str, contract_name: Optional[str]) -> List[int]:
     import re
     lines = sol_text.splitlines()
@@ -157,6 +156,7 @@ def insert_invariants_into_contract(
     """
     if not invariant_lines:
         return
+    invariant_lines = [f"/// @notice invariant {line}" for line in invariant_lines]
 
     with open(sol_file, "r", encoding="utf-8") as f:
         lines = f.read().splitlines()

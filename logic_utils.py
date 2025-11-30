@@ -253,3 +253,9 @@ def unique_exprs(exprs: List[Any]) -> List[Any]:
         seen.add(key)
         out.append(e)
     return out
+
+def evaluate_expr_at_function(expr: Tree, func: str) -> Tree:
+    """
+    Giải quyết func_compare_expr tại function cụ thể.
+    """
+    return

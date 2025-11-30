@@ -402,6 +402,24 @@ def fmt(node):
     if not isinstance(node, Tree):
         return str(node), 100
 
+    # ---- quantifier: QUANTIFIER cvl_type ID "." expr ----
+    if (
+        node.data == "expr"
+        and len(node.children) >= 4
+        and isinstance(node.children[0], Token)
+        and node.children[0].type == "QUANTIFIER"
+    ):
+        quant_tok = node.children[0]
+        type_node = node.children[1]
+        var_tok = node.children[2]
+        body_node = node.children[3]
+
+        type_txt, _ = fmt(type_node)
+        var_txt, _ = fmt(var_tok)
+        body_txt, _ = fmt(body_node)
+
+        return f"{quant_tok.value} ({type_txt} {var_txt}) {body_txt}", 100
+
     # ---- unary ----
     if node.data == "unary_expr":
         op = node.children[0].children[0].value
