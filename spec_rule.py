@@ -14,7 +14,9 @@ from logic_utils import (
     wrap_expr,
     make_eq_expr,
     unique_exprs,
+    negative,
 )
+from rule_helpers import append_unique, propagate_modifies
 from spec_method import Step, Variable
 
 """
@@ -34,6 +36,9 @@ class Rule:
         self.snapshots: Dict[str, Dict[str, Any]] = {}
         self.sol_symbols = sol_symbols
         self.variables = variables
+        # sẽ được gán từ ngoài sau khi build bằng Slither
+        self.call_graph: Dict[str, List[str]] = {}
+        self.func_state_writes: Dict[str, List[str]] = {}
 
         self._parse(ast_node, sol_symbols)
 
@@ -398,7 +403,7 @@ class Rule:
         return all_paths
     
     # Hàm lấy precond từ 1 path
-    def get_preconditions_from_path(self, steps: List[Step]) -> Dict[str, List[Tree]]:
+    def get_preconditions_from_path(self, steps: List[Step]) -> Tuple[Dict[str, List[Tree]], bool]:
         # Khởi tạo map biến → giá trị đại diện (Token/Tree/str)
         var_to_value: Dict[str, Any] = {}
         for p in self.params:
@@ -663,16 +668,12 @@ class Rule:
                 preconds.append(cond_expr)
 
         if func_name is None:
-            return {}
+            return None
 
-        if unknown_call:
-                # ghi nhận để xử lý sau (không thay đổi key để không phá namespace)
-            self._has_unknown_call = True
-
-        return {func_name: unique_exprs(preconds)}
+        return {func_name: unique_exprs(preconds)}, unknown_call
     
     # Hàm lấy postcond từ 1 path 
-    def get_postconditions_from_path(self, steps: List[Step]) -> Dict[str, List[Tree]]:
+    def get_postconditions_from_path(self, steps: List[Step]) -> Tuple[Dict[str, List[Tree]], bool, Dict[str, List[Tree]]]:
         var_to_value: Dict[str, Any] = {}
         for p in self.params:
             if isinstance(p, dict) and p.get("name"):
@@ -681,6 +682,7 @@ class Rule:
         postconds: List[Any] = []
         func_name: Optional[str] = None
         unknown_call = False
+        revert_pres: Dict[str, List[Tree]] = {}
 
         returns_map: Dict[str, List[str]] = {}
         fn_params_map: Dict[str, List[str]] = {}
@@ -936,53 +938,128 @@ class Rule:
                 if func_name is None:
                     raise SystemExit(f"\033[91m[ERROR] All assert statements must appear after function calls in rule '{self.name}'.\033[0m")
                 assert_steps.append(step)
+            elif step.kind == "assert_revert":
+                if func_name is None:
+                    raise SystemExit(f"\033[91m[ERROR] All assert_revert statements must appear after function calls in rule '{self.name}'.\033[0m")
+                assert_steps.append(step)
         print(var_to_value)
 
         for step in assert_steps:
             expr_node = _assert_expr_from_step(step)
             expr_subst = _subst_expr(expr_node)
             cond_expr = expr_subst or expr_node
-            if cond_expr:
-                postconds.append(cond_expr)
+            if step.kind == "assert_revert":
+                # Pre(P), Post(false)
+                pre_expr = cond_expr if cond_expr is not None else Tree("literal", [Token("TRUE", "true")])
+                if func_name:
+                    revert_pres.setdefault(func_name, []).append(pre_expr)
+                postconds.append(Tree("literal", [Token("FALSE", "false")]))
+            else:
+                if cond_expr:
+                    postconds.append(cond_expr)
 
         if func_name is None:
+            return None
+
+        return {func_name: unique_exprs(postconds)}, unknown_call, revert_pres
+    
+    def get_modify_from_path(self, steps: List[Step]) -> Dict[str, List[Tuple[str, str]]]:
+        func_name: Optional[str] = None
+        modifies: List[str] = []
+
+        for step in steps:
+            if step.kind == "call" and func_name is None:
+                func_name = step.data.get("name")
+
+            if step.kind == "assert_modify":
+                target = step.data.get("target")
+                cond = step.data.get("expr_text") or None
+                if not target:
+                    continue
+                entry = f"{target} if {cond}" if cond else target
+                modifies.append(entry)
+
+        if func_name is None or not modifies:
             return {}
 
-        if unknown_call:
-            self._has_unknown_call = True
-
-        return {func_name: unique_exprs(postconds)}
+        return {func_name: modifies}
     
-    def to_conditions(self) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
+    def get_emits_from_path(self, steps: List[Step]) -> Dict[str, List[str]]:
+        func_name: Optional[str] = None
+        emits: List[str] = []
+
+        for step in steps:
+            if step.kind == "call" and func_name is None:
+                func_name = step.data.get("name")
+
+            if step.kind == "assert_emit":
+                ev = step.data.get("event")
+                if not ev:
+                    continue
+                emits.append(ev)
+
+        if func_name is None or not emits:
+            return {}
+
+        return {func_name: emits}
+    
+    def to_conditions(self) -> Tuple[Dict[str, List[str]], Dict[str, List[str]], Dict[str, List[str]], Dict[str, List[str]]]:
         """
-        Thu thập pre/post theo mọi path, dựa trên dict đầu ra của
-        get_preconditions_from_path và get_postconditions_from_path.
+        Thu thập pre/post/modify/emits theo mọi path, dựa trên dict đầu ra của
+        get_preconditions_from_path, get_postconditions_from_path, get_modify_from_path, get_emits_from_path.
         """
         preconds_dict: Dict[str, List[Any]] = {}
         postconds_dict: Dict[str, List[Any]] = {}
-
-        def _append_unique(bucket: List[Any], expr: Any):
-            if expr is None:
-                return
-            key = to_text(expr) if isinstance(expr, Tree) else str(expr)
-            for existing in bucket:
-                cmp_key = to_text(existing) if isinstance(existing, Tree) else str(existing)
-                if cmp_key == key:
-                    return
-            bucket.append(expr)
+        modify_dict: Dict[str, List[Any]] = {}
+        emits_dict: Dict[str, List[Any]] = {}
 
         for path in self.get_all_paths():
-            path_pre = self.get_preconditions_from_path(path) or {}
+            pre_res = self.get_preconditions_from_path(path)
+            if pre_res:
+                path_pre, unknown_call = pre_res
+            else:
+                path_pre = {}
             for fn, conds in path_pre.items():
                 bucket = preconds_dict.setdefault(fn, [])
                 for c in conds:
-                    _append_unique(bucket, c)
+                    append_unique(bucket, c)
 
-            path_post = self.get_postconditions_from_path(path) or {}
+            post_res = self.get_postconditions_from_path(path)
+            if post_res:
+                path_post, _, revert_pre = post_res
+            else:
+                path_post = {}
+                revert_pre = {}
             for fn, conds in path_post.items():
                 bucket = postconds_dict.setdefault(fn, [])
                 for c in conds:
-                    _append_unique(bucket, c)
+                    append_unique(bucket, c)
+            for fn, conds in revert_pre.items():
+                bucket = preconds_dict.setdefault(fn, [])
+                for c in conds:
+                    append_unique(bucket, c)
+
+            path_modify = self.get_modify_from_path(path) or {}
+            for fn, conds in path_modify.items():
+                bucket = modify_dict.setdefault(fn, [])
+                for c in conds:
+                    append_unique(bucket, c)
+
+            path_emits = self.get_emits_from_path(path) or {}
+            for fn, conds in path_emits.items():
+                bucket = emits_dict.setdefault(fn, [])
+                for c in conds:
+                    append_unique(bucket, c)
+
+        # ---- Propagate modifies through call graph ----
+        call_graph = {}
+        if isinstance(getattr(self, "call_graph", None), dict):
+            call_graph = self.call_graph
+        func_writes = {}
+        if isinstance(getattr(self, "func_state_writes", None), dict):
+            func_writes = self.func_state_writes
+
+        propagated = propagate_modifies(modify_dict, call_graph, func_writes)
 
         def _exprs_to_text_map(expr_dict: Dict[str, List[Any]]) -> Dict[str, List[str]]:
             out: Dict[str, List[str]] = {}
@@ -1000,7 +1077,12 @@ class Rule:
             return out
 
         # TO-DO: gộp pre/post ở dạng AST trước khi stringify để tối ưu dedup
-        return _exprs_to_text_map(preconds_dict), _exprs_to_text_map(postconds_dict)
+        return (
+            _exprs_to_text_map(preconds_dict),
+            _exprs_to_text_map(postconds_dict),
+            _exprs_to_text_map(propagated),
+            _exprs_to_text_map(emits_dict),
+        )
     
     def __repr__(self):
         return f"<Rule name={self.name} steps={len(self.steps)} snapshots={self.snapshots}>"

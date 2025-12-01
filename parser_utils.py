@@ -433,13 +433,23 @@ def fmt(node):
         attr = node.children[1]
         base_txt, _ = fmt(base)
         attr_tok = attr.children[0]
+        # sum → gọi hàm verifier, tạm thời gắn kiểu uint
+        if attr_tok.value == "sum":
+            return f"__verifier_sum_uint({base_txt})", 100
+        elif attr_tok.value == "isum":
+            return f"__verifier_sum_int({base_txt})", 100
         return f"{base_txt}.{attr_tok.value}", 100
 
     # ---- contract_attribute_call : contract "." field ----
     if node.data == "contract_attribute_call":
         c = node.children[0]   # CONTRACT token
         a = node.children[1]   # field token
-        return f"{c.value}.{a.value}", 100
+        attr_val = a.children[0].value if getattr(a, "children", None) else a.value
+        if attr_val == "address":
+            return "address(this)", 100
+        if attr_val == "balance":
+            return "address(this).balance", 100
+        return f"{c.value}.{attr_val}", 100
 
     # ---- index : "[" expr "]" ... ----
     if node.data == "index":
@@ -497,7 +507,7 @@ def fmt(node):
     if node.data == "bi_expr" or node.data == "compare_bi_expr":
         if (len(node.children) == 3 and
             isinstance(node.children[1], Tree) and
-            node.children[1].data == "binop" or node.children[1].data == "compare_binop"):
+            (node.children[1].data == "binop" or node.children[1].data == "compare_binop")):
 
             left, op_node, right = node.children
             op = op_node.children[0].value

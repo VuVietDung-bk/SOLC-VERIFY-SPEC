@@ -17,7 +17,6 @@ contract C {
     function add(int n) public {
         require(n >= 0);
         add_to_x(n);
-        /// @notice invariant y <= x
         while (y < x) {
             y = y + 1;
         }

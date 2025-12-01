@@ -3,7 +3,7 @@ from lark import Lark
 
 from spec_ir import IR
 from annotations import write_annotations
-from utils import build_call_graph, build_sol_symbols, split_sol_and_contract
+from utils import build_call_graph, build_function_writes, build_sol_symbols, split_sol_and_contract
 from runner import run_sv  
 
 def main():
@@ -51,6 +51,11 @@ def main():
 
     print("[4/7] Building call graph...")
     call_graph = build_call_graph(sol_path)
+    func_writes = build_function_writes(sol_path)
+    # Gán call graph vào từng rule để lan truyền modifies/emits nếu cần
+    for r in ir.rules:
+        r.call_graph = call_graph
+        r.func_state_writes = func_writes
     # (kept for later use)
 
     print("[5/7] Inserting preconditions, postconditions and invariants...")

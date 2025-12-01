@@ -22,7 +22,7 @@ rule xSpec(uint n) {
 
     mathint xAfter = x;
 
-    assert 2 * xBefore + 2 <= xAfter || false,
+    assert contract.isum > 0,
         "x must increase";
     assert forall uint256 i. i < arr[i] => !(arr[i] == 71);
 

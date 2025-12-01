@@ -50,6 +50,7 @@ def write_annotations(sol_in: str, ir: IR, only_contract: Optional[str] = None) 
     Sinh nhiều file .ruleName.sol cho từng rule, mỗi file chứa:
       - preconditions (toàn cục),
       - postconditions từ rule đó,
+      - modifies / emits từ rule đó,
       - invariants (toàn cục).
     Trả về danh sách path file sinh ra.
     """
@@ -62,9 +63,20 @@ def write_annotations(sol_in: str, ir: IR, only_contract: Optional[str] = None) 
         shutil.copyfile(sol_in, out_path)
         _rewrite_pragma_to_0_7_0(out_path)
 
-        rule_preconds, rule_postconds = rule.to_conditions()
+        rule_preconds, rule_postconds, rule_modifies, rule_emits = rule.to_conditions()
         post_by_func = {fn: list(dict.fromkeys(vals)) for fn, vals in rule_postconds.items()}
-        target_funcs = sorted(set(list(post_by_func.keys()) + list(preconds.keys()) + list(rule_preconds.keys())))
+        modify_by_func = {fn: list(dict.fromkeys(vals)) for fn, vals in rule_modifies.items()}
+        emits_by_func = {fn: list(dict.fromkeys(vals)) for fn, vals in rule_emits.items()}
+
+        target_funcs = sorted(
+            set(
+                list(post_by_func.keys())
+                + list(preconds.keys())
+                + list(rule_preconds.keys())
+                + list(modify_by_func.keys())
+                + list(emits_by_func.keys())
+            )
+        )
         occ = _scan_function_lines_in_file(out_path, target_funcs)
         inserts: List[tuple[int, List[str]]] = []
 
@@ -75,6 +87,10 @@ def write_annotations(sol_in: str, ir: IR, only_contract: Optional[str] = None) 
                 lines.append(f"    /// @notice precondition {pre}")
             for post in post_by_func.get(fn, []):
                 lines.append(f"    /// @notice postcondition {post}")
+            for mod in modify_by_func.get(fn, []):
+                lines.append(f"    /// @notice modifies {mod}")
+            for em in emits_by_func.get(fn, []):
+                lines.append(f"    /// @notice emits {em}")
             if not lines:
                 continue
             for ln in occ.get(fn, []):

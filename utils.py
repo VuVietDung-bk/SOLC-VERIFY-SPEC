@@ -2,6 +2,7 @@ import os, re
 from typing import Dict, List, Set, Optional, Tuple, Any
 from slither.slither import Slither
 from slither.core.declarations import Function as SlitherFunction
+from slither.core.variables.state_variable import StateVariable
 
 def _rewrite_pragma_to_0_7_0(filepath: str) -> None:
     """Đổi 'pragma solidity ^...;' thành 'pragma solidity ^0.7.0;' (idempotent)."""
@@ -61,6 +62,27 @@ def build_call_graph(sol_file: str) -> Dict[str, List[str]]:
                     callees.append(_simple_name(callee.canonical_name))
             graph[src_name] = sorted(set(callees))
     return graph
+
+def build_function_writes(sol_file: str) -> Dict[str, List[str]]:
+    """
+    Thu thập biến state mà từng hàm ghi (assign/update).
+    Trả về map: { function_name: [var1, var2, ...] }
+    """
+    sl = Slither(os.path.abspath(sol_file))
+    writes: Dict[str, Set[str]] = {}
+
+    def _simple_name(canonical: str) -> str:
+        s = canonical.split(".", 1)[-1]
+        return s.split("(", 1)[0]
+
+    for c in sl.contracts:
+        for f in c.functions:
+            fname = _simple_name(f.canonical_name)
+            vars_written = getattr(f, "state_variables_written", []) or []
+            for sv in vars_written:
+                if isinstance(sv, StateVariable):
+                    writes.setdefault(fname, set()).add(sv.name)
+    return {k: sorted(v) for k, v in writes.items()}
 
 def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dict[str, Any]:
     """

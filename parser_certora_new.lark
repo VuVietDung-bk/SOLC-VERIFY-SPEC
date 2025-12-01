@@ -66,8 +66,9 @@ QUANTIFIER: "forall" | "exists"
 function_call: (ID ".")? ID "(" exprs? ")"?
 func_compare_expr: "funcCompare(" ID "," STRING_LITERAL ")"
 
-special_var_attribute: SUM | LENGTH
+special_var_attribute: SUM | LENGTH | ISUM
 SUM: "sum"
+ISUM: "isum"
 LENGTH: "length"
 special_var_attribute_call: ID "." special_var_attribute
 
@@ -144,7 +145,7 @@ statement:  "require" expr ("," STRING_LITERAL)? ";"  -> require_statement
             | "assert_emit" event_call ";"              -> assert_emit_statement
             | "emits" event_call ";"                         -> emits_statement
 
-modify_var: ID index? attribute
+modify_var: ID index? attribute?
 
 lhs : ID ("[" expr "]")? ("," lhs)?
 
