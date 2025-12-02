@@ -3,6 +3,7 @@ from typing import Dict, Any, List, Optional, Tuple
 import re
 from copy import deepcopy
 from parser_utils import to_text
+from spec_method import Variable
 
 def make_unary_not(child: Tree) -> Tree:
     return Tree("unary_expr", [
@@ -93,12 +94,12 @@ def negative(expr: Tree) -> Tree:
         return make_unary_not(expr)
 
 
-    if isinstance(expr, Tree) and expr.data == "logic_bi_expr" or expr.data == "compare_bi_expr":
+    if isinstance(expr, Tree) and (expr.data == "logic_bi_expr" or expr.data == "compare_bi_expr"):
 
         if (
             len(expr.children) == 3
             and isinstance(expr.children[1], Tree)
-            and expr.children[1].data == "logic_binop" or expr.children[1].data == "compare_binop"
+            and (expr.children[1].data == "logic_binop" or expr.children[1].data == "compare_binop")
         ):
             left = expr.children[0]
             binop_node = expr.children[1]
@@ -253,6 +254,103 @@ def unique_exprs(exprs: List[Any]) -> List[Any]:
         seen.add(key)
         out.append(e)
     return out
+
+def wrap_old_access(access: Tree | Token, kind: str) -> Tree:
+    """
+    Tạo node call __verifier_old_<kind>(access) giữ nguyên dạng Tree.
+    kind: 'uint' | 'int' | 'bytes'
+    """
+    func_name = f"__verifier_old_{kind}"
+    return Tree("function_call", [
+        Token("ID", func_name),
+        Tree("exprs", [Tree("expr", [deepcopy(access)])])
+    ])
+
+def wrap_old_expr(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
+    """
+    Lọc các biến mapping, rồi duyệt expr để bọc các truy cập biến đó bằng __verifier_old_<kind>().
+    Trả về expr đã bọc.
+    """
+    if expr is None:
+        return expr
+
+    # build type map từ Variable
+    type_map: Dict[str, str] = {}
+    for v in vars_iter or []:
+        vname = getattr(v, "name", None) if hasattr(v, "name") else None
+        vtype = getattr(v, "vtype", None) if hasattr(v, "vtype") else None
+        if vname and isinstance(vtype, str):
+            type_map[vname] = vtype
+
+    def _choose_wrap(vtype: Optional[str]) -> Optional[str]:
+        if not isinstance(vtype, str):
+            return None
+        vt = vtype.strip()
+        if vt.startswith("uint"):
+            return "uint"
+        if vt.startswith("int"):
+            return "int"
+        if vt.startswith("bytes") or vt == "string":
+            return "bytes"
+        if vt == "bool":
+            return "bool"
+        return None
+
+    def _peel_element(vt: Optional[str], depth: int) -> Optional[str]:
+        cur = vt or ""
+        d = depth
+        while d > 0 and isinstance(cur, str):
+            cur = cur.strip()
+            if cur.startswith("mapping") and "=>" in cur:
+                tail = cur.split("=>", 1)[1]
+                if tail.endswith(")"):
+                    tail = tail[:-1]
+                cur = tail.strip()
+            elif cur.endswith("]"):
+                cur = cur[:cur.rfind("[")].strip()
+            else:
+                break
+            d -= 1
+        return cur
+
+    def _rule_name(data):
+        # data có thể là str hoặc Token
+        return data.value if isinstance(data, Token) else data
+
+    def _index_depth(expr_node):
+        depth = 0
+        for ch in expr_node.children:
+            if isinstance(ch, Tree) and _rule_name(ch.data) == "index":
+                # mỗi child trong index tương ứng 1 lần []
+                depth += len(ch.children)
+        return depth
+
+    def _transform(node: Any) -> Any:
+        if isinstance(node, Token):
+            return node
+        if not isinstance(node, Tree):
+            return node
+
+        if _rule_name(node.data) == "expr" and node.children:
+            base_tok = node.children[0] if isinstance(node.children[0], Token) else None
+            if base_tok and base_tok.type == "ID":
+                base_name = base_tok.value
+                if base_name in type_map:
+                    idx_count = _index_depth(node)   # <-- FIX
+                    vtype = _peel_element(type_map.get(base_name), idx_count)
+                    wrap_kind = _choose_wrap(vtype)
+                    print("Node Children:", node.children)
+                    print(
+                        f"Variable '{base_name}' of type '{type_map.get(base_name)}' "
+                        f"peeled to '{vtype}' with indices {idx_count} → wrap kind: {wrap_kind}"
+                    )
+                    if wrap_kind:
+                        return wrap_old_access(deepcopy(node), wrap_kind)
+
+        new_children = [_transform(ch) for ch in node.children]
+        return Tree(node.data, new_children)
+
+    return _transform(deepcopy(expr))
 
 def evaluate_expr_at_function(expr: Tree, func: str) -> Tree:
     """

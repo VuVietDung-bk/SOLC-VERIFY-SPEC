@@ -60,7 +60,7 @@ contract ERC20 is IERC20, IERC20Metadata {
     /**
      * @dev Returns the name of the token.
      */
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function name() public view virtual override returns (string memory) {
         return "name";
     }
@@ -69,7 +69,7 @@ contract ERC20 is IERC20, IERC20Metadata {
      * @dev Returns the symbol of the token, usually a shorter version of the
      * name.
      */
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function symbol() public view virtual override returns (string memory) {
         return "symbol";
     }
@@ -87,7 +87,7 @@ contract ERC20 is IERC20, IERC20Metadata {
      * no way affects any of the arithmetic of the contract, including
      * {IERC20-balanceOf} and {IERC20-transfer}.
      */
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function decimals() public view virtual override returns (uint8) {
         return 18;
     }
@@ -95,7 +95,7 @@ contract ERC20 is IERC20, IERC20Metadata {
     /**
      * @dev See {IERC20-totalSupply}.
      */
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function totalSupply() public view virtual override returns (uint256) {
         return _totalSupply;
     }
@@ -103,7 +103,7 @@ contract ERC20 is IERC20, IERC20Metadata {
     /**
      * @dev See {IERC20-balanceOf}.
      */
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function balanceOf(address account)
         public
         view
@@ -123,7 +123,7 @@ contract ERC20 is IERC20, IERC20Metadata {
      * - the caller must have a balance of at least `amount`.
      */
     /// @notice precondition amount >= 0
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function transfer(address recipient, uint256 amount)
         public
         virtual
@@ -137,7 +137,7 @@ contract ERC20 is IERC20, IERC20Metadata {
     /**
      * @dev See {IERC20-allowance}.
      */
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function allowance(address owner, address spender)
         public
         view
@@ -156,7 +156,7 @@ contract ERC20 is IERC20, IERC20Metadata {
      * - `spender` cannot be the zero address.
      */
     /// @notice precondition amount >= 0
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function approve(address spender, uint256 amount)
         public
         virtual
@@ -181,7 +181,7 @@ contract ERC20 is IERC20, IERC20Metadata {
      * `amount`.
      */
     /// @notice precondition amount >= 0
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function transferFrom(
         address sender,
         address recipient,
@@ -214,7 +214,7 @@ contract ERC20 is IERC20, IERC20Metadata {
      * - `spender` cannot be the zero address.
      */
     /// @notice precondition addedValue >= 0
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function increaseAllowance(address spender, uint256 addedValue)
         public
         virtual
@@ -243,7 +243,7 @@ contract ERC20 is IERC20, IERC20Metadata {
      * `subtractedValue`.
      */
     /// @notice precondition subtractedValue >= 0
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function decreaseAllowance(address spender, uint256 subtractedValue)
         public
         virtual
@@ -273,7 +273,7 @@ contract ERC20 is IERC20, IERC20Metadata {
      * - `sender` must have a balance of at least `amount`.
      */
     /// @notice precondition amount >= 0
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function _transfer(
         address sender,
         address recipient,
@@ -310,7 +310,7 @@ contract ERC20 is IERC20, IERC20Metadata {
      */
     /// @notice precondition  >= 0
     /// @notice precondition amount >= 0
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function mint(address account, uint256 amount) onlyOwner() public virtual override {
         require(account != address(0), "ERC20: mint to the zero address");
 
@@ -336,7 +336,7 @@ contract ERC20 is IERC20, IERC20Metadata {
      */
     /// @notice precondition  >= 0
     /// @notice precondition amount >= 0
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function burn(address account, uint256 amount) onlyOwner() public virtual override {
         require(account != address(0), "ERC20: burn from the zero address");
 
@@ -368,7 +368,7 @@ contract ERC20 is IERC20, IERC20Metadata {
      * - `spender` cannot be the zero address.
      */
     /// @notice precondition amount >= 0
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function _approve(
         address owner,
         address spender,
@@ -395,7 +395,7 @@ contract ERC20 is IERC20, IERC20Metadata {
      * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
      */
     /// @notice precondition amount >= 0
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function _beforeTokenTransfer(
         address from,
         address to,
@@ -417,20 +417,20 @@ contract ERC20 is IERC20, IERC20Metadata {
      * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
      */
     /// @notice precondition amount >= 0
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function _afterTokenTransfer(
         address from,
         address to,
         uint256 amount
     ) internal virtual {}
 
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function deposit() external payable {
         _balances[msg.sender] += msg.value;
     }
 
     /// @notice precondition amount >= 0
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= _allowances[holder][spender] || msg.sender == holder
+    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function withdraw(uint256 amount) external {
         require(amount <= _balances[msg.sender]);
         _balances[msg.sender] -= amount;

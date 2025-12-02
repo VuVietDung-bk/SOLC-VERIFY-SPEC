@@ -17,7 +17,9 @@ from logic_utils import (
     negative,
     remove_arrows,
     evaluate_expr_at_function,
-    solve_free_vars_in_pres_and_posts
+    solve_free_vars_in_pres_and_posts,
+    subst_expr,
+    wrap_old_expr
 )
 from rule_helpers import append_unique, propagate_modifies
 from spec_method import Step, Variable
@@ -40,7 +42,6 @@ class Rule:
         self.sol_symbols = sol_symbols
         self.variables = variables
         self.var_to_type: Dict[str, str] = {}
-        # sẽ được gán từ ngoài sau khi build bằng Slither
         self.call_graph: Dict[str, List[str]] = {}
         self.func_state_writes: Dict[str, List[str]] = {}
 
@@ -454,7 +455,6 @@ class Rule:
             if expr_node is None:
                 return None
             skip_set = set(skip) if skip else set()
-            from logic_utils import subst_expr
             subst_map: Dict[str, Any] = {}
             for v, val in var_to_value.items():
                 if val is None or v in skip_set:
@@ -685,7 +685,6 @@ class Rule:
     # Hàm lấy postcond từ 1 path 
     def get_postconditions_from_path(self, steps: List[Step]) -> Tuple[Dict[str, List[Tree]], bool, Dict[str, Any]]:
         var_to_value: Dict[str, Any] = {}
-        print(self.params)
         for p in self.params:
             if isinstance(p, dict) and p.get("name"):
                 var_to_value[p["name"]] = None
@@ -728,7 +727,6 @@ class Rule:
             if expr_node is None:
                 return None
             skip_set = set(skip) if skip else set()
-            from logic_utils import subst_expr
             subst_map: Dict[str, Any] = {}
             for v, val in var_to_value.items():
                 if val is None or v in skip_set:
@@ -839,12 +837,16 @@ class Rule:
                         wrap = "__verifier_old_int"
                     elif vtype.startswith("bytes") or vtype == "string":
                         wrap = "__verifier_old_bytes"
+                    elif vtype == "bool":
+                        wrap = "__verifier_old_bool"
                 if wrap:
                     subst_map[vname] = Token("ID", f"{wrap}({vname})")
+            new_node: Tree = None
             if not subst_map:
-                return expr_node
-            from logic_utils import subst_expr
-            return subst_expr(deepcopy(expr_node), subst_map)
+                new_node = expr_node
+            new_node = subst_expr(deepcopy(expr_node), subst_map)
+            
+            return wrap_old_expr(new_node, vars_iter)
 
         assert_steps: List[Step] = []
 
@@ -878,10 +880,11 @@ class Rule:
                     replaced = _replace_call(rhs_subst or rhs_node, called_fn, ret)
                     var_to_value[ghost] = replaced
                 else:
-                    base_rhs = rhs_node
+                    base_rhs = None
+                    base_rhs_sub = _subst_expr(rhs_node, skip=[ghost])
                     if func_name is None:
-                        base_rhs = _oldify_expr(rhs_node, skip=[ghost]) or rhs_node
-                    var_to_value[ghost] = _subst_expr(base_rhs, skip=[ghost]) or base_rhs
+                        base_rhs = _oldify_expr(base_rhs_sub, skip=[ghost]) or base_rhs_sub
+                    var_to_value[ghost] = base_rhs or base_rhs_sub
 
             elif step.kind == "assign":
                 targets = step.data.get("targets", [])
