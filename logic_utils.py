@@ -1,5 +1,5 @@
 from lark import Tree, Token
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import re
 from copy import deepcopy
 from parser_utils import to_text
@@ -258,4 +258,113 @@ def evaluate_expr_at_function(expr: Tree, func: str) -> Tree:
     """
     Giải quyết func_compare_expr tại function cụ thể.
     """
-    return
+    if not isinstance(expr, Tree):
+        return expr
+
+    def _eval(node: Tree) -> Tree:
+        if not isinstance(node, Tree):
+            return node
+        # func_compare_expr: "funcCompare(" ID "," STRING_LITERAL ")"
+        if node.data == "func_compare_expr":
+            fn_tok = next((t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "ID")), None)
+            str_tok = next((t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "STRING_LITERAL")), None)
+            target = str_tok.value[1:-1] if str_tok else ""
+            val_bool = (target == func)
+            val = "true" if val_bool else "false"
+            return Tree("literal", [Token("TRUE" if val == "true" else "FALSE", val)])
+        # default: recurse
+        new_children = [_eval(ch) if isinstance(ch, Tree) else ch for ch in node.children]
+        return Tree(node.data, new_children)
+
+    return _eval(expr)
+
+def solve_free_vars_in_pres_and_posts(
+    pres: Dict[str, List[Any]],
+    posts: Dict[str, List[Any]],
+    var_to_type: Dict[str, str],
+    var_to_value: Dict[str, Any]
+) -> Tuple[Dict[str, List[Any]], Dict[str, List[Any]]]:
+    """
+    Giải quyết các biến tự do trong pre/postconditions của từng hàm.
+    - Nếu Q chứa biến tự do n chưa biết: Post(forall n. Q, f)
+    - Nếu require P; f(); assert Q; → Post(forall n. P => Q, f)
+      (ở đây pres/posts đã tách theo hàm; ta sẽ chỉ thêm quantifier với biến xuất hiện trong Q nhưng không có trong var_to_type/var_to_value)
+    - require P; f() -> None (pre không propagate ở đây)
+    """
+    def _free_vars(expr: Tree) -> set:
+        free = set()
+        for tok in expr.scan_values(lambda v: isinstance(v, Token) and v.type == "ID"):
+            name = tok.value
+            in_type = name in var_to_type
+            val = var_to_value.get(name, None)
+            if in_type and val is None:
+                free.add(name)
+        return free
+
+    def _wrap_forall(vars_set: set, body: Tree) -> Tree:
+        if not vars_set:
+            return body
+        # đơn giản gói từng biến bằng quantifier forall (mathint)
+        res = body
+        for v in sorted(vars_set):
+            res = Tree("expr", [
+                Token("QUANTIFIER", "forall"),
+                Tree("cvl_type", [Token("PRIMITIVE_CVL_TYPE", var_to_type[v])]),
+                Token("ID", v),
+                res
+            ])
+        return res
+
+    new_pres: Dict[str, List[Any]] = {}
+    new_posts: Dict[str, List[Any]] = {}
+
+    all_funcs = set(pres.keys()) | set(posts.keys())
+
+    for fn in all_funcs:
+        pre_list = pres.get(fn, []) or []
+        post_list = posts.get(fn, []) or []
+        used_pre_idx: set = set()
+
+        out_posts: List[Any] = []
+
+        for post_ex in post_list:
+            if not isinstance(post_ex, Tree):
+                out_posts.append(post_ex)
+                continue
+            fv_post = _free_vars(post_ex)
+            matched = False
+            for idx, pre_ex in enumerate(pre_list):
+                if not isinstance(pre_ex, Tree):
+                    continue
+                fv_pre = _free_vars(pre_ex)
+                if fv_pre & fv_post:
+                    matched = True
+                    used_pre_idx.add(idx)
+                    union_vars = fv_pre | fv_post
+                    neg_pre = negative(deepcopy(pre_ex))
+                    implication = Tree("logic_bi_expr", [
+                        neg_pre,
+                        Tree("logic_binop", [Token("OROR", "||")]),
+                        deepcopy(post_ex)
+                    ])
+                    out_posts.append(_wrap_forall(union_vars, implication))
+            if not matched:
+                out_posts.append(_wrap_forall(fv_post, post_ex))
+
+        # keep preconditions not consumed
+        remaining_pre = []
+        for idx, pre_ex in enumerate(pre_list):
+            if idx in used_pre_idx:
+                continue
+            if isinstance(pre_ex, Tree):
+                fv_pre = _free_vars(pre_ex)
+                if fv_pre:
+                    # require P; f() with free vars and no matching post → drop
+                    continue
+            remaining_pre.append(pre_ex)
+        if remaining_pre:
+            new_pres[fn] = remaining_pre
+        if out_posts:
+            new_posts[fn] = out_posts
+
+    return new_pres, new_posts

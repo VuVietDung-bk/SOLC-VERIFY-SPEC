@@ -79,42 +79,37 @@ def _extract_rule_params(params_node: Tree) -> List[dict]:
     if params_node is None:
         return out
 
-    # 1) Lấy tham số đầu tiên trực tiếp dưới 'params'
     children = list(params_node.children)
-    i = 0
-    while i < len(children):
-        ch = children[i]
-        if isinstance(ch, Tree) and ch.data == "cvl_type":
-            ty = _flatten_tokens_only(ch)
-            name = None
-            # token ID ngay sau đó (nếu có) thuộc tham số đầu tiên
-            j = i + 1
-            while j < len(children):
-                nxt = children[j]
-                # gặp 'param' -> dừng, vì phần sau là các tham số tiếp theo
-                if isinstance(nxt, Tree) and nxt.data == "param":
-                    break
-                if isinstance(nxt, Token) and nxt.type == "ID":
-                    name = nxt.value
-                    j += 1
-                    break
-                j += 1
-            out.append({"type": ty, "name": name})
-            break  # chỉ có duy nhất 1 "đầu" trực tiếp dưới params
-        i += 1
 
-    # 2) Lấy các tham số còn lại bên trong từng 'param'
+    # gom mọi tham số: cvl_type + ID (nếu có), cả tham số đầu tiên và trong các 'param'
+    def _add_param(type_node: Optional[Tree], name_tok: Optional[Token]) -> None:
+        if type_node is None:
+            return
+        out.append({"type": _flatten_tokens_only(type_node), "name": name_tok.value if name_tok else None})
+
+    # tham số đầu tiên nằm trực tiếp dưới params
+    first_type = next((c for c in children if isinstance(c, Tree) and c.data == "cvl_type"), None)
+    if first_type:
+        # name: token ID xuất hiện sau type và trước param đầu tiên
+        name_tok = None
+        seen_type = False
+        for ch in children:
+            if ch is first_type:
+                seen_type = True
+                continue
+            if isinstance(ch, Tree) and ch.data == "param":
+                break
+            if seen_type and isinstance(ch, Token) and ch.type == "ID":
+                name_tok = ch
+                break
+        _add_param(first_type, name_tok)
+
+    # các tham số còn lại nằm trong 'param'
     for ch in children:
         if isinstance(ch, Tree) and ch.data == "param":
-            ptype = None
-            pname = None
-            for sub in ch.children:
-                if isinstance(sub, Tree) and sub.data == "cvl_type":
-                    ptype = _flatten_tokens_only(sub)
-                elif isinstance(sub, Token) and sub.type == "ID":
-                    pname = sub.value
-            if ptype:
-                out.append({"type": ptype, "name": pname})
+            ptype = next((sub for sub in ch.children if isinstance(sub, Tree) and sub.data == "cvl_type"), None)
+            pname = next((sub for sub in ch.children if isinstance(sub, Token) and sub.type == "ID"), None)
+            _add_param(ptype, pname)
 
     return out
 

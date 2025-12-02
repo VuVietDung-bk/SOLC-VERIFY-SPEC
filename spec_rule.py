@@ -15,6 +15,9 @@ from logic_utils import (
     make_eq_expr,
     unique_exprs,
     negative,
+    remove_arrows,
+    evaluate_expr_at_function,
+    solve_free_vars_in_pres_and_posts
 )
 from rule_helpers import append_unique, propagate_modifies
 from spec_method import Step, Variable
@@ -36,6 +39,7 @@ class Rule:
         self.snapshots: Dict[str, Dict[str, Any]] = {}
         self.sol_symbols = sol_symbols
         self.variables = variables
+        self.var_to_type: Dict[str, str] = {}
         # sẽ được gán từ ngoài sau khi build bằng Slither
         self.call_graph: Dict[str, List[str]] = {}
         self.func_state_writes: Dict[str, List[str]] = {}
@@ -47,6 +51,10 @@ class Rule:
         params_node = next((c for c in node.children if isinstance(c, Tree) and c.data == "params"), None)
         if params_node:
             self.params = _extract_rule_params(params_node)
+
+        for param in self.params:
+            if isinstance(param, dict) and param.get("name") and param.get("type"):
+                self.var_to_type[param["name"]] = param["type"]
 
         # Lấy block chính của rule
         block_node = next((c for c in node.children if isinstance(c, Tree) and c.data == "block"), None)
@@ -151,6 +159,8 @@ class Rule:
                 "rhs_calls": rhs_calls,
                 "observed": observed,
             }
+
+        self.var_to_type[ghost] = ghost_type
 
         return Step("define", {
             "ghost": ghost,
@@ -673,8 +683,9 @@ class Rule:
         return {func_name: unique_exprs(preconds)}, unknown_call
     
     # Hàm lấy postcond từ 1 path 
-    def get_postconditions_from_path(self, steps: List[Step]) -> Tuple[Dict[str, List[Tree]], bool, Dict[str, List[Tree]]]:
+    def get_postconditions_from_path(self, steps: List[Step]) -> Tuple[Dict[str, List[Tree]], bool, Dict[str, Any]]:
         var_to_value: Dict[str, Any] = {}
+        print(self.params)
         for p in self.params:
             if isinstance(p, dict) and p.get("name"):
                 var_to_value[p["name"]] = None
@@ -682,7 +693,6 @@ class Rule:
         postconds: List[Any] = []
         func_name: Optional[str] = None
         unknown_call = False
-        revert_pres: Dict[str, List[Tree]] = {}
 
         returns_map: Dict[str, List[str]] = {}
         fn_params_map: Dict[str, List[str]] = {}
@@ -949,11 +959,12 @@ class Rule:
             expr_subst = _subst_expr(expr_node)
             cond_expr = expr_subst or expr_node
             if step.kind == "assert_revert":
-                # Pre(P), Post(false)
-                pre_expr = cond_expr if cond_expr is not None else Tree("literal", [Token("TRUE", "true")])
-                if func_name:
-                    revert_pres.setdefault(func_name, []).append(pre_expr)
-                postconds.append(Tree("literal", [Token("FALSE", "false")]))
+                # Post(!P) nếu có P, else false
+                if cond_expr is not None:
+                    neg_expr = negative(deepcopy(cond_expr))
+                    postconds.append(neg_expr)
+                else:
+                    postconds.append(Tree("literal", [Token("FALSE", "false")]))
             else:
                 if cond_expr:
                     postconds.append(cond_expr)
@@ -961,7 +972,7 @@ class Rule:
         if func_name is None:
             return None
 
-        return {func_name: unique_exprs(postconds)}, unknown_call, revert_pres
+        return {func_name: unique_exprs(postconds)}, unknown_call, var_to_value
     
     def get_modify_from_path(self, steps: List[Step]) -> Dict[str, List[Tuple[str, str]]]:
         func_name: Optional[str] = None
@@ -1012,32 +1023,58 @@ class Rule:
         postconds_dict: Dict[str, List[Any]] = {}
         modify_dict: Dict[str, List[Any]] = {}
         emits_dict: Dict[str, List[Any]] = {}
+        sol_functions = []
+        temp_no_conditions = set()
+        if isinstance(self.sol_symbols, dict):
+            sol_functions = list(self.sol_symbols.get("functions", []) or [])
+
+        def _append_evaluated(bucket_dict: Dict[str, List[Any]], conds: Dict[str, List[Tree]], unknown: bool, is_pre: bool):
+            if not conds:
+                return
+            if not unknown:
+                for fn, cs in conds.items():
+                    bucket = bucket_dict.setdefault(fn, [])
+                    for c in cs:
+                        append_unique(bucket, c)
+                return
+            # unknown call → áp dụng cho mọi hàm, đánh giá funcCompare để lọc
+            for fn in sol_functions:
+                bucket = bucket_dict.setdefault(fn, [])
+                for c in sum(conds.values(), []):  # flatten all conds
+                    ce = c
+                    if isinstance(c, Tree):
+                        ce = evaluate_expr_at_function(c, fn)
+                        txt = to_text(ce)
+                        if txt.lower() == "false" and is_pre:
+                            temp_no_conditions.add(fn)
+                            break
+                if fn in temp_no_conditions:
+                    continue  # skip postconds if precond is false
+                for c in sum(conds.values(), []):  # flatten all conds
+                    ce = c
+                    if isinstance(c, Tree):
+                        ce = evaluate_expr_at_function(c, fn)
+                        txt = to_text(ce)
+                        if txt.lower() == "true":
+                            continue  # skip tautology
+                    append_unique(bucket, ce)
 
         for path in self.get_all_paths():
+            temp_no_conditions = set()
             pre_res = self.get_preconditions_from_path(path)
             if pre_res:
                 path_pre, unknown_call = pre_res
             else:
                 path_pre = {}
-            for fn, conds in path_pre.items():
-                bucket = preconds_dict.setdefault(fn, [])
-                for c in conds:
-                    append_unique(bucket, c)
+            _append_evaluated(preconds_dict, path_pre, unknown_call, True)
 
             post_res = self.get_postconditions_from_path(path)
             if post_res:
-                path_post, _, revert_pre = post_res
+                path_post, post_unknown, var_to_value = post_res
             else:
                 path_post = {}
-                revert_pre = {}
-            for fn, conds in path_post.items():
-                bucket = postconds_dict.setdefault(fn, [])
-                for c in conds:
-                    append_unique(bucket, c)
-            for fn, conds in revert_pre.items():
-                bucket = preconds_dict.setdefault(fn, [])
-                for c in conds:
-                    append_unique(bucket, c)
+                post_unknown = False
+            _append_evaluated(postconds_dict, path_post, post_unknown, False)
 
             path_modify = self.get_modify_from_path(path) or {}
             for fn, conds in path_modify.items():
@@ -1061,13 +1098,18 @@ class Rule:
 
         propagated = propagate_modifies(modify_dict, call_graph, func_writes)
 
+        print("Variable to type map:", self.var_to_type)
+        solved_preconds, solved_postconds = solve_free_vars_in_pres_and_posts(
+            preconds_dict, postconds_dict, self.var_to_type, var_to_value
+        )
+
         def _exprs_to_text_map(expr_dict: Dict[str, List[Any]]) -> Dict[str, List[str]]:
             out: Dict[str, List[str]] = {}
             for fn, exprs in expr_dict.items():
                 seen = set()
                 texts: List[str] = []
                 for ex in exprs:
-                    txt = to_text(ex) if isinstance(ex, Tree) else str(ex)
+                    txt = to_text(remove_arrows(ex)) if isinstance(ex, Tree) else str(ex)
                     if txt in seen:
                         continue
                     seen.add(txt)
@@ -1078,8 +1120,8 @@ class Rule:
 
         # TO-DO: gộp pre/post ở dạng AST trước khi stringify để tối ưu dedup
         return (
-            _exprs_to_text_map(preconds_dict),
-            _exprs_to_text_map(postconds_dict),
+            _exprs_to_text_map(solved_preconds),
+            _exprs_to_text_map(solved_postconds),
             _exprs_to_text_map(propagated),
             _exprs_to_text_map(emits_dict),
         )

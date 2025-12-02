@@ -7,7 +7,7 @@ rule xSpec(uint n) {
 
     env e;
     
-    mathint xBefore = x + 1;
+    uint xBefore = x + 1;
 
     add_to_x(n);
 
@@ -20,7 +20,7 @@ rule xSpec(uint n) {
         f(args);
     }
 
-    mathint xAfter = x;
+    uint xAfter = x;
 
     assert contract.isum > 0,
         "x must increase";

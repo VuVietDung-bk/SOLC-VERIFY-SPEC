@@ -5,13 +5,13 @@ variables
 
 
 rule transferSpec(address recipient, uint amount) {
-    mathint balance_sender_before = _balances[msg.sender];
-    mathint balance_recip_before = _balances[recipient];
+    uint balance_sender_before = _balances[msg.sender];
+    uint balance_recip_before = _balances[recipient];
 
     transfer(recipient, amount);
 
-    mathint balance_sender_after = _balances[msg.sender];
-    mathint balance_recip_after = _balances[recipient];
+    uint balance_sender_after = _balances[msg.sender];
+    uint balance_recip_after = _balances[recipient];
 
     assert recipient != msg.sender => balance_sender_after == balance_sender_before - amount,
         "transfer must decrease sender's balance by amount";
