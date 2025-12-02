@@ -6,12 +6,14 @@ from parser_utils import to_text
 from spec_method import Variable
 
 def make_unary_not(child: Tree) -> Tree:
+    """Create a unary negation node wrapping the given child."""
     return Tree("unary_expr", [
         Tree("unop", [Token("BANG", "!")]),
         child
     ])
 
 def make_binary(left: Tree, op: str, right: Tree) -> Tree:
+    """Create a generic binary expression node."""
     return Tree("bi_expr", [
         left,
         Tree("binop", [Token(op, op)]),
@@ -19,6 +21,7 @@ def make_binary(left: Tree, op: str, right: Tree) -> Tree:
     ])
 
 def make_binary_logic(left: Tree, op: str, right: Tree) -> Tree:
+    """Create a logical binary expression node."""
     return Tree("logic_bi_expr", [
         left,
         Tree("logic_binop", [Token(op, op)]),
@@ -26,6 +29,7 @@ def make_binary_logic(left: Tree, op: str, right: Tree) -> Tree:
     ])
 
 def make_binary_compare(left: Tree, op: str, right: Tree) -> Tree:
+    """Create a comparison binary expression node."""
     return Tree("compare_bi_expr", [
         left,
         Tree("compare_bi_expr", [Token(op, op)]),
@@ -43,8 +47,8 @@ NEGATE_BINOP = {
 
 def negative(expr: Tree) -> Tree:
     """
-    Trả về phủ định logic của expression theo cấu trúc AST Lark.
-    Bao gồm literal, unary, binary, exprs và QUANTIFIER.
+    Return the logical negation of an expression following the Lark AST structure.
+    Covers literals, unary, binary, exprs and QUANTIFIER.
     """
 
     if isinstance(expr, Tree) and expr.data == "literal":
@@ -53,7 +57,6 @@ def negative(expr: Tree) -> Tree:
             return Tree("literal", [Token("FALSE", "false")])
         if tok.type == "FALSE":
             return Tree("literal", [Token("TRUE", "true")])
-        # literal khác → phủ định bằng unary
         return make_unary_not(expr)
 
     if isinstance(expr, Tree) and expr.children:
@@ -61,10 +64,10 @@ def negative(expr: Tree) -> Tree:
             isinstance(expr.children[0], Token) and 
             expr.children[0].type == "QUANTIFIER"):
 
-            quant_tok   = expr.children[0]   # QUANTIFIER token
-            cvl_type    = expr.children[1]   # type tree
-            var_name    = expr.children[2]   # Token ID
-            body        = expr.children[3]   # expr
+            quant_tok   = expr.children[0]
+            cvl_type    = expr.children[1]
+            var_name    = expr.children[2]
+            body        = expr.children[3]
 
             quant = quant_tok.value
             neg_body = negative(body)
@@ -74,7 +77,6 @@ def negative(expr: Tree) -> Tree:
             else:
                 new_quant = Token("QUANTIFIER", "forall")
 
-            # tái tạo node:
             return Tree(expr.data, [
                 new_quant,
                 cvl_type,
@@ -83,14 +85,12 @@ def negative(expr: Tree) -> Tree:
             ])
 
     if isinstance(expr, Tree) and expr.data == "unary_expr":
-        unop_node = expr.children[0]         # Tree('unop')
-        op_tok = unop_node.children[0]       # Token
+        unop_node = expr.children[0]
+        op_tok = unop_node.children[0]
 
         if op_tok.type == "BANG":
-            # !( !A ) → A
             return expr.children[1]
 
-        # phủ định các unary khác: -(A), ~(A)
         return make_unary_not(expr)
 
 
@@ -108,7 +108,6 @@ def negative(expr: Tree) -> Tree:
             op_tok = binop_node.children[0]
             op = op_tok.value
 
-            # AND/OR → De Morgan
             if op == "&&":
                 return make_binary_logic(
                     negative(left), "||", negative(right)
@@ -118,23 +117,21 @@ def negative(expr: Tree) -> Tree:
                     negative(left), "&&", negative(right)
                 )
 
-            # So sánh → đổi operator
             if op in NEGATE_BINOP:
                 new_op = NEGATE_BINOP[op]
                 return make_binary_compare(left, new_op, right)
 
-            # các binary khác → bọc phủ định
             return make_unary_not(expr)
 
     if isinstance(expr, Tree) and expr.data == "exprs":
         if len(expr.children) == 1:
             return negative(expr.children[0])
-        # nhiều expr, không có nghĩa logic → bọc !
         return make_unary_not(expr)
 
     return make_unary_not(expr)
 
 def remove_arrows(expr: Tree) -> Tree:
+    """Rewrite implications and biconditionals into equivalent expressions without arrows."""
     if isinstance(expr, Token):
         return expr
 
@@ -173,7 +170,7 @@ def remove_arrows(expr: Tree) -> Tree:
     return expr
 
 def subst_expr(expr: Tree, subst_dict: Dict[str, Any]) -> Tree:
-    """Hàm thay thế biến trong biểu thức theo subst_dict."""
+    """Replace variables in an expression according to subst_dict."""
     if isinstance(expr, Token):
         if expr.type == "ID" and expr.value in subst_dict:
             new_value = subst_dict[expr.value]
@@ -187,7 +184,7 @@ def subst_expr(expr: Tree, subst_dict: Dict[str, Any]) -> Tree:
     
 def to_expr_piece(val: Any) -> Any:
     """
-    Chuẩn hoá giá trị thành Token/Tree để nhúng vào biểu thức.
+    Normalize a value into a Token/Tree for embedding into an expression.
     """
     if val is None:
         return None
@@ -211,7 +208,7 @@ def to_expr_piece(val: Any) -> Any:
 
 def wrap_expr(val: Any) -> Optional[Tree]:
     """
-    Bọc giá trị thành Tree('expr', ...) nếu cần.
+    Wrap a value into Tree('expr', ...) when needed.
     """
     if val is None:
         return None
@@ -228,6 +225,7 @@ def wrap_expr(val: Any) -> Optional[Tree]:
 
 
 def make_eq_expr(lhs: Any, rhs: Any) -> Optional[Tree]:
+    """Create an equality comparison node for two values."""
     lhs_expr = wrap_expr(lhs)
     rhs_expr = wrap_expr(rhs)
     if lhs_expr is None or rhs_expr is None:
@@ -241,7 +239,7 @@ def make_eq_expr(lhs: Any, rhs: Any) -> Optional[Tree]:
 
 def unique_exprs(exprs: List[Any]) -> List[Any]:
     """
-    Dedupe danh sách biểu thức theo chuỗi to_text.
+    Dedupe the list of expressions based on the to_text string.
     """
     seen = set()
     out: List[Any] = []
@@ -257,7 +255,7 @@ def unique_exprs(exprs: List[Any]) -> List[Any]:
 
 def wrap_old_access(access: Tree | Token, kind: str) -> Tree:
     """
-    Tạo node call __verifier_old_<kind>(access) giữ nguyên dạng Tree.
+    Create a call node __verifier_old_<kind>(access) while keeping Tree shape.
     kind: 'uint' | 'int' | 'bytes'
     """
     func_name = f"__verifier_old_{kind}"
@@ -268,7 +266,7 @@ def wrap_old_access(access: Tree | Token, kind: str) -> Tree:
 
 def wrap_old_access_event(access: Tree | Token, kind: str) -> Tree:
     """
-    Tạo node call __verifier_old_<kind>(access) giữ nguyên dạng Tree.
+    Create a call node __verifier_old_<kind>(access) while keeping Tree shape.
     kind: 'uint' | 'int' | 'bytes'
     """
     func_name = f"__verifier_before_{kind}"
@@ -279,13 +277,12 @@ def wrap_old_access_event(access: Tree | Token, kind: str) -> Tree:
 
 def wrap_old_expr(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
     """
-    Lọc các biến mapping, rồi duyệt expr để bọc các truy cập biến đó bằng __verifier_old_<kind>().
-    Trả về expr đã bọc.
+    Filter mapping variables, then traverse expr to wrap accesses with __verifier_old_<kind>().
+    Return the wrapped expr.
     """
     if expr is None:
         return expr
 
-    # build type map từ Variable
     type_map: Dict[str, str] = {}
     for v in vars_iter or []:
         vname = getattr(v, "name", None) if hasattr(v, "name") else None
@@ -325,14 +322,12 @@ def wrap_old_expr(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
         return cur
 
     def _rule_name(data):
-        # data có thể là str hoặc Token
         return data.value if isinstance(data, Token) else data
 
     def _index_depth(expr_node):
         depth = 0
         for ch in expr_node.children:
             if isinstance(ch, Tree) and _rule_name(ch.data) == "index":
-                # mỗi child trong index tương ứng 1 lần []
                 depth += len(ch.children)
         return depth
 
@@ -347,7 +342,7 @@ def wrap_old_expr(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
             if base_tok and base_tok.type == "ID":
                 base_name = base_tok.value
                 if base_name in type_map:
-                    idx_count = _index_depth(node)   # <-- FIX
+                    idx_count = _index_depth(node)
                     vtype = _peel_element(type_map.get(base_name), idx_count)
                     wrap_kind = _choose_wrap(vtype)
                     if wrap_kind:
@@ -360,13 +355,12 @@ def wrap_old_expr(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
 
 def wrap_old_expr_event(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
     """
-    Lọc các biến mapping, rồi duyệt expr để bọc các truy cập biến đó bằng __verifier_old_<kind>().
-    Trả về expr đã bọc.
+    Filter mapping variables, then traverse expr to wrap accesses with __verifier_old_<kind>().
+    Return the wrapped expr.
     """
     if expr is None:
         return expr
 
-    # build type map từ Variable
     type_map: Dict[str, str] = {}
     for v in vars_iter or []:
         vname = getattr(v, "name", None) if hasattr(v, "name") else None
@@ -406,14 +400,12 @@ def wrap_old_expr_event(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
         return cur
 
     def _rule_name(data):
-        # data có thể là str hoặc Token
         return data.value if isinstance(data, Token) else data
 
     def _index_depth(expr_node):
         depth = 0
         for ch in expr_node.children:
             if isinstance(ch, Tree) and _rule_name(ch.data) == "index":
-                # mỗi child trong index tương ứng 1 lần []
                 depth += len(ch.children)
         return depth
 
@@ -428,7 +420,7 @@ def wrap_old_expr_event(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
             if base_tok and base_tok.type == "ID":
                 base_name = base_tok.value
                 if base_name in type_map:
-                    idx_count = _index_depth(node)   # <-- FIX
+                    idx_count = _index_depth(node)
                     vtype = _peel_element(type_map.get(base_name), idx_count)
                     wrap_kind = _choose_wrap(vtype)
                     if wrap_kind:
@@ -441,7 +433,7 @@ def wrap_old_expr_event(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
 
 def evaluate_expr_at_function(expr: Tree, func: str) -> Tree:
     """
-    Giải quyết func_compare_expr tại function cụ thể.
+    Resolve func_compare_expr at a specific function.
     """
     if not isinstance(expr, Tree):
         return expr
@@ -449,7 +441,6 @@ def evaluate_expr_at_function(expr: Tree, func: str) -> Tree:
     def _eval(node: Tree) -> Tree:
         if not isinstance(node, Tree):
             return node
-        # func_compare_expr: "funcCompare(" ID "," STRING_LITERAL ")"
         if node.data == "func_compare_expr":
             fn_tok = next((t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "ID")), None)
             str_tok = next((t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "STRING_LITERAL")), None)
@@ -457,7 +448,6 @@ def evaluate_expr_at_function(expr: Tree, func: str) -> Tree:
             val_bool = (target == func)
             val = "true" if val_bool else "false"
             return Tree("literal", [Token("TRUE" if val == "true" else "FALSE", val)])
-        # default: recurse
         new_children = [_eval(ch) if isinstance(ch, Tree) else ch for ch in node.children]
         return Tree(node.data, new_children)
 
@@ -470,11 +460,11 @@ def solve_free_vars_in_pres_and_posts(
     var_to_value: Dict[str, Any]
 ) -> Tuple[Dict[str, List[Any]], Dict[str, List[Any]]]:
     """
-    Giải quyết các biến tự do trong pre/postconditions của từng hàm.
-    - Nếu Q chứa biến tự do n chưa biết: Post(forall n. Q, f)
-    - Nếu require P; f(); assert Q; → Post(forall n. P => Q, f)
-      (ở đây pres/posts đã tách theo hàm; ta sẽ chỉ thêm quantifier với biến xuất hiện trong Q nhưng không có trong var_to_type/var_to_value)
-    - require P; f() -> None (pre không propagate ở đây)
+    Resolve free variables in pre/postconditions per function.
+    - If Q contains an unknown free var n: Post(forall n. Q, f)
+    - If require P; f(); assert Q; → Post(forall n. P => Q, f)
+      (here pres/posts are already separated per function; we only add quantifiers for vars in Q absent from var_to_type/var_to_value)
+    - Preconditions with unmatched free vars are dropped when they cannot pair with a postcondition.
     """
     def _free_vars(expr: Tree) -> set:
         free = set()
@@ -489,7 +479,6 @@ def solve_free_vars_in_pres_and_posts(
     def _wrap_forall(vars_set: set, body: Tree) -> Tree:
         if not vars_set:
             return body
-        # đơn giản gói từng biến bằng quantifier forall (mathint)
         res = body
         for v in sorted(vars_set):
             res = Tree("expr", [
@@ -536,7 +525,6 @@ def solve_free_vars_in_pres_and_posts(
             if not matched:
                 out_posts.append(_wrap_forall(fv_post, post_ex))
 
-        # keep preconditions not consumed
         remaining_pre = []
         for idx, pre_ex in enumerate(pre_list):
             if idx in used_pre_idx:
@@ -544,7 +532,6 @@ def solve_free_vars_in_pres_and_posts(
             if isinstance(pre_ex, Tree):
                 fv_pre = _free_vars(pre_ex)
                 if fv_pre:
-                    # require P; f() with free vars and no matching post → drop
                     continue
             remaining_pre.append(pre_ex)
         if remaining_pre:

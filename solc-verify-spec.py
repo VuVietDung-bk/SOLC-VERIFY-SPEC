@@ -57,11 +57,9 @@ def main():
     print("[4/7] Building call graph and written variables map...")
     call_graph = build_call_graph(sol_path)
     func_writes = build_function_writes(sol_path)
-    # Gán call graph vào từng rule để lan truyền modifies/emits nếu cần
     for r in ir.rules:
         r.call_graph = call_graph
         r.func_state_writes = func_writes
-    # (kept for later use)
 
     print("[5/7] Inserting preconditions, postconditions and invariants...")
     out_files = write_annotations(sol_path, ir, only_contract=target_contract)
@@ -74,7 +72,6 @@ def main():
         for file in out_files:
             print(f"\033[95mVerifying {file}\033[0m")
             extra = []
-            # map selected args to runsv
             if args.arithmetic:
                 extra.extend(["--arithmetic", args.arithmetic])
             if args.errors_only:

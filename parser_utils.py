@@ -1,16 +1,14 @@
-# spec_parser.py
 import re
 from copy import deepcopy
 from typing import Dict, List, Tuple, Optional, Any
 from lark import Tree, Token
 
-# === NEW: helpers for robust arg splitting without commas in AST ===
 _ATOM_TOKEN_TYPES = {
     "ID", "INTEGER_LITERAL", "STRING_LITERAL", "TRUE", "FALSE"
 }
 
-# ===== Helpers (public if other modules import) =====
 def _flatten_expr(tree_or_tok: Any) -> str:
+    """Flatten a Token or Tree into a whitespace-normalized string."""
     if isinstance(tree_or_tok, Token):
         return tree_or_tok.value
     if isinstance(tree_or_tok, Tree):
@@ -23,8 +21,8 @@ def _flatten_expr(tree_or_tok: Any) -> str:
 
 def _extract_param_types_from_pattern(pat: Tree) -> List[str]:
     """
-    Lấy danh sách kiểu tham số từ subtree 'params' bên trong exact_pattern / wildcard_pattern.
-    Trả về list chuỗi đã flatten (ví dụ: ['uint', 'address', 'bytes32[]']).
+    Get the list of parameter types from the 'params' subtree inside exact_pattern / wildcard_pattern.
+    Return the flattened list (e.g. ['uint', 'address', 'bytes32[]']).
     """
     params_node = next((ch for ch in pat.children
                         if isinstance(ch, Tree) and ch.data == "params"), None)
@@ -40,17 +38,18 @@ def _extract_param_types_from_pattern(pat: Tree) -> List[str]:
     return types
 
 def _get_function_call_info(call_tree: Tree) -> Tuple[Optional[str], List[str]]:
+    """Extract function name and argument strings from a function_call node."""
     children = list(call_tree.children)
     exprs_node = next((ch for ch in children if isinstance(ch, Tree) and ch.data == "exprs"), None)
     cutoff_idx = children.index(exprs_node) if exprs_node is not None else len(children)
     ids_before = [ch.value for ch in children[:cutoff_idx]
                   if isinstance(ch, Token) and ch.type == "ID"]
     func_name = ids_before[-1] if ids_before else None
-    # DÙNG splitter mới; ở đây không cần sol_symbols nên pass {} để chỉ tách theo dấu phẩy
     args = _split_call_args(exprs_node, sol_symbols={})
     return func_name, args
 
 def _is_zero_arg_function_call(tree: Tree) -> Optional[str]:
+    """Return the function name if the node is a zero-argument function call, else None."""
     if not (isinstance(tree, Tree) and tree.data == "function_call"):
         return None
     children = list(tree.children)
@@ -64,16 +63,16 @@ def _is_zero_arg_function_call(tree: Tree) -> Optional[str]:
 
 def _extract_rule_params(params_node: Tree) -> List[dict]:
     """
-    Trả về danh sách tham số của rule dạng:
+    Return rule parameters as:
     [{"type": "<flatten cvl_type>", "name": "<id|None>"}]
 
     Grammar:
       params : cvl_type data_location? ID? param*
       param  : "," cvl_type data_location? (ID)?
 
-    Thực tế trong AST:
-      - Tham số đầu tiên: xuất hiện trực tiếp dưới 'params' (cvl_type rồi ID).
-      - Các tham số còn lại: mỗi cái nằm trong một subtree 'param' bên trong 'params'.
+    In the AST:
+      - First parameter: appears directly under 'params' (cvl_type then ID).
+      - Remaining parameters: each inside a 'param' subtree within 'params'.
     """
     out: List[dict] = []
     if params_node is None:
@@ -81,16 +80,13 @@ def _extract_rule_params(params_node: Tree) -> List[dict]:
 
     children = list(params_node.children)
 
-    # gom mọi tham số: cvl_type + ID (nếu có), cả tham số đầu tiên và trong các 'param'
     def _add_param(type_node: Optional[Tree], name_tok: Optional[Token]) -> None:
         if type_node is None:
             return
         out.append({"type": _flatten_tokens_only(type_node), "name": name_tok.value if name_tok else None})
 
-    # tham số đầu tiên nằm trực tiếp dưới params
     first_type = next((c for c in children if isinstance(c, Tree) and c.data == "cvl_type"), None)
     if first_type:
-        # name: token ID xuất hiện sau type và trước param đầu tiên
         name_tok = None
         seen_type = False
         for ch in children:
@@ -104,7 +100,6 @@ def _extract_rule_params(params_node: Tree) -> List[dict]:
                 break
         _add_param(first_type, name_tok)
 
-    # các tham số còn lại nằm trong 'param'
     for ch in children:
         if isinstance(ch, Tree) and ch.data == "param":
             ptype = next((sub for sub in ch.children if isinstance(sub, Tree) and sub.data == "cvl_type"), None)
@@ -115,8 +110,8 @@ def _extract_rule_params(params_node: Tree) -> List[dict]:
 
 def _flatten_tokens_only(x: Any) -> str:
     """
-    Gộp tokens như trước, KHÔNG có logic state-var mapping.
-    Dùng nội bộ để gom chuỗi 'thô'.
+    Combine tokens as before, WITHOUT state-var mapping logic.
+    Internal use to build the raw string.
     """
     if isinstance(x, Token):
         return x.value
@@ -131,8 +126,8 @@ def _flatten_tokens_only(x: Any) -> str:
 
 def _render_call(name: str, args: List[str], sol_symbols: dict) -> str:
     """
-    Render theo bảng symbol:
-    - Nếu name là state_var: 
+    Render based on the symbol table:
+    - If name is state_var:
         0 arg  -> name
         1+ arg -> name[a][b]...
     - Else (function): name(a, b, ...)
@@ -143,25 +138,21 @@ def _render_call(name: str, args: List[str], sol_symbols: dict) -> str:
         if len(args) == 1:
             return f"{name}[{args[0]}]"
         return f"{name}[" + "][".join(args) + "]"
-    # function
     return f"{name}(" + ", ".join(args) + ")"
 
 
 def _flatten_expr_with_symbols(tree_or_tok: Any, sol_symbols: dict) -> str:
     """
-    Flatten biểu thức nhưng biết phân biệt function vs state_var/mapping để render đúng.
-    - ĐỆ QUY trên mọi node: đảm bảo các function_call lồng trong expr đều được render chuẩn.
+    Flatten expressions while distinguishing function vs state_var/mapping for correct rendering.
+    - Recursive on all nodes: ensures nested function_call inside expr are rendered properly.
     """
-    # Token → trả lại nguyên giá trị
     if isinstance(tree_or_tok, Token):
         return tree_or_tok.value
 
-    # function_call → render đặc biệt (function vs state var/mapping)
     if isinstance(tree_or_tok, Tree) and tree_or_tok.data == "function_call":
         fname, fargs = _get_function_call_info(tree_or_tok)
         if fname is None:
             return ""
-        # Flatten từng arg (đệ quy) để giữ chuẩn hoá
         args = []
         exprs_node = next((ch for ch in tree_or_tok.children if isinstance(ch, Tree) and ch.data == "exprs"), None)
         if exprs_node is not None:
@@ -177,14 +168,11 @@ def _flatten_expr_with_symbols(tree_or_tok: Any, sol_symbols: dict) -> str:
                 args.append(_flatten_expr_with_symbols_list(cur, sol_symbols))
         return _render_call(fname, args, sol_symbols)
     
-    # --- special_var_attribute_call: ID "." special_var_attribute
     if isinstance(tree_or_tok, Tree) and tree_or_tok.data == "special_var_attribute_call":
-        # Tên: ID có thể là con trực tiếp
         name_tok = next(
             (t for t in tree_or_tok.scan_values(lambda v: isinstance(v, Token) and v.type == "ID")),
             None
         )
-        # Thuộc tính: token SUM có thể nằm trong Tree('special_var_attribute', [Token('SUM','sum')])
         attr_tok = next(
             (t for t in tree_or_tok.scan_values(
                 lambda v: isinstance(v, Token) and getattr(v, "type", None) in ("SUM",)
@@ -193,11 +181,8 @@ def _flatten_expr_with_symbols(tree_or_tok: Any, sol_symbols: dict) -> str:
         )
         if name_tok and attr_tok:
             return f"{name_tok.value}.{attr_tok.value}"
-        # fallback (nếu grammar thay đổi)
         return _flatten_tokens_only(tree_or_tok)
-    # contract_attribute_call → "contract.balance" / "contract.address"
     if isinstance(tree_or_tok, Tree) and tree_or_tok.data == "contract_attribute_call":
-        # Tìm nhánh con 'contract_attribute', rồi lấy token bên trong (balance/address)
         attr_node = next(
             (ch for ch in tree_or_tok.children if isinstance(ch, Tree) and ch.data == "contract_attribute"),
             None
@@ -205,22 +190,19 @@ def _flatten_expr_with_symbols(tree_or_tok: Any, sol_symbols: dict) -> str:
         attr = _flatten_tokens_only(attr_node) if attr_node is not None else None
         return f"contract.{attr}" if attr else "contract"
 
-    # Các Tree khác (expr, binop, literal, ...) → duyệt đệ quy toàn bộ children
     if isinstance(tree_or_tok, Tree):
         parts = []
         for ch in tree_or_tok.children:
             parts.append(_flatten_expr_with_symbols(ch, sol_symbols))
         s = " ".join([p for p in parts if p is not None])
-        # làm sạch spacing
         s = s.replace(" ,", ",").replace("( ", "(").replace(" )", ")").replace(" .", ".")
         return s.strip()
 
-    # fallback
     return str(tree_or_tok)
 
 def _collect_call_like_from_expr(expr_node: Optional[Tree], sol_symbols: dict) -> List[Dict[str, Any]]:
     """
-    Trả về danh sách 'func_calls' từ 1 expr:
+    Return a list of 'func_calls' from one expr:
       - function_call: {"name", "args", "decl_kind", "rendered"}
       - special_var_attribute_call: {"name", "attr", "decl_kind":"state_var_attr", "rendered": "name.attr"}
       - contract_attribute_call: {"name":"contract", "attr":("balance"|"address"), "decl_kind":"contract_attr", "rendered":"contract.balance"}
@@ -230,7 +212,6 @@ def _collect_call_like_from_expr(expr_node: Optional[Tree], sol_symbols: dict) -
 
     calls: List[Dict[str, Any]] = []
 
-    # 1) function_call
     for fc in expr_node.iter_subtrees_topdown():
         if not (isinstance(fc, Tree) and fc.data == "function_call"):
             continue
@@ -238,11 +219,9 @@ def _collect_call_like_from_expr(expr_node: Optional[Tree], sol_symbols: dict) -
         if not fname:
             continue
 
-        # render args chuẩn
         fargs: List[str] = []
         exprs_node = next((ch for ch in fc.children if isinstance(ch, Tree) and ch.data == "exprs"), None)
         if exprs_node is not None:
-            # dùng lại splitter hiện có (nếu bạn đã tạo); nếu chưa, giữ cách build cur tương tự logic trước
             cur = []
             for ch in exprs_node.children:
                 if isinstance(ch, Token) and ch.value == ",":
@@ -254,7 +233,6 @@ def _collect_call_like_from_expr(expr_node: Optional[Tree], sol_symbols: dict) -
             if cur:
                 fargs.append(_flatten_expr_with_symbols_list(cur, sol_symbols))
 
-        # phân loại từ bảng symbol
         if fname in sol_symbols.get("state_vars", set()):
             decl_kind = "state_var"
         elif fname in sol_symbols.get("functions", set()):
@@ -270,15 +248,13 @@ def _collect_call_like_from_expr(expr_node: Optional[Tree], sol_symbols: dict) -
             "rendered": rendered
         })
 
-    # 2) special_var_attribute_call: ID "." special_var_attribute (ví dụ balances.sum)
     for sv in expr_node.iter_subtrees_topdown():
         if not (isinstance(sv, Tree) and sv.data == "special_var_attribute_call"):
             continue
-        # Lấy ID và attr
         id_tok = next((t for t in sv.scan_values(lambda v: isinstance(v, Token) and v.type == "ID")), None)
         attr_tok = next((t for t in sv.scan_values(lambda v: isinstance(v, Token) and v.type in ("SUM",))), None)
         name = id_tok.value if id_tok else None
-        attr = (attr_tok.value.lower() if attr_tok else None)  # "sum"
+        attr = (attr_tok.value.lower() if attr_tok else None)
         if not name:
             continue
         rendered = f"{name}.{attr}" if attr else name
@@ -290,12 +266,10 @@ def _collect_call_like_from_expr(expr_node: Optional[Tree], sol_symbols: dict) -
             "rendered": rendered
         })
 
-    # 3) contract_attribute_call: "contract.balance" | "contract.address"
     for ca in expr_node.iter_subtrees_topdown():
         if not (isinstance(ca, Tree) and ca.data == "contract_attribute_call"):
             continue
 
-        # Lấy attr qua nhánh con 'contract_attribute'
         attr_node = next(
             (ch for ch in ca.children if isinstance(ch, Tree) and ch.data == "contract_attribute"),
             None
@@ -307,13 +281,14 @@ def _collect_call_like_from_expr(expr_node: Optional[Tree], sol_symbols: dict) -
             "name": "contract",
             "args": [],
             "decl_kind": "contract_attr",
-            "attr": attr,                 # <-- giờ có 'balance' hoặc 'address'
-            "rendered": rendered          # <-- "contract.balance" hoặc "contract.address"
+            "attr": attr,
+            "rendered": rendered
         })
 
     return calls
 
 def _flatten_expr_with_symbols_list(nodes: List[Any], sol_symbols: dict) -> str:
+    """Flatten a list of nodes into a single string with symbol-aware rendering."""
     parts = []
     for n in nodes:
         parts.append(_flatten_expr_with_symbols(n, sol_symbols))
@@ -321,33 +296,30 @@ def _flatten_expr_with_symbols_list(nodes: List[Any], sol_symbols: dict) -> str:
     return s.replace(" ,", ",").replace("( ", "(").replace(" )", ")").replace(" .", ".").strip()
 
 def _is_atom_token(tok: Token) -> bool:
+    """Return True if the token represents an atomic argument component."""
     return isinstance(tok, Token) and tok.type in _ATOM_TOKEN_TYPES
 
 def _split_call_args(exprs_node: Optional[Tree], sol_symbols: dict) -> List[str]:
     """
-    Tách args từ node 'exprs' mà KHÔNG dựa vào comma tồn tại trong AST.
-    Chiến lược:
-      - Nếu có bất kỳ Tree con (tức là có expr phức tạp) → flatten toàn bộ thành 1 đối số duy nhất.
-      - Nếu chỉ có Tokens:
-          * Nếu xuất hiện dấu phẩy → dùng logic tách theo ',' (đang có sẵn).
-          * Nếu KHÔNG có dấu phẩy:
-              - Nếu tất cả tokens đều 'atomic' (ID/number/string/true/false) → mỗi token là MỘT đối số.
-              - Ngược lại (thấy toán tử/ngoặc...) → coi là MỘT đối số duy nhất.
+    Split args from 'exprs' node WITHOUT relying on commas in the AST.
+    Strategy:
+      - If any child Tree exists (complex expr) → flatten whole thing into a single argument.
+      - If only Tokens:
+          * If a comma appears → use existing logic to split by ','.
+          * If NO comma:
+              - If all tokens are 'atomic' (ID/number/string/true/false) → each token is ONE argument.
+              - Otherwise (operators/brackets/...) → treat as ONE argument.
     """
     if exprs_node is None:
         return []
 
-    # 1) Nếu có subtree (Tree) → coi như 1 expr (vì không còn delimiter rõ ràng)
     if any(isinstance(ch, Tree) for ch in exprs_node.children):
-        # render cả exprs thành 1 đối số
         return [_flatten_expr_with_symbols_list(list(exprs_node.children), sol_symbols).strip()]
 
-    # 2) Chỉ còn Tokens
     toks = [ch for ch in exprs_node.children if isinstance(ch, Token)]
     if not toks:
         return []
 
-    # 2a) Nếu có dấu phẩy trong tokens → tách theo dấu phẩy
     if any(t.value == "," for t in toks):
         args: List[str] = []
         cur: List[Any] = []
@@ -362,13 +334,9 @@ def _split_call_args(exprs_node: Optional[Tree], sol_symbols: dict) -> List[str]
             args.append(_flatten_expr_with_symbols_list(cur, sol_symbols))
         return [a.strip() for a in args]
 
-    # 2b) KHÔNG có dấu phẩy:
-    #     - Nếu TẤT CẢ tokens đều là atomic → mỗi token là MỘT đối số.
-    #     - Nếu có token không-atomic (toán tử/ngoặc/…): coi toàn bộ là MỘT biểu thức (1 đối số).
     if all(_is_atom_token(t) for t in toks):
-        return [t.value for t in toks]  # mỗi token là 1 arg
+        return [t.value for t in toks]
 
-    # Không thuần atomic → 1 đối số duy nhất
     return [_flatten_expr_with_symbols_list(toks, sol_symbols).strip()]
 
 BIN_PRECEDENCE = {
@@ -392,12 +360,12 @@ UNARY_PRECEDENCE = 9
 UNARY_PRECEDENCE = 7
 
 def fmt(node):
+    """Format an expression tree into Solidity-like text with precedence tracking."""
     if isinstance(node, Token):
         return node.value, 100
     if not isinstance(node, Tree):
         return str(node), 100
 
-    # ---- quantifier: QUANTIFIER cvl_type ID "." expr ----
     if (
         node.data == "expr"
         and len(node.children) >= 4
@@ -415,30 +383,26 @@ def fmt(node):
 
         return f"{quant_tok.value} ({type_txt} {var_txt}) {body_txt}", 100
 
-    # ---- unary ----
     if node.data == "unary_expr":
         op = node.children[0].children[0].value
         t, p = fmt(node.children[1])
         if p < UNARY_PRECEDENCE: t = f"({t})"
         return f"{op}{t}", UNARY_PRECEDENCE
 
-    # ---- special_var_attribute_call : ID "." special_var_attribute ----
     if node.data == "special_var_attribute_call":
         base = node.children[0]
         attr = node.children[1]
         base_txt, _ = fmt(base)
         attr_tok = attr.children[0]
-        # sum → gọi hàm verifier, tạm thời gắn kiểu uint
         if attr_tok.value == "sum":
             return f"__verifier_sum_uint({base_txt})", 100
         elif attr_tok.value == "isum":
             return f"__verifier_sum_int({base_txt})", 100
         return f"{base_txt}.{attr_tok.value}", 100
 
-    # ---- contract_attribute_call : contract "." field ----
     if node.data == "contract_attribute_call":
-        c = node.children[0]   # CONTRACT token
-        a = node.children[1]   # field token
+        c = node.children[0]
+        a = node.children[1]
         attr_val = a.children[0].value if getattr(a, "children", None) else a.value
         if attr_val == "address":
             return "address(this)", 100
@@ -446,9 +410,7 @@ def fmt(node):
             return "address(this).balance", 100
         return f"{c.value}.{attr_val}", 100
 
-    # ---- function_call ----
     if node.data == "function_call":
-        # Tự duyệt để lấy tên hàm và format từng arg đệ quy
         exprs_node = next((ch for ch in node.children if isinstance(ch, Tree) and ch.data == "exprs"), None)
         id_toks = [t.value for t in node.children if isinstance(t, Token) and t.type == "ID"]
         fname = ".".join(id_toks) if id_toks else ""
@@ -460,7 +422,6 @@ def fmt(node):
                     args.append(atxt)
         return f"{fname}(" + ", ".join(args) + ")", 10
 
-    # ---- index : "[" expr "]" ... ----
     if node.data == "index":
         items = []
         for e in node.children:
@@ -482,26 +443,20 @@ def fmt(node):
 
         op = op_node.children[0].value
 
-        # precedence của logic operator
         my_prec = BIN_PRECEDENCE[op]
 
-        # ---- right associative cho "=>" ----
         if op == "=>":
             ltxt, lp = fmt(left)
             rtxt, rp = fmt(right)
 
-            # left phải ngoặc nếu precedence < my_prec
             if lp < my_prec:
                 ltxt = f"({ltxt})"
 
-            # right phải ngoặc nếu precedence <= my_prec
-            # (vì right-assoc)
             if rp <= my_prec:
                 rtxt = f"({rtxt})"
 
             return f"{ltxt} {op} {rtxt}", my_prec
 
-        # ---- mặc định: left-associative ----
         ltxt, lp = fmt(left)
         rtxt, rp = fmt(right)
 
@@ -512,7 +467,6 @@ def fmt(node):
 
         return f"{ltxt} {op} {rtxt}", my_prec
 
-    # ---- bi_expr ----
     if node.data == "bi_expr" or node.data == "compare_bi_expr":
         if (len(node.children) == 3 and
             isinstance(node.children[1], Tree) and
@@ -552,7 +506,6 @@ def fmt(node):
             attr_txt, _ = fmt(node.children[2])
             return f"{base_txt}{idx_txt}{attr_txt}", 100
 
-    # ---- wrapper (exprs, literal, general trees) ----
     if len(node.children) == 1:
         return fmt(node.children[0])
 
@@ -565,5 +518,6 @@ def fmt(node):
     return " ".join(parts), mp
 
 def to_text(expr : Tree) -> str:
+    """Convert a Tree expression to formatted text."""
     text, _ = fmt(expr)
     return text

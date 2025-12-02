@@ -5,14 +5,14 @@ from slither.core.declarations import Function as SlitherFunction
 from slither.core.variables.state_variable import StateVariable
 
 def _rewrite_pragma_to_0_7_0(filepath: str) -> None:
-    """Đổi 'pragma solidity ^...;' thành 'pragma solidity ^0.7.0;' (idempotent)."""
+    """Rewrite 'pragma solidity ^...;' to 'pragma solidity >=0.7.0;' (idempotent)."""
     pragma_re = re.compile(r'^\s*pragma\s+solidity\s+[^;]+;', re.IGNORECASE)
     changed = False
     with open(filepath, "r", encoding="utf-8") as f:
         lines = f.read().splitlines()
     for i, line in enumerate(lines):
         if pragma_re.match(line):
-            lines[i] = "pragma solidity ^0.7.0;"
+            lines[i] = "pragma solidity >=0.7.0;"
             changed = True
             break
     if changed:
@@ -20,6 +20,7 @@ def _rewrite_pragma_to_0_7_0(filepath: str) -> None:
             f.write("\n".join(lines) + "\n")
 
 def _insert_lines_before(filepath: str, line_no_1based: int, new_lines: List[str]) -> None:
+    """Insert new_lines before the specified 1-based line number."""
     with open(filepath, "r", encoding="utf-8") as f:
         lines = f.read().splitlines()
     insert_at = max(0, min(len(lines), line_no_1based - 1))
@@ -29,7 +30,7 @@ def _insert_lines_before(filepath: str, line_no_1based: int, new_lines: List[str
         f.write("\n".join(lines) + "\n")
 
 def _scan_function_lines_in_file(sol_file: str, target_names: List[str]) -> Dict[str, List[int]]:
-    """Tìm dòng 'function <name>(' (1-indexed)."""
+    """Find lines with 'function <name>(' (1-indexed)."""
     with open(sol_file, "r", encoding="utf-8") as f:
         lines = f.read().splitlines()
     name_set = set(target_names)
@@ -42,7 +43,7 @@ def _scan_function_lines_in_file(sol_file: str, target_names: List[str]) -> Dict
     return found
 
 def _scan_event_lines_in_file(sol_file: str, target_names: List[str]) -> Dict[str, List[int]]:
-    """Tìm dòng 'event <name>(' (1-indexed)."""
+    """Find lines with 'event <name>(' (1-indexed)."""
     with open(sol_file, "r", encoding="utf-8") as f:
         lines = f.read().splitlines()
     name_set = set(target_names)
@@ -55,6 +56,7 @@ def _scan_event_lines_in_file(sol_file: str, target_names: List[str]) -> Dict[st
     return found
 
 def build_call_graph(sol_file: str) -> Dict[str, List[str]]:
+    """Build a mapping from function name to the list of called function names."""
     sl = Slither(os.path.abspath(sol_file))
     graph: Dict[str, List[str]] = {}
     for c in sl.contracts:
@@ -78,8 +80,8 @@ def build_call_graph(sol_file: str) -> Dict[str, List[str]]:
 
 def build_function_writes(sol_file: str) -> Dict[str, List[str]]:
     """
-    Thu thập biến state mà từng hàm ghi (assign/update).
-    Trả về map: { function_name: [var1, var2, ...] }
+    Collect state variables written (assign/update) by each function.
+    Returns map: { function_name: [var1, var2, ...] }
     """
     sl = Slither(os.path.abspath(sol_file))
     writes: Dict[str, Set[str]] = {}
@@ -99,15 +101,14 @@ def build_function_writes(sol_file: str) -> Dict[str, List[str]]:
 
 def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dict[str, Any]:
     """
-    Trả về bảng symbol để render biểu thức:
-      {
-        "functions": {name1, name2, ...},        # tên function public/external/internal,... trong contract chọn
-        "state_vars": {var1, var2, ...},         # tên state variables (kể cả mapping) trong contract chọn
-        "functions_returns": {fname: [ret1, ret2, ...]},
-        "functions_params": {fname: [param1, param2, ...]},   # include events as 'functions'
-        "functions_public_nonview": {fname, ...}             # chỉ public/external và không view/pure
-      }
-    Nếu only_contract=None → gộp từ tất cả contract trong file.
+    Return a symbol table for rendering expressions:
+    - "functions": names of public/external/internal functions in the chosen contract
+    - "state_vars": state variable names (including mappings) in the chosen contract
+    - "functions_returns": map of function to return variable names
+    - "functions_params": map of callable (functions/events) to parameter names
+    - "functions_public_nonview": names of public/external functions that are not view/pure
+
+    If only_contract=None the values are merged from all contracts in the file.
     """
     sl = Slither(os.path.abspath(sol_file))
     functions: Set[str] = set()
@@ -117,16 +118,12 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
     functions_public_nonview: Set[str] = set()
 
     def _collect_from_contract(c):
-        # State vars
         for sv in c.state_variables:
             state_vars.add(sv.name)
-        # Functions (bao gồm cả internal/private; để phân biệt với state var khi render)
         for f in c.functions:
-            # Dùng f.name (không bao gồm signature) vì trong spec cũng viết theo tên
             functions.add(f.name)
             if getattr(f, "visibility", None) in ("public", "external") and getattr(f, "state_mutability", getattr(f, "stateMutability", None)) not in ("view", "pure"):
                 functions_public_nonview.add(f.name)
-            # Params
             params = []
             for p in getattr(f, "parameters", []):
                 pname = getattr(p, "name", None)
@@ -144,15 +141,12 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
                 for r in rets:
                     if r not in functions_returns[f.name]:
                         functions_returns[f.name].append(r)
-        # Modifiers cũng là callable theo Slither; thêm vào nếu cần phân biệt
         for m in getattr(c, "modifiers", []):
             functions.add(m.name)
-        # Events: coi như callable để có params
         for ev in getattr(c, "events", []):
             ename = getattr(ev, "_name", None)
             if not ename:
                 continue
-            # treat as function for params only
             params = []
             for p in getattr(ev, "elems", []):
                 pname = getattr(p, "name", None)
@@ -162,7 +156,6 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
                 functions_params[ename] = params
 
     if only_contract:
-        # tìm đúng contract theo tên
         cs = [c for c in sl.contracts if c.name == only_contract]
         if not cs:
             raise SystemExit(f"[ERROR] Contract '{only_contract}' not found in {sol_file}.")
@@ -183,14 +176,11 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
 
 def split_sol_and_contract(arg: str) -> Tuple[str, Optional[str]]:
     """
-    Cho phép 'path/File.sol:ContractName'. Nếu không có ':', trả (arg, None).
-    Lưu ý: chỉ tách phần sau dấu ':' cuối cùng (đường dẫn Unix/Windows đều OK).
+    Allow 'path/File.sol:ContractName'. If there is no ':', return (arg, None).
+    Note: split only after the last ':' (Unix/Windows paths are OK).
     """
-    # Bảo toàn đường dẫn chứa ':' (vd. Windows drive 'C:\...') → tách theo dấu ':' cuối cùng
     if ":" in arg:
-        # nếu là Windows path 'C:\...' thì phần ':' đầu may thuộc drive; tách cuối vẫn ổn
         path, contract = arg.rsplit(":", 1)
-        # Nếu contract rỗng (vd. kết thúc bằng ':'), coi như không chỉ định
         if contract.strip() == "":
             return path, None
         return path, contract.strip()

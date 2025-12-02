@@ -4,9 +4,7 @@ from parser_utils import to_text
 
 
 def append_unique(bucket: List[Any], expr: Any) -> None:
-    """
-    Thêm expr vào bucket nếu chưa có (so sánh dựa trên chuỗi to_text/str).
-    """
+    """Append expr to bucket if an equivalent textual form is not already present."""
     if expr is None:
         return
     key = to_text(expr) if isinstance(expr, Tree) else str(expr)
@@ -22,13 +20,7 @@ def propagate_modifies(
     call_graph: Dict[str, List[str]],
     func_writes: Dict[str, List[str]],
 ) -> Dict[str, List[str]]:
-    """
-    Lan truyền thông tin modifies qua call graph.
-    - modify_dict: {fn: ['x if cond', 'y', ...]} trực tiếp trong spec.
-    - call_graph: {fn: [callee1, ...]}
-    - func_writes: {fn: [state_var1, ...]} thu được từ Slither.
-    Trả về dict đã được propagate, bỏ điều kiện khi gán cho hàm con.
-    """
+    """Propagate modifies info through the call graph, stripping conditions for callees."""
     direct_modifies = {fn: list(vals) for fn, vals in modify_dict.items()}
     memo_modifies: Dict[str, bool] = {}
     vars_memo: Dict[str, Set[str]] = {}

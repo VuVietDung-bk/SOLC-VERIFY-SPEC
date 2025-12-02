@@ -4,39 +4,27 @@ from copy import deepcopy
 from parser_utils import (
     _get_function_call_info,
     _is_zero_arg_function_call,
-    _flatten_expr_with_symbols,
     to_text
-)
-from logic_utils import (
-    wrap_expr,
-    make_eq_expr,
-    unique_exprs,
 )
 from typing import Dict, List, Optional, Any
 from spec_method import Step, Variable
-
-'''
-    TO-DO:
-        - Xử lý phần forall và exist để giải được Test7
-'''
 
 class Invariant:
     _COMPARE_TOKENS = ["==", "!=", "<=", ">=", "<", ">"]
 
     def __init__(self, ast_node: Tree, variables: List[Variable], sol_symbols: Dict[str, Any]):
+        """Parse an invariant AST node and capture steps and declared variables."""
         self.name: str = "<unnamed_invariant>"
         self.steps: List[Step] = []
-        # Map variable name -> declared type string (possibly None)
         self.variables = variables
         self._parse(ast_node, sol_symbols)
 
     def _parse(self, node: Tree, sol_symbols: Dict[str, Any]):
-        # --- Invariant name ---
+        """Parse invariant name and collect define/assert steps."""
         inv_name_tok = next((t for t in node.children if isinstance(t, Token) and t.type == "ID"), None)
         if inv_name_tok:
             self.name = inv_name_tok.value
 
-        # --- Steps ---
         for st in node.iter_subtrees_topdown():
             if not isinstance(st, Tree):
                 continue
@@ -86,7 +74,7 @@ class Invariant:
                                 rhs_calls.append(fname)
 
                     if isinstance(expr_node, Tree) and expr_node.data == "function_call":
-                        zname = _is_zero_arg_function_call(expr_node) # TO-DO-1
+                        zname = _is_zero_arg_function_call(expr_node)
                         if zname:
                             observed = zname
                 else :
@@ -102,7 +90,7 @@ class Invariant:
                 }, st)) 
 
     def to_invariants(self) -> List[str]:
-        # Khởi tạo map biến → giá trị đại diện (Token/Tree/str)
+        """Render invariant expressions as strings after substituting ghost values."""
         var_to_value: Dict[str, Any] = {}
 
         inv: List[str] = []
@@ -221,4 +209,5 @@ class Invariant:
         return inv
 
     def __repr__(self):
+        """Readable representation showing name and step count."""
         return f"<Invariant name={self.name} steps={len(self.steps)}>"

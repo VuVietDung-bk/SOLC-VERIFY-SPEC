@@ -7,8 +7,6 @@ from spec_invariant import Invariant
 
 class IR:
     def __init__(self, sol_symbols: Dict[str, Any]):
-        # variables parsed from a 'variables { ... }' block (new grammar)
-        # stored as mapping name -> Variable
         self.variables: List[Variable] = []
         self.rules: List[Rule] = []
         self.invariants: List[Invariant] = []
@@ -31,15 +29,6 @@ class IR:
         return str(type_obj) if type_obj is not None else ""
 
     def _parse_variables(self, ast: Tree, sol_symbols: Dict[str, Any]) -> None:
-        """
-        Parse a 'variables { ... }' block (as in parser_certora_new.lark):
-          variables: "variables" "{" (variable_spec)* "}"
-          variable_spec: variable_type ID ";"
-          variable_type: cvl_type | mapping
-
-        We store variables as: self.variables[name] = Variable(...).
-        If the grammar doesn't provide these nodes, this is a no-op.
-        """
         def _build_mapping(mnode: Tree) -> Optional[Mapping]:
             if not (isinstance(mnode, Tree) and mnode.data == "mapping"):
                 return None
@@ -104,7 +93,6 @@ class IR:
         return f"<IR variables={len(self.variables)} rules={len(self.rules)} invariants={len(self.invariants)}>"
     
     def to_dict(self) -> Dict[str, Any]:
-        """Nếu cần giữ tương thích ngược với pipeline cũ"""
         return {
             "variables": [
                 {

@@ -6,16 +6,8 @@ import shutil
 from utils import _rewrite_pragma_to_0_7_0, _insert_lines_before, _scan_function_lines_in_file, _scan_event_lines_in_file
 from spec_ir import IR
 
-"""
-    TO-DO:
-    - Hàm collect_param_preconds phải chèn precondition >= 0 cho các biến với kiểu dữ liệu uint xuất hiện trong hàm
-"""
-
 def collect_param_preconds(sol_file: str, only_contract: Optional[str] = None) -> Dict[str, List[str]]:
-    """
-    Trả về preconditions đơn giản dựa trên kiểu tham số (uint* → param >= 0)
-    Nếu only_contract != None → chỉ lấy functions của contract đó.
-    """
+    """Build simple preconditions from parameter types (uint* → param >= 0)."""
     sl = Slither(os.path.abspath(sol_file))
     pre: Dict[str, List[str]] = {}
 
@@ -39,21 +31,12 @@ def collect_param_preconds(sol_file: str, only_contract: Optional[str] = None) -
         for c in sl.contracts:
             _handle_contract(c)
 
-    # unique
     for k, v in list(pre.items()):
         pre[k] = list(dict.fromkeys(v))
     return pre
 
 def write_annotations(sol_in: str, ir: IR, only_contract: Optional[str] = None) -> List[str]:
-    """
-    Sinh nhiều file .ruleName.sol cho từng rule, mỗi file chứa:
-      - preconditions (toàn cục),
-      - postconditions từ rule đó,
-      - modifies / emits từ rule đó,
-      - pre/post cho event (nếu có),
-      - invariants (toàn cục).
-    Trả về danh sách path file sinh ra.
-    """
+    """Emit annotated Solidity copies per rule with pre/post/modifies/emits and invariants."""
     preconds = collect_param_preconds(sol_in, only_contract=only_contract)
 
     base, ext = os.path.splitext(os.path.abspath(sol_in))
@@ -101,7 +84,6 @@ def write_annotations(sol_in: str, ir: IR, only_contract: Optional[str] = None) 
             for ln in occ.get(fn, []):
                 inserts.append((ln, lines))
 
-        # event annotations (use event name, not function name)
         for ev in target_events:
             lines: List[str] = []
             for pre in event_pre_by_name.get(ev, []):
@@ -116,7 +98,6 @@ def write_annotations(sol_in: str, ir: IR, only_contract: Optional[str] = None) 
         for ln, lines in sorted(inserts, key=lambda x: x[0], reverse=True):
             _insert_lines_before(out_path, ln, lines)
 
-        # invariants toàn cục
         inv_lines: List[str] = []
         for inv in ir.invariants:
             inv_lines.extend(inv.to_invariants())
@@ -155,13 +136,14 @@ def write_annotations(sol_in: str, ir: IR, only_contract: Optional[str] = None) 
     return out_files
 
 
-# giữ lại util chèn invariant vào file contract
 def _indent_of_line(line: str) -> str:
+    """Return the leading whitespace of a line."""
     import re
     m = re.match(r"^(\s*)", line)
     return m.group(1) if m else ""
 
 def _find_contract_line_numbers(sol_text: str, contract_name: Optional[str]) -> List[int]:
+    """Find line numbers where contract declarations appear, optionally filtered by name."""
     import re
     lines = sol_text.splitlines()
     hits: List[int] = []
@@ -183,10 +165,7 @@ def insert_invariants_into_contract(
     invariant_lines: List[str],
     contract_name: Optional[str] = None,
 ) -> None:
-    """
-    Chèn các dòng invariant vào trước tiêu đề `contract` mong muốn.
-    - Nếu contract_name=None, chèn vào tất cả hợp đồng trong file.
-    """
+    """Insert invariant lines before matching contract declarations (all if name not provided)."""
     if not invariant_lines:
         return
     invariant_lines = [f"/// @notice invariant {line}" for line in invariant_lines]

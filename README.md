@@ -28,9 +28,16 @@ python3 solc-verify-spec.py <file_sol>[:contract_name] <file_spec>
 Example: `python3 solc-verify-spec.py examples/Test2/test2.sol:Example2 examples/Test2/test2.spec`
 
 You can also type `python3 solc-verify-spec.py -h` to print the optional arguments, but we also list them below.
-- `h`, `--help`: Show the help message and exit.
+- `-h`, `--help`: Show the help message and exit.
 - `--grammar <file_lark>`: Path to the .lark grammar to define the specification language.
-- `--no-run`: Do not run the solc-verify after generating annotations.
+- `--no-run`: Do not run solc-verify after generating annotations.
+- `--arithmetic {int,bv,mod,mod-overflow,all}`: Encoding of arithmetic operations (default `all`).
+- `--errors-only`: Only display error messages.
+- `--event-analysis`: Enable event analysis even without event annotations.
+- `--modifies-analysis`: Enable modify analysis even without modify annotations.
+- `--show-warnings`: Display warning messages.
+- `--solver {z3,cvc4,all}`: SMT solver used by the verifier (default `all`).
+- `--timeout <sec>`: Timeout for running the Boogie verifier in seconds (default `10`).
 
 ## Important Note
 Please note that this tool is under development and has not been finished yet.

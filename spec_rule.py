@@ -25,17 +25,9 @@ from logic_utils import (
 from rule_helpers import append_unique, propagate_modifies
 from spec_method import Step, Variable
 
-"""
-    TO-DO:
-    - Tìm biến tự do trong precondition và postcondition, rồi xử lý tương ứng để tạo postcondition chính xác hơn.
-    - Xử lý trường hợp hàm không xác định, lọc danh sách hàm cần chèn từ precondition và postcondition.
-    - Xử lý các loại cú pháp còn lại
-    - Type-checking, bọc casting address cho các hằng số address
-    - Xử lý song song emits và function call
-"""
-
 class Rule:
     def __init__(self, ast_node: Tree, variables: List[Variable], sol_symbols: Dict[str, Any]):
+        """Parse a rule AST node and initialize tracking structures."""
         self.name: str = "<unnamed>"
         self.params: List[Dict[str, str]] = []
         self.steps: List[Step] = []
@@ -49,6 +41,7 @@ class Rule:
         self._parse(ast_node, sol_symbols)
 
     def _parse(self, node: Tree, sol_symbols):
+        """Parse the top-level rule node to collect name, params, and steps."""
         self.name = next(node.scan_values(lambda v: isinstance(v, Token) and v.type == "ID"))
         params_node = next((c for c in node.children if isinstance(c, Tree) and c.data == "params"), None)
         if params_node:
@@ -58,12 +51,12 @@ class Rule:
             if isinstance(param, dict) and param.get("name") and param.get("type"):
                 self.var_to_type[param["name"]] = param["type"]
 
-        # Lấy block chính của rule
         block_node = next((c for c in node.children if isinstance(c, Tree) and c.data == "block"), None)
         if block_node:
             self.steps = self._parse_block(block_node, sol_symbols)
 
     def _parse_block(self, block_node: Tree, sol_symbols) -> List[Step]:
+        """Parse a block node into a flat list of steps."""
         steps = []
         for st in block_node.children:
             if isinstance(st, Tree):
@@ -74,6 +67,7 @@ class Rule:
         return steps
 
     def _parse_statement(self, st: Tree, sol_symbols) -> List[Step]:
+        """Dispatch a statement node to the appropriate handler."""
 
         kind = st.data
 
@@ -114,8 +108,8 @@ class Rule:
         else:
             return None
 
-    # --- Handlers for each statement type ---
     def _handle_define(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
+        """Handle ghost variable definition and snapshot tracking."""
         chs = list(st.children)
         ghost, ghost_type, rhs_text = None, None, None
         rhs_calls: List[str] = []
@@ -147,7 +141,7 @@ class Rule:
                         rhs_calls.append(fname)
 
             if isinstance(expr_node, Tree) and expr_node.data == "function_call":
-                zname = _is_zero_arg_function_call(expr_node) # TO-DO-1
+                zname = _is_zero_arg_function_call(expr_node)
                 if zname:
                     observed = zname
         else :
@@ -173,6 +167,7 @@ class Rule:
         }, st)
 
     def _handle_call(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
+        """Handle a standalone function call statement."""
         fcall = next((ch for ch in st.children if isinstance(ch, Tree) and ch.data == "function_call"), None)
         if not fcall:
             return
@@ -184,6 +179,7 @@ class Rule:
         return Step("call", {"name": fname, "args": fargs}, st)
 
     def _handle_assert(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
+        """Handle an assert statement."""
         expr_node, msg = None, None
         for ch in st.children:
             if isinstance(ch, Tree):
@@ -197,6 +193,7 @@ class Rule:
         }, st)
 
     def _handle_require(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
+        """Handle a require statement."""
         expr_node, msg, id_text = None, None, None
         for ch in st.children:
             if isinstance(ch, Tree):
@@ -212,12 +209,12 @@ class Rule:
         }, st)
 
     def _handle_assign(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
+        """Handle assignment statements, capturing targets and calls."""
         lhs_node = next((ch for ch in st.children if isinstance(ch, Tree) and ch.data == "lhs"), None)
         rhs_node = next((ch for ch in st.children if isinstance(ch, Tree) and ch.data in ("expr", "logic_bi_expr", "compare_bi_expr", "bi_expr", "unary_expr", "function_call")), None)
         targets: List[str] = []
         lhs_texts: List[str] = []
 
-        # Thu thập từng biến bên trái, bao gồm cả chỉ số nếu có
         def _collect_lhs(node: Optional[Tree]):
             if not isinstance(node, Tree):
                 return
@@ -253,8 +250,7 @@ class Rule:
         }, st)
 
     def _handle_assert_modify(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
-        
-        # Extract condition and message
+        """Handle assert-modify statements capturing target and condition."""
         extra_expr_node = None
         message = None
         
@@ -264,15 +260,16 @@ class Rule:
                     extra_expr_node = ch
                 else: target_node = ch
             elif isinstance(ch, Token) and ch.type == "STRING_LITERAL":
-                message = ch.value[1:-1]  # Remove quotes
+                message = ch.value[1:-1]
 
         return Step("assert_modify", {
             "target": to_text(target_node) if target_node else None,
             "expr_text": to_text(extra_expr_node) if extra_expr_node else None,
-            "message": message  # Added message field
+            "message": message
         }, st)
 
     def _handle_assert_revert(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
+        """Handle assert-revert statements."""
         message = None
         extra_expr_node = None
         
@@ -288,21 +285,19 @@ class Rule:
         }, st)
 
     def _handle_assert_emit(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
+        """Handle assert-emit statements."""
         event_node = next((ch for ch in st.children if isinstance(ch, Tree) and ch.data == "event_call"), None)
         msg = None
 
         if not event_node:
             return
 
-        # Lấy tên event
         event_name_tok = next(event_node.scan_values(lambda v: isinstance(v, Token) and v.type == "ID"), None)
         event_name = event_name_tok.value if event_name_tok else None
 
-        # Lấy args
         exprs_node = next((ch for ch in event_node.children if isinstance(ch, Tree) and ch.data == "exprs"), None)
         args = _split_call_args(exprs_node, sol_symbols)
 
-        # Optional message
         for ch in st.children:
             if isinstance(ch, Token) and ch.type == "STRING_LITERAL":
                 msg = ch.value[1:-1]
@@ -314,6 +309,7 @@ class Rule:
         }, st)
 
     def _handle_emits(self, st: Tree, sol_symbols: Dict[str, Any]) -> Step:
+        """Handle emits statements."""
         event_node = next((ch for ch in st.children if isinstance(ch, Tree) and ch.data == "event_call"), None)
         if not event_node:
             return
@@ -330,6 +326,7 @@ class Rule:
         }, st)
 
     def _parse_ifelse(self, node:Tree, sol_symbols: Dict[str, Any]) -> Step:
+        """Handle if/else statements by producing nested steps."""
         cond_expr = node.children[0]
         then_stmt = node.children[1]
         else_stmt = node.children[2] if len(node.children) == 3 else None
@@ -353,12 +350,11 @@ class Rule:
             "else": else_steps
         }, node)
     
-    # Hàm sinh tất cả path từ đầu đến cuối Rule
     def get_all_paths(self) -> List[List[Step]]:
+        """Enumerate all linearized execution paths produced by branching."""
         all_paths: List[List[Step]] = []
-        # DFS qua danh sách step, bung rộng if-else thành các path tuyến tính
         def _normalize(seq):
-            """Đảm bảo seq là List[Step] phẳng."""
+            """Ensure the sequence is flattened into a list of Step."""
             if seq is None:
                 return []
             if isinstance(seq, list):
@@ -390,7 +386,6 @@ class Rule:
                     cond_node = cur.node.children[0]
 
                 then_node = Tree("require_statement", [deepcopy(cond_node)]) if cond_node else cur.node
-                # Nhánh then: yêu cầu điều kiện đúng
                 then_require = Step("require", {
                     "expr_text": cond_text,
                     "func_calls": [],
@@ -398,7 +393,6 @@ class Rule:
                 }, then_node)
                 _dfs(then_steps + rest, acc + [then_require])
 
-                # Nhánh else: điều kiện sai
                 neg_expr = negative(deepcopy(cond_node)) if cond_node else None
                 else_cond = to_text(neg_expr) if neg_expr is not None else ""
                 else_node = Tree("require_statement", [neg_expr]) if neg_expr is not None else cur.node
@@ -414,9 +408,8 @@ class Rule:
         _dfs(self.steps, [])
         return all_paths
     
-    # Hàm lấy precond từ 1 path
     def get_preconditions_from_path(self, steps: List[Step]) -> Tuple[Dict[str, List[Tree]], bool]:
-        # Khởi tạo map biến → giá trị đại diện (Token/Tree/str)
+        """Compute preconditions for a single linearized path."""
         var_to_value: Dict[str, Any] = {}
         for p in self.params:
             if isinstance(p, dict) and p.get("name"):
@@ -631,7 +624,6 @@ class Rule:
                 if name and name not in sol_declared_funcs:
                     unknown_call = True
 
-                # ghép đối số với params của hàm được gọi (lấy từ sol_symbols nếu có)
                 fn_params_map = self.sol_symbols.get("functions_params", {}) if isinstance(self.sol_symbols, dict) else {}
                 param_names = fn_params_map.get(name, []) if isinstance(fn_params_map, dict) else []
                 def _is_const(s: Optional[str]) -> bool:
@@ -650,7 +642,6 @@ class Rule:
                     prefer_val = var_to_value.get(arg)
                     rendered_arg_nodes.append(wrap_expr(prefer_val if prefer_val is not None else (ra or arg)))
 
-                # Nếu cùng một biểu thức truyền cho nhiều param (vd f(n,n)) → thêm a==b
                 for i in range(len(rendered_args)):
                     for j in range(i + 1, len(rendered_args)):
                         if i >= len(param_names) or j >= len(param_names):
@@ -672,7 +663,6 @@ class Rule:
                     if var_to_value[arg] is None:
                         var_to_value[arg] = Token("ID", param_names[idx])
             elif step.kind == "emits":
-                # xử lý event như call với parameters
                 is_event = True
                 name = step.data.get("event")
                 args = step.data.get("args", [])
@@ -724,8 +714,8 @@ class Rule:
 
         return {func_name: unique_exprs(preconds)}, unknown_call, is_event
     
-    # Hàm lấy postcond từ 1 path 
     def get_postconditions_from_path(self, steps: List[Step]) -> Tuple[Dict[str, List[Tree]], bool, Dict[str, Any]]:
+        """Compute postconditions for a single linearized path."""
         var_to_value: Dict[str, Any] = {}
         for p in self.params:
             if isinstance(p, dict) and p.get("name"):
@@ -1028,7 +1018,6 @@ class Rule:
                 if name and name not in sol_declared_funcs:
                     unknown_call = True
 
-                # ghi chú param mapping cho các assert sau (tương tự precondition)
                 param_names = fn_params_map.get(name, []) if isinstance(fn_params_map, dict) else []
 
                 for idx, arg in enumerate(args):
@@ -1042,7 +1031,6 @@ class Rule:
                     func_name = name
                 else: 
                     raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in one path of rule '{self.name}'.\033[0m")
-                # map event params
                 param_names = fn_params_map.get(name, []) if isinstance(fn_params_map, dict) else []
                 for idx, arg in enumerate(args):
                     if var_to_value[arg] is None and idx < len(param_names):
@@ -1062,7 +1050,6 @@ class Rule:
             expr_subst = _subst_expr(expr_node)
             cond_expr = expr_subst or expr_node
             if step.kind == "assert_revert":
-                # Post(!P) nếu có P, else false
                 if cond_expr is not None:
                     neg_expr = negative(deepcopy(cond_expr))
                     postconds.append(neg_expr)
@@ -1078,6 +1065,7 @@ class Rule:
         return {func_name: unique_exprs(postconds)}, unknown_call, var_to_value, is_event
     
     def get_modify_from_path(self, steps: List[Step]) -> Dict[str, List[Tuple[str, str]]]:
+        """Collect modifies assertions for a single path keyed by function name."""
         func_name: Optional[str] = None
         modifies: List[str] = []
 
@@ -1099,6 +1087,7 @@ class Rule:
         return {func_name: modifies}
     
     def get_emits_from_path(self, steps: List[Step]) -> Dict[str, List[str]]:
+        """Collect event emissions for a single path keyed by function name."""
         func_name: Optional[str] = None
         emits: List[str] = []
 
@@ -1119,7 +1108,7 @@ class Rule:
     
     def to_conditions(self) -> Tuple[Dict[str, List[str]], Dict[str, List[str]], Dict[str, List[str]], Dict[str, List[str]], Dict[str, List[str]], Dict[str, List[str]]]:
         """
-        Thu thập pre/post/modify/emits theo mọi path, dựa trên dict đầu ra của
+        Collect pre/post/modify/emits across all paths, based on outputs of
         get_preconditions_from_path, get_postconditions_from_path, get_modify_from_path, get_emits_from_path.
         """
         preconds_dict: Dict[str, List[Any]] = {}
@@ -1132,7 +1121,6 @@ class Rule:
         temp_no_conditions = set()
         if isinstance(self.sol_symbols, dict):
             sol_functions = list(self.sol_symbols.get("functions", []) or [])
-            # filter only public/non-view if info is available
             pub_nonview = self.sol_symbols.get("functions_public_nonview")
             if isinstance(pub_nonview, (set, list)):
                 sol_functions = [fn for fn in sol_functions if fn in pub_nonview]
@@ -1146,10 +1134,10 @@ class Rule:
                     for c in cs:
                         append_unique(bucket, c)
                 return
-            # unknown call → áp dụng cho mọi hàm, đánh giá funcCompare để lọc
             for fn in sol_functions:
                 bucket = bucket_dict.setdefault(fn, [])
-                for c in sum(conds.values(), []):  # flatten all conds
+                cond_list = sum(conds.values(), [])
+                for c in cond_list:
                     ce = c
                     if isinstance(c, Tree):
                         ce = evaluate_expr_at_function(c, fn)
@@ -1158,14 +1146,14 @@ class Rule:
                             temp_no_conditions.add(fn)
                             break
                 if fn in temp_no_conditions:
-                    continue  # skip postconds if precond is false
-                for c in sum(conds.values(), []):  # flatten all conds
+                    continue
+                for c in cond_list:
                     ce = c
                     if isinstance(c, Tree):
                         ce = evaluate_expr_at_function(c, fn)
                         txt = to_text(ce)
                         if txt.lower() == "true":
-                            continue  # skip tautology
+                            continue
                     append_unique(bucket, ce)
 
         for path in self.get_all_paths():
@@ -1204,7 +1192,6 @@ class Rule:
                 for c in conds:
                     append_unique(bucket, c)
 
-        # ---- Propagate modifies through call graph ----
         call_graph = {}
         if isinstance(getattr(self, "call_graph", None), dict):
             call_graph = self.call_graph
@@ -1233,11 +1220,10 @@ class Rule:
                         continue
                     seen.add(txt)
                     texts.append(txt)
-                # TO-DO: giữ nguyên biểu thức (Tree) thay vì to_text sau khi cập nhật downstream
                 out[fn] = texts
             return out
 
-        # TO-DO: gộp pre/post ở dạng AST trước khi stringify để tối ưu dedup
+
         return (
             _exprs_to_text_map(solved_preconds),
             _exprs_to_text_map(solved_postconds),
@@ -1248,4 +1234,5 @@ class Rule:
         )
     
     def __repr__(self):
+        """Readable representation showing name, step count, and snapshots."""
         return f"<Rule name={self.name} steps={len(self.steps)} snapshots={self.snapshots}>"
