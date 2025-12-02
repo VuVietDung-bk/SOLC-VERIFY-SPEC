@@ -41,6 +41,19 @@ def _scan_function_lines_in_file(sol_file: str, target_names: List[str]) -> Dict
                 found[name].append(i)
     return found
 
+def _scan_event_lines_in_file(sol_file: str, target_names: List[str]) -> Dict[str, List[int]]:
+    """Tìm dòng 'event <name>(' (1-indexed)."""
+    with open(sol_file, "r", encoding="utf-8") as f:
+        lines = f.read().splitlines()
+    name_set = set(target_names)
+    patterns = {name: re.compile(rf'^\s*event\s+{re.escape(name)}\s*\(') for name in name_set}
+    found: Dict[str, List[int]] = {name: [] for name in name_set}
+    for i, line in enumerate(lines, start=1):
+        for name, pat in patterns.items():
+            if pat.search(line):
+                found[name].append(i)
+    return found
+
 def build_call_graph(sol_file: str) -> Dict[str, List[str]]:
     sl = Slither(os.path.abspath(sol_file))
     graph: Dict[str, List[str]] = {}
@@ -91,7 +104,7 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
         "functions": {name1, name2, ...},        # tên function public/external/internal,... trong contract chọn
         "state_vars": {var1, var2, ...},         # tên state variables (kể cả mapping) trong contract chọn
         "functions_returns": {fname: [ret1, ret2, ...]},
-        "functions_params": {fname: [param1, param2, ...]}
+        "functions_params": {fname: [param1, param2, ...]}   # include events as 'functions'
       }
     Nếu only_contract=None → gộp từ tất cả contract trong file.
     """
@@ -130,6 +143,19 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
         # Modifiers cũng là callable theo Slither; thêm vào nếu cần phân biệt
         for m in getattr(c, "modifiers", []):
             functions.add(m.name)
+        # Events: coi như callable để có params
+        for ev in getattr(c, "events", []):
+            ename = getattr(ev, "_name", None)
+            if not ename:
+                continue
+            # treat as function for params only
+            params = []
+            for p in getattr(ev, "elems", []):
+                pname = getattr(p, "name", None)
+                if pname:
+                    params.append(pname)
+            if params:
+                functions_params[ename] = params
 
     if only_contract:
         # tìm đúng contract theo tên

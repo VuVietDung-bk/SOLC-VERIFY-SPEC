@@ -57,9 +57,7 @@ contract ERC20 {
 
         // Cannot overflow because the sum of all user
         // balances can't exceed the max uint256 value.
-        unchecked {
             balanceOf[to] += amount;
-        }
 
         emit Transfer(msg.sender, to, amount);
 
@@ -79,9 +77,7 @@ contract ERC20 {
 
         // Cannot overflow because the sum of all user
         // balances can't exceed the max uint256 value.
-        unchecked {
             balanceOf[to] += amount;
-        }
 
         emit Transfer(from, to, amount);
 
@@ -95,9 +91,7 @@ contract ERC20 {
 
         // Cannot overflow because the sum of all user
         // balances can't exceed the max uint256 value.
-        unchecked {
             balanceOf[to] += amount;
-        }
 
         emit Transfer(address(0), to, amount);
     }
@@ -107,9 +101,7 @@ contract ERC20 {
 
         // Cannot underflow because a user's balance
         // will never be larger than the total supply.
-        unchecked {
             totalSupply -= amount;
-        }
 
         emit Transfer(from, address(0), amount);
     }

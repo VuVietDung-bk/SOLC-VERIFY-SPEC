@@ -1,8 +1,0 @@
-{
-    "importFilesToOrigRelpaths": {},
-    "primary_contract": "Fibonacci",
-    "specfile": "Fibonacci.spec",
-    "specfileOrigRelpath": "Fibonacci.spec",
-    "specfilesToImportDecls": {},
-    "type": "spec"
-}

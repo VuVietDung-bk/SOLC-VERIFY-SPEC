@@ -51,8 +51,7 @@ Integrity of voted:
 */
 rule globallyVoted(address x, method f) {
     require _voted[x];
-    calldataarg arg;
-    f(arg); //taking into account all external function with all possible arguments 
+    f(); //taking into account all external function with all possible arguments 
     assert _voted[x], "Once a user voted, he is marked as voted in all future states";
 }
 
@@ -87,8 +86,7 @@ rule noEffect(method m) {
         vote(f, s, t);
     }
     else {
-        calldataarg args;
-        m(args);
+        m();
     }
     assert ( _voted[c] == c_voted || c  == msg.sender ) &&
              _points[c] == c_points, "unexpected change to others points or voted";

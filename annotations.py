@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 from slither.slither import Slither
 import shutil
 
-from utils import _rewrite_pragma_to_0_7_0, _insert_lines_before, _scan_function_lines_in_file
+from utils import _rewrite_pragma_to_0_7_0, _insert_lines_before, _scan_function_lines_in_file, _scan_event_lines_in_file
 from spec_ir import IR
 
 """
@@ -24,7 +24,7 @@ def collect_param_preconds(sol_file: str, only_contract: Optional[str] = None) -
             pcs: List[str] = []
             for p in f.parameters:
                 t = getattr(p.type, "type", None) or str(p.type)
-                if "uint" in str(t) and not str(t).startswith("int"):
+                if "uint" in str(t) and not str(t).startswith("int") and p.name:
                     pcs.append(f"{p.name} >= 0")
             if pcs:
                 pre.setdefault(f.name, []).extend(pcs)
@@ -44,13 +44,13 @@ def collect_param_preconds(sol_file: str, only_contract: Optional[str] = None) -
         pre[k] = list(dict.fromkeys(v))
     return pre
 
-
 def write_annotations(sol_in: str, ir: IR, only_contract: Optional[str] = None) -> List[str]:
     """
     Sinh nhiều file .ruleName.sol cho từng rule, mỗi file chứa:
       - preconditions (toàn cục),
       - postconditions từ rule đó,
       - modifies / emits từ rule đó,
+      - pre/post cho event (nếu có),
       - invariants (toàn cục).
     Trả về danh sách path file sinh ra.
     """
@@ -63,10 +63,12 @@ def write_annotations(sol_in: str, ir: IR, only_contract: Optional[str] = None) 
         shutil.copyfile(sol_in, out_path)
         _rewrite_pragma_to_0_7_0(out_path)
 
-        rule_preconds, rule_postconds, rule_modifies, rule_emits = rule.to_conditions()
+        rule_preconds, rule_postconds, rule_modifies, rule_emits, rule_event_preconds, rule_event_postconds = rule.to_conditions()
         post_by_func = {fn: list(dict.fromkeys(vals)) for fn, vals in rule_postconds.items()}
         modify_by_func = {fn: list(dict.fromkeys(vals)) for fn, vals in rule_modifies.items()}
         emits_by_func = {fn: list(dict.fromkeys(vals)) for fn, vals in rule_emits.items()}
+        event_pre_by_name = {ev: list(dict.fromkeys(vals)) for ev, vals in rule_event_preconds.items()}
+        event_post_by_name = {ev: list(dict.fromkeys(vals)) for ev, vals in rule_event_postconds.items()}
 
         target_funcs = sorted(
             set(
@@ -77,7 +79,10 @@ def write_annotations(sol_in: str, ir: IR, only_contract: Optional[str] = None) 
                 + list(emits_by_func.keys())
             )
         )
+        target_events = sorted(set(list(event_pre_by_name.keys()) + list(event_post_by_name.keys())))
+
         occ = _scan_function_lines_in_file(out_path, target_funcs)
+        occ_events = _scan_event_lines_in_file(out_path, target_events) if target_events else {}
         inserts: List[tuple[int, List[str]]] = []
 
         for fn in target_funcs:
@@ -94,6 +99,18 @@ def write_annotations(sol_in: str, ir: IR, only_contract: Optional[str] = None) 
             if not lines:
                 continue
             for ln in occ.get(fn, []):
+                inserts.append((ln, lines))
+
+        # event annotations (use event name, not function name)
+        for ev in target_events:
+            lines: List[str] = []
+            for pre in event_pre_by_name.get(ev, []):
+                lines.append(f"    /// @notice precondition {pre}")
+            for post in event_post_by_name.get(ev, []):
+                lines.append(f"    /// @notice postcondition {post}")
+            if not lines:
+                continue
+            for ln in occ_events.get(ev, []):
                 inserts.append((ln, lines))
 
         for ln, lines in sorted(inserts, key=lambda x: x[0], reverse=True):

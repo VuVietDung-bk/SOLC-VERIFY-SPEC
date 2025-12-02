@@ -19,7 +19,8 @@ from logic_utils import (
     evaluate_expr_at_function,
     solve_free_vars_in_pres_and_posts,
     subst_expr,
-    wrap_old_expr
+    wrap_old_expr,
+    wrap_old_expr_event
 )
 from rule_helpers import append_unique, propagate_modifies
 from spec_method import Step, Variable
@@ -425,6 +426,7 @@ class Rule:
         require_steps: List[Step] = []
         func_name: Optional[str] = None
         unknown_call = False
+        is_event = False
 
         returns_map: Dict[str, List[str]] = {}
         if isinstance(self.params, list) and isinstance(getattr(self, "sol_symbols", None), dict):
@@ -624,7 +626,7 @@ class Rule:
                 if func_name is None:
                     func_name = name
                 elif name != func_name:
-                    raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in one path of rule '{self.name}'.\033[0m")
+                    raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in one path of rule '{self.name}'.\033[0m")
 
                 if name and name not in sol_declared_funcs:
                     unknown_call = True
@@ -669,6 +671,46 @@ class Rule:
                 for idx, arg in enumerate(args):
                     if var_to_value[arg] is None:
                         var_to_value[arg] = Token("ID", param_names[idx])
+            elif step.kind == "emits":
+                # xử lý event như call với parameters
+                is_event = True
+                name = step.data.get("event")
+                args = step.data.get("args", [])
+                if func_name is None:
+                    func_name = name
+                elif name != func_name:
+                    raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in one path of rule '{self.name}'.\033[0m")
+
+                fn_params_map = self.sol_symbols.get("functions_params", {}) if isinstance(self.sol_symbols, dict) else {}
+                param_names = fn_params_map.get(name, []) if isinstance(fn_params_map, dict) else []
+
+                def _is_const(s: Optional[str]) -> bool:
+                    if s is None:
+                        return False
+                    s = s.strip()
+                    return bool(re.fullmatch(r"\d+", s)) or s in ("true", "false") or (len(s) >= 2 and s[0] == "\"" and s[-1] == "\"")
+
+                rendered_args: List[Optional[str]] = []
+                rendered_arg_nodes: List[Optional[Tree]] = []
+                for arg in args:
+                    ra = _subst_text(arg)
+                    if ra is None and arg in var_to_value and var_to_value[arg] is not None:
+                        ra = _render_val(var_to_value[arg])
+                    rendered_args.append(ra or arg)
+                    prefer_val = var_to_value.get(arg)
+                    rendered_arg_nodes.append(wrap_expr(prefer_val if prefer_val is not None else (ra or arg)))
+
+                for idx, arg in enumerate(rendered_args):
+                    if idx >= len(param_names):
+                        break
+                    if arg is not None and (arg != args[idx] or _is_const(arg)):
+                        eq_expr = make_eq_expr(param_names[idx], rendered_arg_nodes[idx] or arg)
+                        if eq_expr:
+                            preconds.append(eq_expr)
+
+                for idx, arg in enumerate(args):
+                    if var_to_value[arg] is None:
+                        var_to_value[arg] = Token("ID", param_names[idx])
 
         for step in require_steps:
             expr_node = _require_expr_from_step(step)
@@ -680,7 +722,7 @@ class Rule:
         if func_name is None:
             return None
 
-        return {func_name: unique_exprs(preconds)}, unknown_call
+        return {func_name: unique_exprs(preconds)}, unknown_call, is_event
     
     # Hàm lấy postcond từ 1 path 
     def get_postconditions_from_path(self, steps: List[Step]) -> Tuple[Dict[str, List[Tree]], bool, Dict[str, Any]]:
@@ -692,6 +734,7 @@ class Rule:
         postconds: List[Any] = []
         func_name: Optional[str] = None
         unknown_call = False
+        is_event = False
 
         returns_map: Dict[str, List[str]] = {}
         fn_params_map: Dict[str, List[str]] = {}
@@ -847,8 +890,50 @@ class Rule:
             new_node = subst_expr(deepcopy(expr_node), subst_map)
             
             return wrap_old_expr(new_node, vars_iter)
+        
+        def _oldify_expr_event(expr_node: Optional[Tree], skip=None) -> Optional[Tree]:
+            """
+            Thay các biến thuộc self.variables thành __verifier_before_<kind>(var)
+            (uint*/int*/bytes*/string) trừ những biến trong skip.
+            """
+            if expr_node is None:
+                return None
+            skip_set = set(skip) if skip else set()
+            subst_map: Dict[str, Any] = {}
+            vars_iter = []
+            if isinstance(self.variables, dict):
+                vars_iter = self.variables.values()
+            elif isinstance(self.variables, list):
+                vars_iter = self.variables
+            for v in vars_iter:
+                vname = getattr(v, "name", None) if hasattr(v, "name") else None
+                vtype = getattr(v, "vtype", None) if hasattr(v, "vtype") else None
+                if not vname or vname in skip_set:
+                    continue
+                wrap = None
+                if isinstance(vtype, str):
+                    if vtype.startswith("uint"):
+                        wrap = "__verifier_before_uint"
+                    elif vtype.startswith("int"):
+                        wrap = "__verifier_before_int"
+                    elif vtype.startswith("bytes") or vtype == "string":
+                        wrap = "__verifier_before_bytes"
+                    elif vtype == "bool":
+                        wrap = "__verifier_before_bool"
+                if wrap:
+                    subst_map[vname] = Token("ID", f"{wrap}({vname})")
+            new_node: Tree = None
+            if not subst_map:
+                new_node = expr_node
+            new_node = subst_expr(deepcopy(expr_node), subst_map)
+            
+            return wrap_old_expr_event(new_node, vars_iter)
 
         assert_steps: List[Step] = []
+
+        for step in steps:
+            if step.kind == "emits":
+                is_event = True
 
         for step in steps:
             if step.kind == "define":
@@ -883,7 +968,10 @@ class Rule:
                     base_rhs = None
                     base_rhs_sub = _subst_expr(rhs_node, skip=[ghost])
                     if func_name is None:
-                        base_rhs = _oldify_expr(base_rhs_sub, skip=[ghost]) or base_rhs_sub
+                        if not is_event:
+                            base_rhs = _oldify_expr(base_rhs_sub, skip=[ghost]) or base_rhs_sub
+                        else:
+                            base_rhs = _oldify_expr_event(base_rhs_sub, skip=[ghost]) or base_rhs_sub
                     var_to_value[ghost] = base_rhs or base_rhs_sub
 
             elif step.kind == "assign":
@@ -935,7 +1023,7 @@ class Rule:
                 if func_name is None:
                     func_name = name
                 elif name != func_name:
-                    raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in one path of rule '{self.name}'.\033[0m")
+                    raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in one path of rule '{self.name}'.\033[0m")
 
                 if name and name not in sol_declared_funcs:
                     unknown_call = True
@@ -947,6 +1035,19 @@ class Rule:
                     if var_to_value[arg] is None:
                         var_to_value[arg] = Token("ID", param_names[idx])
 
+            elif step.kind == "emits":
+                name = step.data.get("event")
+                args = step.data.get("args", [])
+                if func_name is None:
+                    func_name = name
+                else: 
+                    raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in one path of rule '{self.name}'.\033[0m")
+                # map event params
+                param_names = fn_params_map.get(name, []) if isinstance(fn_params_map, dict) else []
+                for idx, arg in enumerate(args):
+                    if var_to_value[arg] is None and idx < len(param_names):
+                        var_to_value[arg] = Token("ID", param_names[idx])
+
             elif step.kind == "assert":
                 if func_name is None:
                     raise SystemExit(f"\033[91m[ERROR] All assert statements must appear after function calls in rule '{self.name}'.\033[0m")
@@ -955,7 +1056,6 @@ class Rule:
                 if func_name is None:
                     raise SystemExit(f"\033[91m[ERROR] All assert_revert statements must appear after function calls in rule '{self.name}'.\033[0m")
                 assert_steps.append(step)
-        print(var_to_value)
 
         for step in assert_steps:
             expr_node = _assert_expr_from_step(step)
@@ -975,7 +1075,7 @@ class Rule:
         if func_name is None:
             return None
 
-        return {func_name: unique_exprs(postconds)}, unknown_call, var_to_value
+        return {func_name: unique_exprs(postconds)}, unknown_call, var_to_value, is_event
     
     def get_modify_from_path(self, steps: List[Step]) -> Dict[str, List[Tuple[str, str]]]:
         func_name: Optional[str] = None
@@ -1017,7 +1117,7 @@ class Rule:
 
         return {func_name: emits}
     
-    def to_conditions(self) -> Tuple[Dict[str, List[str]], Dict[str, List[str]], Dict[str, List[str]], Dict[str, List[str]]]:
+    def to_conditions(self) -> Tuple[Dict[str, List[str]], Dict[str, List[str]], Dict[str, List[str]], Dict[str, List[str]], Dict[str, List[str]], Dict[str, List[str]]]:
         """
         Thu thập pre/post/modify/emits theo mọi path, dựa trên dict đầu ra của
         get_preconditions_from_path, get_postconditions_from_path, get_modify_from_path, get_emits_from_path.
@@ -1026,6 +1126,8 @@ class Rule:
         postconds_dict: Dict[str, List[Any]] = {}
         modify_dict: Dict[str, List[Any]] = {}
         emits_dict: Dict[str, List[Any]] = {}
+        preconds_event_dict: Dict[str, List[Any]] = {}
+        postconds_event_dict: Dict[str, List[Any]] = {}
         sol_functions = []
         temp_no_conditions = set()
         if isinstance(self.sol_symbols, dict):
@@ -1066,18 +1168,25 @@ class Rule:
             temp_no_conditions = set()
             pre_res = self.get_preconditions_from_path(path)
             if pre_res:
-                path_pre, unknown_call = pre_res
+                path_pre, unknown_call, is_event = pre_res
             else:
                 path_pre = {}
-            _append_evaluated(preconds_dict, path_pre, unknown_call, True)
+                unknown_call = False
+            if not is_event:
+                _append_evaluated(preconds_dict, path_pre, unknown_call, True)
+            else:
+                _append_evaluated(preconds_event_dict, path_pre, unknown_call, True)
 
             post_res = self.get_postconditions_from_path(path)
             if post_res:
-                path_post, post_unknown, var_to_value = post_res
+                path_post, post_unknown, var_to_value, is_event = post_res
             else:
                 path_post = {}
                 post_unknown = False
-            _append_evaluated(postconds_dict, path_post, post_unknown, False)
+            if not is_event:
+                _append_evaluated(postconds_dict, path_post, post_unknown, False)
+            else:
+                _append_evaluated(postconds_event_dict, path_post, post_unknown, False)
 
             path_modify = self.get_modify_from_path(path) or {}
             for fn, conds in path_modify.items():
@@ -1101,9 +1210,12 @@ class Rule:
 
         propagated = propagate_modifies(modify_dict, call_graph, func_writes)
 
-        print("Variable to type map:", self.var_to_type)
         solved_preconds, solved_postconds = solve_free_vars_in_pres_and_posts(
             preconds_dict, postconds_dict, self.var_to_type, var_to_value
+        )
+
+        solved_pre_event_dict, solved_post_event_dict = solve_free_vars_in_pres_and_posts(
+            preconds_event_dict, postconds_event_dict, self.var_to_type, var_to_value
         )
 
         def _exprs_to_text_map(expr_dict: Dict[str, List[Any]]) -> Dict[str, List[str]]:
@@ -1127,6 +1239,8 @@ class Rule:
             _exprs_to_text_map(solved_postconds),
             _exprs_to_text_map(propagated),
             _exprs_to_text_map(emits_dict),
+            _exprs_to_text_map(solved_pre_event_dict),
+            _exprs_to_text_map(solved_post_event_dict)
         )
     
     def __repr__(self):

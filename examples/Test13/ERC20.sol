@@ -180,9 +180,7 @@ contract ERC20 is IERC20, IERC20Metadata {
             currentAllowance >= amount,
             "ERC20: transfer amount exceeds allowance"
         ); 
-        unchecked {
             _approve(sender, msg.sender, currentAllowance - amount);
-        }
 
         _transfer(sender, recipient, amount);
 
@@ -235,9 +233,7 @@ contract ERC20 is IERC20, IERC20Metadata {
     {
         uint256 currentAllowance = _allowances[msg.sender][spender];
         
-        unchecked {
             _approve(msg.sender, spender, currentAllowance - subtractedValue);
-        }
 
         return true;
     }
@@ -271,9 +267,7 @@ contract ERC20 is IERC20, IERC20Metadata {
             senderBalance >= amount,
             "ERC20: transfer amount exceeds balance"
         ); 
-        unchecked {
             _balances[sender] = senderBalance - amount;
-        }
         _balances[recipient] += amount;
 
         emit Transfer(sender, recipient, amount);
@@ -320,9 +314,7 @@ contract ERC20 is IERC20, IERC20Metadata {
 
         uint256 accountBalance = _balances[account];
         require(accountBalance >= amount, "ERC20: burn amount exceeds balance");
-        unchecked {
             _balances[account] = accountBalance - amount;
-        }
         _totalSupply -= amount;
 
         emit Transfer(account, address(0), amount);

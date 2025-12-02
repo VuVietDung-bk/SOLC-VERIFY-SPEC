@@ -13,17 +13,10 @@ contract Registry{
 
     mapping(address=>Entry) entries;
 
-    /// @notice tracks-changes-in entries
-    /// @notice precondition !entries[at].set
-    /// @notice postcondition entries[at].set && entries[at].data == value
     event new_entry(address at, int value);
 
-    /// @notice tracks-changes-in entries
-    /// @notice precondition entries[at].set && entries[at].data < value
-    /// @notice postcondition entries[at].set && entries[at].data == value
     event updated_entry(address at, int value);
 
-    /// @notice emits new_entry
     function add(int value) public {
         require(!entries[msg.sender].set);
         entries[msg.sender].set = true;
@@ -31,7 +24,6 @@ contract Registry{
         emit new_entry(msg.sender, value);
     }
 
-    /// @notice emits updated_entry
     function update(int value) public {
         require(entries[msg.sender].set);
         require(entries[msg.sender].data < value);
@@ -39,8 +31,6 @@ contract Registry{
         emit updated_entry(msg.sender, value);
     }
 
-    /// @notice emits new_entry
-    /// @notice emits updated_entry
     function add_or_update(int value) public {
         require(!entries[msg.sender].set || entries[msg.sender].data < value);
         entries[msg.sender].data = value;

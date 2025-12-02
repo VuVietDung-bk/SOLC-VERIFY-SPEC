@@ -55,8 +55,7 @@ rule doesNotAffectAThirdPartyBalance(method f) {
     } else if (funcCompare(f, "burn")) {
         burn(from, amount);
     } else {
-        calldataarg args;
-        f(args);
+        f();
     }
 
     assert _balances[thirdParty] == thirdBalanceBefore;
@@ -70,9 +69,8 @@ rule doesNotAffectAThirdPartyBalance(method f) {
  * `f.selector` to specify the functions that may change the balance.
  */
 rule balanceChangesFromCertainFunctions(method f, address user){
-    calldataarg args;
     uint256 userBalanceBefore = _balances[user];
-    f(args);
+    f();
     uint256 userBalanceAfter = _balances[user];
 
     assert(
@@ -88,9 +86,8 @@ rule balanceChangesFromCertainFunctions(method f, address user){
 
 
 rule onlyOwnersMayChangeTotalSupply(method f) {
-    uint256 totalSupplyBefore = _totalSupply;
-    calldataarg args;
-    f(args);
+    uint256 totalSupplyBefore = _totalSupply;;
+    f();
     uint256 totalSupplyAfter = _totalSupply;
     assert msg.sender == _owner => totalSupplyAfter != totalSupplyBefore;
 }
