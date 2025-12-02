@@ -1132,6 +1132,10 @@ class Rule:
         temp_no_conditions = set()
         if isinstance(self.sol_symbols, dict):
             sol_functions = list(self.sol_symbols.get("functions", []) or [])
+            # filter only public/non-view if info is available
+            pub_nonview = self.sol_symbols.get("functions_public_nonview")
+            if isinstance(pub_nonview, (set, list)):
+                sol_functions = [fn for fn in sol_functions if fn in pub_nonview]
 
         def _append_evaluated(bucket_dict: Dict[str, List[Any]], conds: Dict[str, List[Tree]], unknown: bool, is_pre: bool):
             if not conds:

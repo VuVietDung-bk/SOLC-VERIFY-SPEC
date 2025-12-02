@@ -104,7 +104,8 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
         "functions": {name1, name2, ...},        # tên function public/external/internal,... trong contract chọn
         "state_vars": {var1, var2, ...},         # tên state variables (kể cả mapping) trong contract chọn
         "functions_returns": {fname: [ret1, ret2, ...]},
-        "functions_params": {fname: [param1, param2, ...]}   # include events as 'functions'
+        "functions_params": {fname: [param1, param2, ...]},   # include events as 'functions'
+        "functions_public_nonview": {fname, ...}             # chỉ public/external và không view/pure
       }
     Nếu only_contract=None → gộp từ tất cả contract trong file.
     """
@@ -113,6 +114,7 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
     state_vars: Set[str] = set()
     functions_returns: Dict[str, list] = {}
     functions_params: Dict[str, List[str]] = {}
+    functions_public_nonview: Set[str] = set()
 
     def _collect_from_contract(c):
         # State vars
@@ -122,6 +124,8 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
         for f in c.functions:
             # Dùng f.name (không bao gồm signature) vì trong spec cũng viết theo tên
             functions.add(f.name)
+            if getattr(f, "visibility", None) in ("public", "external") and getattr(f, "state_mutability", getattr(f, "stateMutability", None)) not in ("view", "pure"):
+                functions_public_nonview.add(f.name)
             # Params
             params = []
             for p in getattr(f, "parameters", []):
@@ -173,6 +177,7 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
         "state_vars": state_vars,
         "functions_returns": functions_returns,
         "functions_params": functions_params,
+        "functions_public_nonview": functions_public_nonview,
     }
 
 

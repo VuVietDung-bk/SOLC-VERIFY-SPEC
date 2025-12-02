@@ -269,7 +269,6 @@ contract ERC20 is IERC20, IERC20Metadata {
      * - `sender` must have a balance of at least `amount`.
      */
     /// @notice precondition amount >= 0
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function _transfer(
         address sender,
         address recipient,
@@ -358,7 +357,6 @@ contract ERC20 is IERC20, IERC20Metadata {
      * - `spender` cannot be the zero address.
      */
     /// @notice precondition amount >= 0
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function _approve(
         address owner,
         address spender,
@@ -385,7 +383,6 @@ contract ERC20 is IERC20, IERC20Metadata {
      * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
      */
     /// @notice precondition amount >= 0
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function _beforeTokenTransfer(
         address from,
         address to,
@@ -407,7 +404,6 @@ contract ERC20 is IERC20, IERC20Metadata {
      * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
      */
     /// @notice precondition amount >= 0
-    /// @notice postcondition forall (address spender) forall (address holder) _allowances[holder][spender] <= __verifier_old_uint(_allowances[holder][spender]) || msg.sender == holder
     function _afterTokenTransfer(
         address from,
         address to,

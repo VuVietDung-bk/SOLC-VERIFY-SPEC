@@ -31,7 +31,7 @@ def main():
         grammar_text = f.read()
     lark = Lark(grammar_text)
 
-    print("[2/7] Parsing spec...")
+    print("[2/7] Parsing specification file...")
     with open(args.file_spec, "r", encoding="utf-8") as f:
         spec_text = f.read()
     try:
