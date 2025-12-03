@@ -3,8 +3,7 @@ pragma solidity >=0.7.0;
 
 
 contract NonPayable {
-    /// @notice precondition msg.value > 0
-    /// @notice postcondition false
+    /// @notice postcondition msg.value <= 0
     function justANonPayableFunction() external {
 
     }

@@ -2,6 +2,6 @@ variables {
     mapping(address => int256) balance;
 }
 
-invariant alwaysPositive() {
+invariant alwaysPositive {
     assert forall address a. balance[a] >= 0;
 }

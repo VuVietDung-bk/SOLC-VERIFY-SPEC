@@ -17,6 +17,9 @@ def collect_param_preconds(sol_file: str, only_contract: Optional[str] = None) -
             if str(vis) not in ("public", "external"):
                 continue
             pcs: List[str] = []
+            if getattr(f, "payable", False):
+                pcs.append("msg.value >= 0")
+                pcs.append("address(this).balance >= 0")
             for p in f.parameters:
                 t = getattr(p.type, "type", None) or str(p.type)
                 if "uint" in str(t) and not str(t).startswith("int") and p.name:

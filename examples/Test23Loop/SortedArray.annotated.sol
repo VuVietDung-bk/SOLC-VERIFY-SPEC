@@ -5,9 +5,8 @@ pragma solidity >=0.7.0;
  * @title SortedArray
  * @notice A simple contract maintaining a sorted array of uint256
  */
-
-/// @notice invariant property(arr) (i) !(i < arr.length - 1) || (arr[i] <= arr[i + 1])
-/// @notice invariant property(arr) (i) !(i < arr.length) || (arr[i] == 71)
+/// @notice invariant forall (uint256 i) i < 0 || i >= arr.length - 1 || arr[i] <= arr[i + 1]
+/// @notice invariant forall (uint256 i) i < 0 || i >= arr.length || arr[i] == 71
 contract SortedArray {
     uint256[] public arr;
 
@@ -15,6 +14,7 @@ contract SortedArray {
      * @notice Inserts a new value into the array, keeping it sorted in ascending order.
      * @param val The value to insert
      */
+    /// @notice precondition val >= 0
     function insert(uint256 val) external {
         // Simple linear approach:
         // 1. Find the position where 'val' should go.
@@ -36,6 +36,7 @@ contract SortedArray {
      * @notice Removes the element at index `index`. 
      * @dev For simplicity, just shift down from 'index' onward; last element is pop'd.
      */
+    /// @notice precondition index >= 0
     function remove(uint256 index) external {
         require(index < arr.length, "Index out of range");
         for (uint256 i = index; i < arr.length - 1; i++) {
@@ -48,6 +49,7 @@ contract SortedArray {
      * @notice Returns the element at index `index`. 
      * @dev Exposes array reads to demonstrate the read hook in CVL.
      */
+    /// @notice precondition index >= 0
     function readAt(uint256 index) external view returns (uint256) {
         return arr[index];
     }

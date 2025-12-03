@@ -131,7 +131,7 @@ class Rule:
         if ghost_tok:
             ghost = ghost_tok.value
 
-        expr_node = next((x for x in chs if isinstance(x, Tree) and x.data in ("expr", "logic_bi_expr", "compare_bi_expr", "bi_expr", "unary_expr", "function_call")), None)
+        expr_node = next((x for x in chs if isinstance(x, Tree) and x.data in ("expr", "logic_bi_expr", "compare_bi_expr", "bi_expr", "unary_expr", "function_call", "special_var_attribute_call", "contract_attribute_call", "cast_function_expr")), None)
         if expr_node:
             rhs_text = to_text(expr_node)
             for fc in expr_node.iter_subtrees_topdown():
@@ -427,6 +427,7 @@ class Rule:
             rm = self.sol_symbols.get("functions_returns", {})
             if isinstance(rm, dict):
                 returns_map = rm
+        fn_params_map = self.sol_symbols.get("functions_params", {}) if isinstance(getattr(self, "sol_symbols", None), dict) else {}
         sol_declared_funcs = set(self.sol_symbols.get("functions", [])) if isinstance(getattr(self, "sol_symbols", None), dict) else set()
 
         def _render_val(val: Any) -> str:
@@ -474,6 +475,48 @@ class Rule:
                     id_node: Token = node.children[1]
                     return id_node
             return rhs
+
+        def _is_const(s: Optional[str]) -> bool:
+            if s is None:
+                return False
+            s = s.strip()
+            return bool(re.fullmatch(r"\d+", s)) or s in ("true", "false") or (len(s) >= 2 and s[0] == "\"" and s[-1] == "\"")
+
+        def _add_call_arg_preconds(fname: str, args: List[str]) -> None:
+            param_names = fn_params_map.get(fname, []) if isinstance(fn_params_map, dict) else []
+
+            rendered_args: List[Optional[str]] = []
+            rendered_arg_nodes: List[Optional[Tree]] = []
+            for arg in args:
+                ra = _subst_text(arg)
+                if ra is None and arg in var_to_value and var_to_value.get(arg) is not None:
+                    ra = _render_val(var_to_value[arg])
+                rendered_args.append(ra or arg)
+                prefer_val = var_to_value.get(arg)
+                rendered_arg_nodes.append(wrap_expr(prefer_val if prefer_val is not None else (ra or arg)))
+
+            for i in range(len(rendered_args)):
+                for j in range(i + 1, len(rendered_args)):
+                    if i >= len(param_names) or j >= len(param_names):
+                        continue
+                    if rendered_args[i] == rendered_args[j]:
+                        eq_expr = make_eq_expr(param_names[i], param_names[j])
+                        if eq_expr:
+                            preconds.append(eq_expr)
+
+            for idx, arg in enumerate(rendered_args):
+                if idx >= len(param_names):
+                    break
+                if arg is not None and (arg != args[idx] or _is_const(arg)):
+                    eq_expr = make_eq_expr(param_names[idx], rendered_arg_nodes[idx] or arg)
+                    if eq_expr:
+                        preconds.append(eq_expr)
+
+            for idx, arg in enumerate(args):
+                if idx >= len(param_names):
+                    break
+                if var_to_value.get(arg) is None:
+                    var_to_value[arg] = Token("ID", param_names[idx])
 
         def _require_expr_from_step(step: Step) -> Optional[Tree]:
             node = step.node
@@ -539,6 +582,7 @@ class Rule:
                 ghost = step.data.get("ghost")
                 rhs_node = _rhs_node_from_step(step)
                 called_fn = None
+                call_args: List[str] = []
                 if not ghost:
                     continue
                 if ghost in var_to_value:
@@ -548,6 +592,9 @@ class Rule:
                     if len(call_names) > 1:
                         raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in assignment of rule '{self.name}'.\033[0m")
                     called_fn = call_names[0] if call_names else None
+                    call_node = next((fc for fc in rhs_node.iter_subtrees_topdown() if isinstance(fc, Tree) and fc.data == "function_call"), None)
+                    if call_node:
+                        _, call_args = _get_function_call_info(call_node)
                 if called_fn:
                     if func_name is None:
                         func_name = called_fn
@@ -563,6 +610,7 @@ class Rule:
                     rhs_subst = _subst_expr(rhs_node, skip=[ghost])
                     replaced = _replace_call(rhs_subst or rhs_node, called_fn, ret)
                     var_to_value[ghost] = replaced
+                    _add_call_arg_preconds(called_fn, call_args)
                 else:
                     var_to_value[ghost] = _subst_expr(rhs_node, skip=[ghost]) or rhs_node
 
@@ -570,11 +618,15 @@ class Rule:
                 targets = step.data.get("targets", [])
                 rhs_node = _rhs_node_from_step(step)
                 called_fn = None
+                call_args: List[str] = []
                 if isinstance(rhs_node, Tree):
                     call_names = _call_names(rhs_node)
                     if len(call_names) > 1:
                         raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in assignment of rule '{self.name}'.\033[0m")
                     called_fn = call_names[0] if call_names else None
+                    call_node = next((fc for fc in rhs_node.iter_subtrees_topdown() if isinstance(fc, Tree) and fc.data == "function_call"), None)
+                    if call_node:
+                        _, call_args = _get_function_call_info(call_node)
                 if called_fn:
                     if func_name is None:
                         func_name = called_fn
@@ -582,6 +634,7 @@ class Rule:
                         raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in one path of rule '{self.name}'.\033[0m")
                     if called_fn not in sol_declared_funcs:
                         unknown_call = True
+                    _add_call_arg_preconds(called_fn, call_args)
                 if called_fn and len(targets) > 1:
                     ret_list = _all_rets(called_fn)
                     if len(ret_list) != len(targets):
@@ -624,14 +677,8 @@ class Rule:
 
                 if name and name not in sol_declared_funcs:
                     unknown_call = True
-                
-                fn_params_map = self.sol_symbols.get("functions_params", {}) if isinstance(self.sol_symbols, dict) else {}
+
                 param_names = fn_params_map.get(name, []) if isinstance(fn_params_map, dict) else []
-                def _is_const(s: Optional[str]) -> bool:
-                    if s is None:
-                        return False
-                    s = s.strip()
-                    return bool(re.fullmatch(r"\d+", s)) or s in ("true", "false") or (len(s) >= 2 and s[0] == "\"" and s[-1] == "\"")
 
                 rendered_args: List[Optional[str]] = []
                 rendered_arg_nodes: List[Optional[Tree]] = []
@@ -672,14 +719,7 @@ class Rule:
                 elif name != func_name:
                     raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in one path of rule '{self.name}'.\033[0m")
 
-                fn_params_map = self.sol_symbols.get("functions_params", {}) if isinstance(self.sol_symbols, dict) else {}
                 param_names = fn_params_map.get(name, []) if isinstance(fn_params_map, dict) else []
-
-                def _is_const(s: Optional[str]) -> bool:
-                    if s is None:
-                        return False
-                    s = s.strip()
-                    return bool(re.fullmatch(r"\d+", s)) or s in ("true", "false") or (len(s) >= 2 and s[0] == "\"" and s[-1] == "\"")
 
                 rendered_args: List[Optional[str]] = []
                 rendered_arg_nodes: List[Optional[Tree]] = []

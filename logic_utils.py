@@ -375,6 +375,22 @@ def wrap_old_expr(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
         if not isinstance(node, Tree):
             return node
 
+        if _rule_name(node.data) == "contract_attribute_call":
+            attr_tok = next(
+                (t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type in ("BALANCE", "ADDRESS"))),
+                None
+            )
+            if attr_tok and attr_tok.type == "BALANCE":
+                return wrap_old_access(deepcopy(node), "uint")
+            return node
+
+        if _rule_name(node.data) == "special_var_attribute_call":
+            id_tok = next((t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "ID")), None)
+            attr_tok = next((t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "LENGTH")), None)
+            if id_tok and attr_tok:
+                return wrap_old_access(deepcopy(node), "uint")
+            return node
+
         if _rule_name(node.data) == "expr" and node.children:
             base_tok = node.children[0] if isinstance(node.children[0], Token) else None
             if base_tok and base_tok.type == "ID":
@@ -451,6 +467,22 @@ def wrap_old_expr_event(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
         if isinstance(node, Token):
             return node
         if not isinstance(node, Tree):
+            return node
+        
+        if _rule_name(node.data) == "contract_attribute_call":
+            attr_tok = next(
+                (t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type in ("BALANCE", "ADDRESS"))),
+                None
+            )
+            if attr_tok and attr_tok.type == "BALANCE":
+                return wrap_old_access(deepcopy(node), "uint")
+            return node
+
+        if _rule_name(node.data) == "special_var_attribute_call":
+            id_tok = next((t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "ID")), None)
+            attr_tok = next((t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "LENGTH")), None)
+            if id_tok and attr_tok:
+                return wrap_old_access(deepcopy(node), "uint")
             return node
 
         if _rule_name(node.data) == "expr" and node.children:

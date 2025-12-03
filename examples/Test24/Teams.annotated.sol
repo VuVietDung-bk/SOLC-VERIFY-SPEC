@@ -5,19 +5,20 @@ import {ITeams} from './ITeams.sol';
 
 
 /// @title A contract for managing "teams"
-/// @notice invariant forall (uint8 teamId, address player) !(teamId != 0 && _leaderOf[teamId] == address(0)) || _teamOf[player] != teamId
+/// @notice invariant forall (uint8 teamId) forall (address player) teamId == 0 || _leaderOf[teamId] != address(0) || _teamOf[player] != teamId
 contract Teams is ITeams {
 
     mapping(address => uint8) internal _teamOf;
     mapping(uint8 => address) internal _leaderOf;
 
     /// @inheritdoc ITeams
-    function teamOf(address player) override external view returns (uint8) {
+    function teamOf(address player) external view override returns (uint8) {
         return _teamOf[player];
     }
 
     /// @inheritdoc ITeams
-    function leaderOf(uint8 teamId) override external view returns (address) {
+    /// @notice precondition teamId >= 0
+    function leaderOf(uint8 teamId) external view override returns (address) {
         return _leaderOf[teamId];
     }
 
@@ -28,7 +29,7 @@ contract Teams is ITeams {
         address playerA,
         address playerB,
         uint8 teamId
-    ) override external {
+    ) external override {
         require(_leaderOf[teamId] == address(0));
         require(_teamOf[leader] == 0 && _teamOf[playerA] == 0 && _teamOf[playerB] == 0);
         require(leader != playerA && leader != playerB && playerA != playerB);
@@ -41,7 +42,7 @@ contract Teams is ITeams {
     }
 
     /// @inheritdoc ITeams
-    function changeLeader(address newLeader) override external {
+    function changeLeader(address newLeader) external override {
         uint8 teamId = _teamOf[msg.sender];
 
         require(teamId != 0);

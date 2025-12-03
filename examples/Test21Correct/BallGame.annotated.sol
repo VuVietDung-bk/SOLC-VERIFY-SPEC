@@ -13,8 +13,7 @@ pragma solidity >=0.7.0;
  * Player 1 starts with the ball; the game is lost if player 2 ever gets the
  * ball.
  */
-
-/// @notice invariant ballPosition != 2
+/// @notice invariant ballPosition == 1 || ballPosition == 3
 contract BallGame {
 
     /// The current position of the ball
