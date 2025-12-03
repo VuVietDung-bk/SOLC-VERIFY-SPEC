@@ -13,6 +13,9 @@ def collect_param_preconds(sol_file: str, only_contract: Optional[str] = None) -
 
     def _handle_contract(c):
         for f in c.functions:
+            vis = getattr(f, "visibility", None) or ""
+            if str(vis) not in ("public", "external"):
+                continue
             pcs: List[str] = []
             for p in f.parameters:
                 t = getattr(p.type, "type", None) or str(p.type)

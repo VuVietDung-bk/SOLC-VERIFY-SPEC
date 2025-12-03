@@ -421,6 +421,29 @@ def fmt(node):
                     atxt, _ = fmt(ch)
                     args.append(atxt)
         return f"{fname}(" + ", ".join(args) + ")", 10
+    
+    if node.data == "cast_function_expr":
+        # Handle casts like address(0)
+        cast_name = next(
+            (_flatten_tokens_only(ch) for ch in node.children
+             if isinstance(ch, Tree) and ch.data == "cast_function"),
+            None
+        )
+        arg_txt = next((t.value for t in node.children if isinstance(t, Token) and t.type == "INTEGER_LITERAL"), None)
+        if cast_name and arg_txt is not None:
+            return f"{cast_name}({arg_txt})", 10
+
+        # Fallback to generic formatting in case the grammar expands
+        exprs_node = next((ch for ch in node.children if isinstance(ch, Tree) and ch.data == "exprs"), None)
+        id_toks = [t.value for t in node.children if isinstance(t, Token) and t.type == "ID"]
+        fname = ".".join(id_toks) if id_toks else ""
+        args: List[str] = []
+        if exprs_node:
+            for ch in exprs_node.children:
+                if isinstance(ch, Tree):
+                    atxt, _ = fmt(ch)
+                    args.append(atxt)
+        return f"{fname}(" + ", ".join(args) + ")", 10
 
     if node.data == "index":
         items = []

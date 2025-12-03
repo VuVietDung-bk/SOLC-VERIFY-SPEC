@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.7.0;
+pragma solidity >=0.7.0;
 
 contract Example3 {
     uint public x;
@@ -13,7 +13,6 @@ contract Example3 {
         _set(n + 2);
     }
 
-    /// @notice precondition idx >= 0
     function _set(uint idx) internal {
         isSet[idx] = true;
     }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.7.0;
+pragma solidity >=0.7.0;
 
 contract Example1 {
     uint public x;
@@ -13,7 +13,6 @@ contract Example1 {
         _add(n);
     }
 
-    /// @notice precondition n >= 0
     function _add(uint n) internal {
         x = x + n;
         y = y + n;

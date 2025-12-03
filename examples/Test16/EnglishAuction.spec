@@ -14,5 +14,5 @@ invariant integrityOfHighestBid {
 
 /// @title Highest bidder has the highest bid
 invariant highestBidderHasHighestBid {
-    assert (highestBidder != 0) => (bids[highestBidder] == highestBid);
+    assert (highestBidder != address(0)) => (bids[highestBidder] == highestBid);
 }

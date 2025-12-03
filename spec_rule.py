@@ -280,6 +280,7 @@ class Rule:
                 message = ch.value[1:-1]
 
         return Step("assert_revert", {
+            "cond_expr": extra_expr_node,
             "expr_text": to_text(extra_expr_node) if extra_expr_node else None,
             "message": message
         }, st)
@@ -623,7 +624,7 @@ class Rule:
 
                 if name and name not in sol_declared_funcs:
                     unknown_call = True
-
+                
                 fn_params_map = self.sol_symbols.get("functions_params", {}) if isinstance(self.sol_symbols, dict) else {}
                 param_names = fn_params_map.get(name, []) if isinstance(fn_params_map, dict) else []
                 def _is_const(s: Optional[str]) -> bool:
@@ -1050,6 +1051,7 @@ class Rule:
             expr_subst = _subst_expr(expr_node)
             cond_expr = expr_subst or expr_node
             if step.kind == "assert_revert":
+                cond_expr = step.data["cond_expr"]
                 if cond_expr is not None:
                     neg_expr = negative(deepcopy(cond_expr))
                     postconds.append(neg_expr)
@@ -1164,6 +1166,7 @@ class Rule:
             else:
                 path_pre = {}
                 unknown_call = False
+                is_event = False
             if not is_event:
                 _append_evaluated(preconds_dict, path_pre, unknown_call, True)
             else:
@@ -1202,11 +1205,11 @@ class Rule:
         propagated = propagate_modifies(modify_dict, call_graph, func_writes)
 
         solved_preconds, solved_postconds = solve_free_vars_in_pres_and_posts(
-            preconds_dict, postconds_dict, self.var_to_type, var_to_value
+            preconds_dict, postconds_dict, self.var_to_type, var_to_value, self.variables
         )
 
         solved_pre_event_dict, solved_post_event_dict = solve_free_vars_in_pres_and_posts(
-            preconds_event_dict, postconds_event_dict, self.var_to_type, var_to_value
+            preconds_event_dict, postconds_event_dict, self.var_to_type, var_to_value, self.variables
         )
 
         def _exprs_to_text_map(expr_dict: Dict[str, List[Any]]) -> Dict[str, List[str]]:

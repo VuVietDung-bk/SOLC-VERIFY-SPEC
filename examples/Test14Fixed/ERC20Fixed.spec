@@ -85,7 +85,7 @@ rule balanceChangesFromCertainFunctions(method f, address user){
     f();
     uint256 userBalanceAfter = _balances[user];
 
-    assert(
+    assert
         userBalanceBefore != userBalanceAfter =>
         (
             funcCompare(f, "transfer") ||
@@ -94,7 +94,7 @@ rule balanceChangesFromCertainFunctions(method f, address user){
             funcCompare(f, "burn")
         ),
         "user's balance changed as a result function other than transfer(), transferFrom(), mint() or burn()"
-    );
+    ;
 }
 
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.7.0;
+pragma solidity >=0.7.0;
 
 // Simple example that uses quantifiers in the specification. The contract invariants
 // state that all element in the range of the array must be non-negative, and there must

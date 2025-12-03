@@ -1,9 +1,9 @@
 variables {
-    mapping (address => uint256) _balances;   
-    uint256 _totalSupply; 
+    mapping (address => uint256) balanceOf;   
+    uint256 totalSupply; 
 }
 
 
 invariant directSumOfTwo {
-    assert forall address a. address b. (a != b) => (_balances[a] + _balances[b] <= _totalSupply);
+    assert forall address a. forall address b. (a != b) => (balanceOf[a] + balanceOf[b] <= totalSupply);
 }

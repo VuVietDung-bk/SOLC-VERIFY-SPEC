@@ -1,4 +1,4 @@
-pragma solidity ^0.7.0;
+pragma solidity >=0.7.0;
 
 /**
  * Contract that models a game of keep away.  The contract keeps track of an

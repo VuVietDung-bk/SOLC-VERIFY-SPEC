@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts v4.4.1 (token/ERC20/ERC20.sol)
 
-pragma solidity ^0.7.0;
+pragma solidity >=0.7.0;
 
 import "./IERC20.sol";
 import "./IERC20Metadata.sol";
@@ -268,7 +268,6 @@ contract ERC20 is IERC20, IERC20Metadata {
      * - `recipient` cannot be the zero address.
      * - `sender` must have a balance of at least `amount`.
      */
-    /// @notice precondition amount >= 0
     function _transfer(
         address sender,
         address recipient,
@@ -356,7 +355,6 @@ contract ERC20 is IERC20, IERC20Metadata {
      * - `owner` cannot be the zero address.
      * - `spender` cannot be the zero address.
      */
-    /// @notice precondition amount >= 0
     function _approve(
         address owner,
         address spender,
@@ -382,7 +380,6 @@ contract ERC20 is IERC20, IERC20Metadata {
      *
      * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
      */
-    /// @notice precondition amount >= 0
     function _beforeTokenTransfer(
         address from,
         address to,
@@ -403,7 +400,6 @@ contract ERC20 is IERC20, IERC20Metadata {
      *
      * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
      */
-    /// @notice precondition amount >= 0
     function _afterTokenTransfer(
         address from,
         address to,

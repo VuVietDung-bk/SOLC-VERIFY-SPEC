@@ -61,11 +61,15 @@ map_to: mapping | primitive_basic_type | ID
         | contract_attribute_call
         | ID index? attribute
         | func_compare_expr
+        | cast_function_expr
         | function_call
 
 QUANTIFIER: "forall" | "exists"
 function_call: (ID ".")? ID "(" exprs? ")"?
 func_compare_expr: "funcCompare(" ID "," STRING_LITERAL ")"
+
+cast_function: ADDRESS
+cast_function_expr: cast_function "(" INTEGER_LITERAL ")"
 
 special_var_attribute: SUM | LENGTH | ISUM
 SUM: "sum"
@@ -132,6 +136,9 @@ block: statement+
 event_call: ID "(" exprs? ")"
 
 statement:  "require" expr ("," STRING_LITERAL)? ";"  -> require_statement
+            | "assert_modify" modify_var ("if" expr)? ("," STRING_LITERAL)? ";" -> assert_modify_statement
+            | "assert_emit" event_call ";"              -> assert_emit_statement
+            | "assert_revert" ("if" expr)? ("," STRING_LITERAL)? ";" -> assert_revert_statement
             | "assert" expr ("," STRING_LITERAL)? ";"   -> assert_statement
             | cvl_type ID ("=" expr)? ";"                 -> define_statement
 
@@ -140,10 +147,6 @@ statement:  "require" expr ("," STRING_LITERAL)? ";"  -> require_statement
             | "{" block "}"                             -> block_statement
 
             | function_call ";"                         -> funccall_statement
-
-            | "assert_modify" modify_var ("if" expr)? ("," STRING_LITERAL)? ";" -> assert_modify_statement
-            | "assert_revert" ("if" expr)? ("," STRING_LITERAL)? ";" -> assert_revert_statement
-            | "assert_emit" event_call ";"              -> assert_emit_statement
             | "emits" event_call ";"                         -> emits_statement
 
 modify_var: ID index? attribute?

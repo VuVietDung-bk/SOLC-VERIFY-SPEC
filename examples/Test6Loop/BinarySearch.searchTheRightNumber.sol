@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.7.0;
+pragma solidity >=0.7.0;
 
+/// @notice invariant forall (uint i) forall (uint j) i >= j || a[i] < a[j]
 contract BinarySearch {
 
     uint[] a;
 
     /// @notice precondition _elem >= 0
+    /// @notice postcondition forall (uint n) forall (uint i) a[i] != n || i == index
     function find(uint _elem) public view returns (uint index) {
 
         // Binary search

@@ -1,4 +1,4 @@
-methods
+variables
 {
     mapping (address => uint) balances; 
 }

@@ -275,6 +275,44 @@ def wrap_old_access_event(access: Tree | Token, kind: str) -> Tree:
         Tree("exprs", [Tree("expr", [deepcopy(access)])])
     ])
 
+def oldify_expr(expr_node: Optional[Tree], variables: List[Variable], skip=None) -> Optional[Tree]:
+    """
+    Thay các biến thuộc self.variables thành __verifier_old_<kind>(var)
+    (uint*/int*/bytes*/string) trừ những biến trong skip.
+    """
+    if expr_node is None:
+        return None
+    skip_set = set(skip) if skip else set()
+    subst_map: Dict[str, Any] = {}
+    vars_iter = []
+    if isinstance(variables, dict):
+        vars_iter = variables.values()
+    elif isinstance(variables, list):
+        vars_iter = variables
+    for v in vars_iter:
+        vname = getattr(v, "name", None) if hasattr(v, "name") else None
+        vtype = getattr(v, "vtype", None) if hasattr(v, "vtype") else None
+        if not vname or vname in skip_set:
+            continue
+        wrap = None
+        if isinstance(vtype, str):
+            if vtype.startswith("uint"):
+                wrap = "__verifier_old_uint"
+            elif vtype.startswith("int"):
+                wrap = "__verifier_old_int"
+            elif vtype.startswith("bytes") or vtype == "string":
+                wrap = "__verifier_old_bytes"
+            elif vtype == "bool":
+                wrap = "__verifier_old_bool"
+        if wrap:
+            subst_map[vname] = Token("ID", f"{wrap}({vname})")
+    new_node: Tree = None
+    if not subst_map:
+        new_node = expr_node
+    new_node = subst_expr(deepcopy(expr_node), subst_map)
+    
+    return wrap_old_expr(new_node, vars_iter)
+
 def wrap_old_expr(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
     """
     Filter mapping variables, then traverse expr to wrap accesses with __verifier_old_<kind>().
@@ -457,7 +495,8 @@ def solve_free_vars_in_pres_and_posts(
     pres: Dict[str, List[Any]],
     posts: Dict[str, List[Any]],
     var_to_type: Dict[str, str],
-    var_to_value: Dict[str, Any]
+    var_to_value: Dict[str, Any],
+    variables: List[Variable]
 ) -> Tuple[Dict[str, List[Any]], Dict[str, List[Any]]]:
     """
     Resolve free variables in pre/postconditions per function.
@@ -515,7 +554,9 @@ def solve_free_vars_in_pres_and_posts(
                     matched = True
                     used_pre_idx.add(idx)
                     union_vars = fv_pre | fv_post
-                    neg_pre = negative(deepcopy(pre_ex))
+                    
+                    oldified_pre = oldify_expr(pre_ex, variables)
+                    neg_pre = negative(deepcopy(oldified_pre))
                     implication = Tree("logic_bi_expr", [
                         neg_pre,
                         Tree("logic_binop", [Token("OROR", "||")]),

@@ -73,20 +73,19 @@ rule balanceChangesFromCertainFunctions(method f, address user){
     f();
     uint256 userBalanceAfter = _balances[user];
 
-    assert(
+    assert
         userBalanceBefore != userBalanceAfter =>
         (
             funcCompare(f, "transfer") ||
             funcCompare(f, "mint") ||
             funcCompare(f, "burn")
         ),
-        "user's balance changed as a result function other than transfer(), transferFrom(), mint() or burn()"
-    );
+        "user's balance changed as a result function other than transfer(), transferFrom(), mint() or burn()";
 }
 
 
 rule onlyOwnersMayChangeTotalSupply(method f) {
-    uint256 totalSupplyBefore = _totalSupply;;
+    uint256 totalSupplyBefore = _totalSupply;
     f();
     uint256 totalSupplyAfter = _totalSupply;
     assert msg.sender == _owner => totalSupplyAfter != totalSupplyBefore;

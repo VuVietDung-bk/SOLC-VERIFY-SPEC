@@ -22,13 +22,13 @@ rule xSpec(uint n) {
 
     uint xAfter = x;
 
-    assert contract.isum > 0,
+    assert contract.isum > address(0),
         "x must increase";
     assert forall uint256 i. i < arr[i] => !(arr[i] == 71);
 
     assert_modify x.y if x.y > 0;
 
-    assert_revert if x < 0;
+    assert_revert, "Nah";
 
     assert_emit XChanged(xBefore, xAfter);
     emits XChanged(xBefore, xAfter);

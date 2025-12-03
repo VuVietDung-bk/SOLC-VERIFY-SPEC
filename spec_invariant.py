@@ -8,6 +8,7 @@ from parser_utils import (
 )
 from typing import Dict, List, Optional, Any
 from spec_method import Step, Variable
+from logic_utils import remove_arrows
 
 class Invariant:
     _COMPARE_TOKENS = ["==", "!=", "<=", ">=", "<", ">"]
@@ -204,7 +205,7 @@ class Invariant:
             expr_subst = _subst_expr(expr_node)
             cond_expr = expr_subst or expr_node
             if cond_expr:
-                inv.append(to_text(cond_expr))
+                inv.append(to_text(remove_arrows(cond_expr)))
 
         return inv
 

@@ -31,7 +31,7 @@ You can also type `python3 solc-verify-spec.py -h` to print the optional argumen
 - `-h`, `--help`: Show the help message and exit.
 - `--grammar <file_lark>`: Path to the .lark grammar to define the specification language.
 - `--no-run`: Do not run solc-verify after generating annotations.
-- `--arithmetic {int,bv,mod,mod-overflow,all}`: Encoding of arithmetic operations (default `all`).
+- `--arithmetic {int,bv,mod,mod-overflow}`: Encoding of arithmetic operations.
 - `--errors-only`: Only display error messages.
 - `--event-analysis`: Enable event analysis even without event annotations.
 - `--modifies-analysis`: Enable modify analysis even without modify annotations.

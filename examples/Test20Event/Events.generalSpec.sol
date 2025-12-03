@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.7.0;
+pragma solidity >=0.7.0;
 
 // Example on specifying events. Users of the contract can add register a number
 // corresponding to their address and then update it but only with a greater number.
