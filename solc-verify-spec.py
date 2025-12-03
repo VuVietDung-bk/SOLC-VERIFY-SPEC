@@ -1,10 +1,15 @@
 import argparse
+import os
+import time
 from lark import Lark
 
 from spec_ir import IR
 from annotations import write_annotations
 from utils import build_call_graph, build_function_writes, build_sol_symbols, split_sol_and_contract
 from runner import run_sv  
+
+TIME_COLOR = "\033[94m"
+RESET_COLOR = "\033[0m"
 
 def main():
     parser = argparse.ArgumentParser(
@@ -23,6 +28,8 @@ def main():
     parser.add_argument("--solver", default="all", help="SMT solver used by the verifier (z3, cvc4, all), default is \"all\"")
     parser.add_argument("--timeout", default="10", help="Timeout for running the Boogie verifier in seconds (default is 10)")
     args = parser.parse_args()
+
+    overall_start = time.time()
 
     sol_path, target_contract = split_sol_and_contract(args.file_sol)
 
@@ -68,9 +75,12 @@ def main():
 
     print("[7/7] Running SOLC-VERIFY...")
 
+    rule_times = []
+
     if not args.no_run:
         for file in out_files:
             print(f"\033[95mVerifying {file}\033[0m")
+            start_rule = time.time()
             extra = []
             if args.arithmetic:
                 extra.extend(["--arithmetic", args.arithmetic])
@@ -87,8 +97,18 @@ def main():
             if args.timeout:
                 extra.extend(["--timeout", args.timeout])
             run_sv(file, extra_args=extra)
+            elapsed_rule = time.time() - start_rule
+            rule_label = os.path.basename(file)
+            print(f"{TIME_COLOR}[TIME] {rule_label}: {elapsed_rule:.2f}s{RESET_COLOR}")
+            rule_times.append(elapsed_rule)
     else:
         print("No run was performed")
+
+    if rule_times:
+        print(f"{TIME_COLOR}[TIME] Total rule verification time: {sum(rule_times):.2f}s{RESET_COLOR}")
+
+    overall_elapsed = time.time() - overall_start
+    print(f"{TIME_COLOR}[TIME] End-to-end time: {overall_elapsed:.2f}s{RESET_COLOR}")
 
 if __name__ == "__main__":
     main()
