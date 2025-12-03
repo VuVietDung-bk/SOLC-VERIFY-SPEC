@@ -1,10 +1,4 @@
 rule fifthFibonacciElementIsFive {
-    assert fibonacci(5) == 5;
-}
-
-rule fibonacciMonotonicallyIncreasing {
-    uint32 i1;
-    uint32 i2;
-
-    assert i2 > i1 => fibonacci(i2) >= fibonacci(i1);
+    uint result = fibonacci(5);
+    assert result == 5;
 }

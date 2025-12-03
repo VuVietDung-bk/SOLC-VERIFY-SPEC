@@ -5,11 +5,11 @@ variables
 
 rule xSpec(uint n) {
     
-    mathint xBefore = x;
+    uint xBefore = x;
 
     add_to_x(n);
 
-    mathint xAfter = x;
+    uint xAfter = x;
 
     assert xBefore <= xAfter,
         "x must increase";

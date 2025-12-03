@@ -39,9 +39,6 @@ def main():
         print(tree.pretty())
         ir = IR.from_ast(tree, {})
         print(ir.to_dict())
-        for r in ir.rules:
-            for path in r.get_all_paths():
-                print("Path:", path)
     except UnexpectedInput as e:
         print("Parse error:", file=sys.stderr)
         print(e, file=sys.stderr)

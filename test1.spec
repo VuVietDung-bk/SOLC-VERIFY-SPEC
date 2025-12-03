@@ -7,7 +7,7 @@ rule xSpec(uint n) {
 
     env e;
     
-    mathint xBefore = x + 1;
+    uint xBefore = x + 1;
 
     add_to_x(n);
 
@@ -20,15 +20,15 @@ rule xSpec(uint n) {
         f(args);
     }
 
-    mathint xAfter = x;
+    uint xAfter = x;
 
-    assert 2 * xBefore + 2 <= xAfter || false,
+    assert contract.isum > address(0),
         "x must increase";
     assert forall uint256 i. i < arr[i] => !(arr[i] == 71);
 
     assert_modify x.y if x.y > 0;
 
-    assert_revert if x < 0;
+    assert_revert, "Nah";
 
     assert_emit XChanged(xBefore, xAfter);
     emits XChanged(xBefore, xAfter);

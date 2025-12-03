@@ -4,7 +4,7 @@ pragma solidity >=0.8.0;
 
 
 contract Fibonacci {
-    function fibonacci(uint32 i) external returns (uint32) {
+    function fibonacci(uint32 i) external returns (uint32 res) {
         if(i == 1 || i == 2) {
             return 1;
         }

@@ -1,7 +1,7 @@
-variable {
+variables {
     mapping (address => uint256) _points;
     mapping (address => bool) _voted;
-    address public _winner;
+    address _winner;
 }
 
 /*
@@ -51,8 +51,7 @@ Integrity of voted:
 */
 rule globallyVoted(address x, method f) {
     require _voted[x];
-    calldataarg arg;
-    f(arg); //taking into account all external function with all possible arguments 
+    f(); //taking into account all external function with all possible arguments 
     assert _voted[x], "Once a user voted, he is marked as voted in all future states";
 }
 
@@ -65,7 +64,7 @@ rule globallyVoted(address x, method f) {
     Note: The Prover checks that the invariant is established after the constructor. In addition, Prover checks that the invariant holds after the execution of any contract method, assuming that it held before the method was executed.
     Note that c is an unconstrained variable therefore this invariant is checked against all possible values of c. 
 */
-invariant integrityPointsOfWinner() {
+invariant integrityPointsOfWinner {
     assert forall address c. _points[_winner] >= _points[c];
 }
             
@@ -87,8 +86,7 @@ rule noEffect(method m) {
         vote(f, s, t);
     }
     else {
-        calldataarg args;
-        m(args);
+        m();
     }
     assert ( _voted[c] == c_voted || c  == msg.sender ) &&
              _points[c] == c_points, "unexpected change to others points or voted";

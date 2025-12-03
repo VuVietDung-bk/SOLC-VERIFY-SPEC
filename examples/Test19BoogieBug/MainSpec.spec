@@ -13,7 +13,7 @@ rule bidIncreasesAssets() {
 rule bidSuccessfullyExpectVacuous() {
     uint256 balanceBefore = contract.balance;
     require(msg.sender != contract.address);
-    require(msg.value > 0 &&  e.msg.value > balanceBefore);
+    require(msg.value > 0 &&  msg.value > balanceBefore);
     require (balanceBefore > 0);
     bid();
     assert contract.balance >= balanceBefore;

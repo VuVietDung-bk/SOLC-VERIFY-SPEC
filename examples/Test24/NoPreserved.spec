@@ -1,6 +1,7 @@
-/** @title If a team does not exist it has not players
- *  This invariant cannot be proven without a preserved block.
- */
+variables {
+    mapping(address => uint8) _teamOf;
+    mapping(uint8 => address) _leaderOf;
+}
 invariant nonExistTeamHasNoPlayers {
-    assert forall uint8 teamId. address player. (teamId != 0 && leaderOf(teamId) == 0) => teamOf(player) != teamId;
+    assert forall uint8 teamId. forall address player. (teamId != 0 && _leaderOf[teamId] == address(0)) => _teamOf[player] != teamId;
 }

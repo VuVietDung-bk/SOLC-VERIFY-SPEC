@@ -21,7 +21,7 @@ basic_type: primitive_basic_type array_specifier*
 
 struct_field_access: ID "." ID
 
-primitive_basic_type: INT_TYPE | UINT_TYPE | "address" | BOOL_TYPE | "string" | BYTES_TYPE
+primitive_basic_type: INT_TYPE | UINT_TYPE | ADDRESS | BOOL_TYPE | STRING | BYTES_TYPE
 
 array_specifier: "[" [INTEGER_LITERAL] "]"
 
@@ -33,12 +33,13 @@ tuple_type: "(" inner_tuple ")"
 inner_tuple: evm_type ("," evm_type)*
 
 // Tokens
-PRIMITIVE_CVL_TYPE: "mathint" | "calldataarg" | "method"
+PRIMITIVE_CVL_TYPE: "method"
 INT_TYPE: /int[0-9]*/
 UINT_TYPE: /uint[0-9]*/
 BYTES_TYPE: /bytes[0-9]*/
 BOOL_TYPE: "bool"
 ID: /[a-zA-Z_][a-zA-Z0-9_]*/
+STRING: "string"
 
 mapping: "mapping" "(" map_from "=>" map_to ")"
 
@@ -51,6 +52,7 @@ map_to: mapping | primitive_basic_type | ID
         | "(" exprs ")"
         | expr logic_binop expr -> logic_bi_expr
         | expr compare_binop expr -> compare_bi_expr
+        | expr binop_high expr -> bi_expr
         | expr binop expr -> bi_expr
         | unop expr -> unary_expr
         | expr "?" expr ":" expr
@@ -59,14 +61,19 @@ map_to: mapping | primitive_basic_type | ID
         | contract_attribute_call
         | ID index? attribute
         | func_compare_expr
+        | cast_function_expr
         | function_call
 
 QUANTIFIER: "forall" | "exists"
 function_call: (ID ".")? ID "(" exprs? ")"?
 func_compare_expr: "funcCompare(" ID "," STRING_LITERAL ")"
 
-special_var_attribute: SUM | LENGTH
+cast_function: ADDRESS
+cast_function_expr: cast_function "(" INTEGER_LITERAL ")"
+
+special_var_attribute: SUM | LENGTH | ISUM
 SUM: "sum"
+ISUM: "isum"
 LENGTH: "length"
 special_var_attribute_call: ID "." special_var_attribute
 
@@ -88,7 +95,8 @@ unop    : TILDE | BANG | MINUS
 BANG: "!"
 TILDE: "~"
 
-binop: PLUS | MINUS | STAR | SLASH | PERCENT
+binop_high: STAR | SLASH | PERCENT
+binop: PLUS | MINUS 
 
 logic_binop: ANDAND | OROR
      | FAT_ARROW | XOR_ARROW 
@@ -128,6 +136,9 @@ block: statement+
 event_call: ID "(" exprs? ")"
 
 statement:  "require" expr ("," STRING_LITERAL)? ";"  -> require_statement
+            | "assert_modify" modify_var ("if" expr)? ("," STRING_LITERAL)? ";" -> assert_modify_statement
+            | "assert_emit" event_call ";"              -> assert_emit_statement
+            | "assert_revert" ("if" expr)? ("," STRING_LITERAL)? ";" -> assert_revert_statement
             | "assert" expr ("," STRING_LITERAL)? ";"   -> assert_statement
             | cvl_type ID ("=" expr)? ";"                 -> define_statement
 
@@ -136,13 +147,9 @@ statement:  "require" expr ("," STRING_LITERAL)? ";"  -> require_statement
             | "{" block "}"                             -> block_statement
 
             | function_call ";"                         -> funccall_statement
-
-            | "assert_modify" modify_var ("if" expr)? ("," STRING_LITERAL)? ";" -> assert_modify_statement
-            | "assert_revert" ("if" expr)? ("," STRING_LITERAL)? ";" -> assert_revert_statement
-            | "assert_emit" event_call ";"              -> assert_emit_statement
             | "emits" event_call ";"                         -> emits_statement
 
-modify_var: ID index? attribute
+modify_var: ID index? attribute?
 
 lhs : ID ("[" expr "]")? ("," lhs)?
 
