@@ -7,6 +7,7 @@ from spec_ir import IR
 from annotations import write_annotations
 from utils import build_call_graph, build_function_writes, build_sol_symbols, split_sol_and_contract
 from runner import run_sv  
+from validate import validate_ir
 
 TIME_COLOR = "\033[94m"
 RESET_COLOR = "\033[0m"
@@ -61,12 +62,14 @@ def main():
     sol_symbols = build_sol_symbols(sol_path, only_contract=target_contract)
     ir = IR.from_ast(ast, sol_symbols)
 
-    print("[4/7] Building call graph and written variables map...")
     call_graph = build_call_graph(sol_path)
     func_writes = build_function_writes(sol_path)
     for r in ir.rules:
         r.call_graph = call_graph
         r.func_state_writes = func_writes
+
+    print("[4/7] Validating IR...")
+    validate_ir(ir, sol_symbols)
 
     print("[5/7] Inserting preconditions, postconditions and invariants...")
     out_files = write_annotations(sol_path, ir, only_contract=target_contract)

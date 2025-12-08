@@ -590,7 +590,7 @@ class Rule:
                 if isinstance(rhs_node, Tree):
                     call_names = _call_names(rhs_node)
                     if len(call_names) > 1:
-                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in assignment of rule '{self.name}'.\033[0m")
+                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in assignment of rule '{self.name}'.\033[0m")
                     called_fn = call_names[0] if call_names else None
                     call_node = next((fc for fc in rhs_node.iter_subtrees_topdown() if isinstance(fc, Tree) and fc.data == "function_call"), None)
                     if call_node:
@@ -599,7 +599,7 @@ class Rule:
                     if func_name is None:
                         func_name = called_fn
                     else:
-                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in one path of rule '{self.name}'.\033[0m")
+                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in one path of rule '{self.name}'.\033[0m")
                     if called_fn not in sol_declared_funcs:
                         unknown_call = True
                     ret = _first_ret(called_fn)
@@ -622,7 +622,7 @@ class Rule:
                 if isinstance(rhs_node, Tree):
                     call_names = _call_names(rhs_node)
                     if len(call_names) > 1:
-                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in assignment of rule '{self.name}'.\033[0m")
+                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in assignment of rule '{self.name}'.\033[0m")
                     called_fn = call_names[0] if call_names else None
                     call_node = next((fc for fc in rhs_node.iter_subtrees_topdown() if isinstance(fc, Tree) and fc.data == "function_call"), None)
                     if call_node:
@@ -631,7 +631,7 @@ class Rule:
                     if func_name is None:
                         func_name = called_fn
                     else:
-                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in one path of rule '{self.name}'.\033[0m")
+                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in one path of rule '{self.name}'.\033[0m")
                     if called_fn not in sol_declared_funcs:
                         unknown_call = True
                     _add_call_arg_preconds(called_fn, call_args)
@@ -717,7 +717,7 @@ class Rule:
                 if func_name is None:
                     func_name = name
                 elif name != func_name:
-                    raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in one path of rule '{self.name}'.\033[0m")
+                    raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in one path of rule '{self.name}'.\033[0m")
 
                 param_names = fn_params_map.get(name, []) if isinstance(fn_params_map, dict) else []
 
@@ -978,13 +978,13 @@ class Rule:
                 if isinstance(rhs_node, Tree):
                     call_names = _call_names(rhs_node)
                     if len(call_names) > 1:
-                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in assignment of rule '{self.name}'.\033[0m")
+                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in assignment of rule '{self.name}'.\033[0m")
                     called_fn = call_names[0] if call_names else None
                 if called_fn:
                     if func_name is None:
                         func_name = called_fn
                     else:
-                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in one path of rule '{self.name}'.\033[0m")
+                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in one path of rule '{self.name}'.\033[0m")
                     if called_fn not in sol_declared_funcs:
                         unknown_call = True
                     ret = _first_ret(called_fn)
@@ -1012,13 +1012,13 @@ class Rule:
                 if isinstance(rhs_node, Tree):
                     call_names = _call_names(rhs_node)
                     if len(call_names) > 1:
-                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in assignment of rule '{self.name}'.\033[0m")
+                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in assignment of rule '{self.name}'.\033[0m")
                     called_fn = call_names[0] if call_names else None
                 if called_fn:
                     if func_name is None:
                         func_name = called_fn
                     else:
-                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls detected in one path of rule '{self.name}'.\033[0m")
+                        raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in one path of rule '{self.name}'.\033[0m")
                     if called_fn not in sol_declared_funcs:
                         unknown_call = True
                 if called_fn and len(targets) > 1:
@@ -1110,10 +1110,38 @@ class Rule:
         """Collect modifies assertions for a single path keyed by function name."""
         func_name: Optional[str] = None
         modifies: List[str] = []
+        sol_functions = set(self.sol_symbols.get("functions", []) or []) if isinstance(self.sol_symbols, dict) else set()
+
+        def _maybe_set_func(name: Optional[str]) -> None:
+            nonlocal func_name
+            if not name:
+                return
+            if func_name is None:
+                func_name = name
+            elif func_name != name:
+                raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in one path of rule '{self.name}'.\033[0m")
+
+        def _extract_called_fn(step: Step) -> Optional[str]:
+            if step.kind not in ("define", "assign"):
+                return None
+            names: List[str] = []
+            func_calls = step.data.get("func_calls") or []
+            for fc in func_calls:
+                if isinstance(fc, dict) and fc.get("decl_kind") == "function" and fc.get("name"):
+                    names.append(fc.get("name"))
+            rhs_calls = step.data.get("rhs_calls") or []
+            for n in rhs_calls:
+                if n in sol_functions:
+                    names.append(n)
+            uniq = list(dict.fromkeys(names))
+            if len(uniq) > 1:
+                raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in assignment of rule '{self.name}'.\033[0m")
+            return uniq[0] if uniq else None
 
         for step in steps:
-            if step.kind == "call" and func_name is None:
-                func_name = step.data.get("name")
+            _maybe_set_func(_extract_called_fn(step))
+            if step.kind == "call":
+                _maybe_set_func(step.data.get("name"))
 
             if step.kind == "assert_modify":
                 target = step.data.get("target")
@@ -1132,10 +1160,38 @@ class Rule:
         """Collect event emissions for a single path keyed by function name."""
         func_name: Optional[str] = None
         emits: List[str] = []
+        sol_functions = set(self.sol_symbols.get("functions", []) or []) if isinstance(self.sol_symbols, dict) else set()
+
+        def _maybe_set_func(name: Optional[str]) -> None:
+            nonlocal func_name
+            if not name:
+                return
+            if func_name is None:
+                func_name = name
+            elif func_name != name:
+                raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in one path of rule '{self.name}'.\033[0m")
+
+        def _extract_called_fn(step: Step) -> Optional[str]:
+            if step.kind not in ("define", "assign"):
+                return None
+            names: List[str] = []
+            func_calls = step.data.get("func_calls") or []
+            for fc in func_calls:
+                if isinstance(fc, dict) and fc.get("decl_kind") == "function" and fc.get("name"):
+                    names.append(fc.get("name"))
+            rhs_calls = step.data.get("rhs_calls") or []
+            for n in rhs_calls:
+                if n in sol_functions:
+                    names.append(n)
+            uniq = list(dict.fromkeys(names))
+            if len(uniq) > 1:
+                raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in assignment of rule '{self.name}'.\033[0m")
+            return uniq[0] if uniq else None
 
         for step in steps:
-            if step.kind == "call" and func_name is None:
-                func_name = step.data.get("name")
+            _maybe_set_func(_extract_called_fn(step))
+            if step.kind == "call":
+                _maybe_set_func(step.data.get("name"))
 
             if step.kind == "assert_emit":
                 ev = step.data.get("event")

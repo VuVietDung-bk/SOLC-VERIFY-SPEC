@@ -475,14 +475,14 @@ def wrap_old_expr_event(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
                 None
             )
             if attr_tok and attr_tok.type == "BALANCE":
-                return wrap_old_access(deepcopy(node), "uint")
+                return wrap_old_access_event(deepcopy(node), "uint")
             return node
 
         if _rule_name(node.data) == "special_var_attribute_call":
             id_tok = next((t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "ID")), None)
             attr_tok = next((t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "LENGTH")), None)
             if id_tok and attr_tok:
-                return wrap_old_access(deepcopy(node), "uint")
+                return wrap_old_access_event(deepcopy(node), "uint")
             return node
 
         if _rule_name(node.data) == "expr" and node.children:
@@ -494,7 +494,7 @@ def wrap_old_expr_event(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
                     vtype = _peel_element(type_map.get(base_name), idx_count)
                     wrap_kind = _choose_wrap(vtype)
                     if wrap_kind:
-                        return wrap_old_access(deepcopy(node), wrap_kind)
+                        return wrap_old_access_event(deepcopy(node), wrap_kind)
 
         new_children = [_transform(ch) for ch in node.children]
         return Tree(node.data, new_children)

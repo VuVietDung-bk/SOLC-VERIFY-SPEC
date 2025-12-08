@@ -5,6 +5,8 @@ pragma solidity >=0.7.0;
 contract SimpleBank {
     mapping(address=>uint) balances;
 
+    /// @notice precondition msg.value >= 0
+    /// @notice precondition address(this).balance >= 0
     function deposit() public payable {
         balances[msg.sender] += msg.value;
     }

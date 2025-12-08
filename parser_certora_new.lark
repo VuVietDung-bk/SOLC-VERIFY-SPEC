@@ -65,7 +65,7 @@ map_to: mapping | primitive_basic_type | ID
         | function_call
 
 QUANTIFIER: "forall" | "exists"
-function_call: (ID ".")? ID "(" exprs? ")"?
+function_call: ID "(" exprs? ")"?
 func_compare_expr: "funcCompare(" ID "," STRING_LITERAL ")"
 
 cast_function: ADDRESS
