@@ -110,7 +110,6 @@ def _mapping_value_type(mapping_type: str, depth: int = 1) -> Optional[str]:
 def _index_depth(expr_node: Tree) -> int:
     """Count how many index operations are applied in an expr node."""
     depth = 0
-    print(expr_node.children)
     for ch in expr_node.children:
         if isinstance(ch, Tree) and ch.data == "index":
             depth += len([c for c in ch.children])
@@ -187,7 +186,6 @@ def _infer_expr_type(node: Optional[Tree | Token], symbols: Dict[str, str], sol_
             cat = _type_category(base_type)
             idx_depth = _index_depth(node)
             if cat == "mapping" and idx_depth > 0:
-                print(idx_depth)
                 val_raw = _mapping_value_type(base_type or "", idx_depth)
                 return _type_category(val_raw)
             return cat

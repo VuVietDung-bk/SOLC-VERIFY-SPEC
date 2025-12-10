@@ -22,7 +22,7 @@ def main():
     parser.add_argument("--arithmetic", help="Encoding of the arithmetic operations (int,bv,mod,mod-overflow)")
     parser.add_argument("--errors-only", action="store_true", help="Only display error messages and omit displaying names of correct functions (not given by default)")
     parser.add_argument("--event-analysis", action="store_true", help="Checking emitting events and tracking data changes related to events is only performed if there are event annotations or if this flag is explicitly given.")
-    parser.add_argument("--grammar", default="./parser_certora_new.lark", help="Path to the .lark grammar")
+    parser.add_argument("--grammar", default="./parser_certora.lark", help="Path to the .lark grammar")
     parser.add_argument("--modifies-analysis", action="store_true", help="State variables and balances are checked for modifications if there are modification annotations or if this flag is explicitly given")
     parser.add_argument("--no-run", action="store_true", help="Do not run the solc-verify after generating annotations")
     parser.add_argument("--show-warnings", action="store_true", help="Display warning messages (not given by default)")
