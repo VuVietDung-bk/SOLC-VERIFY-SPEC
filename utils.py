@@ -105,7 +105,9 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
     - "functions": names of public/external/internal functions in the chosen contract
     - "state_vars": state variable names (including mappings) in the chosen contract
     - "functions_returns": map of function to return variable names
+    - "functions_return_types": map of function to return type strings
     - "functions_params": map of callable (functions/events) to parameter names
+    - "functions_param_types": map of callable (functions/events) to parameter type strings
     - "functions_public_nonview": names of public/external functions that are not view/pure
 
     If only_contract=None the values are merged from all contracts in the file.
@@ -114,7 +116,9 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
     functions: Set[str] = set()
     state_vars: Set[str] = set()
     functions_returns: Dict[str, list] = {}
+    functions_return_types: Dict[str, List[str]] = {}
     functions_params: Dict[str, List[str]] = {}
+    functions_param_types: Dict[str, List[str]] = {}
     functions_public_nonview: Set[str] = set()
 
     def _collect_from_contract(c):
@@ -125,22 +129,34 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
             if getattr(f, "visibility", None) in ("public", "external") and getattr(f, "state_mutability", getattr(f, "stateMutability", None)) not in ("view", "pure"):
                 functions_public_nonview.add(f.name)
             params = []
+            param_types = []
             for p in getattr(f, "parameters", []):
                 pname = getattr(p, "name", None)
+                ptype = str(getattr(p, "type", "")) if hasattr(p, "type") else None
                 if pname:
                     params.append(pname)
+                    if ptype:
+                        param_types.append(ptype)
             if params:
                 functions_params[f.name] = params
+            if param_types:
+                functions_param_types[f.name] = param_types
             rets = []
+            ret_types = []
             for r in getattr(f, "returns", getattr(f, "return_parameters", [])):
                 rname = getattr(r, "name", None)
+                rtype = str(getattr(r, "type", "")) if hasattr(r, "type") else None
                 if rname:
                     rets.append(rname)
+                if rtype:
+                    ret_types.append(rtype)
             if rets:
                 functions_returns.setdefault(f.name, [])
                 for r in rets:
                     if r not in functions_returns[f.name]:
                         functions_returns[f.name].append(r)
+            if ret_types:
+                functions_return_types[f.name] = ret_types
         for m in getattr(c, "modifiers", []):
             functions.add(m.name)
         for ev in getattr(c, "events", []):
@@ -148,12 +164,18 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
             if not ename:
                 continue
             params = []
+            param_types = []
             for p in getattr(ev, "elems", []):
                 pname = getattr(p, "name", None)
+                ptype = str(getattr(p, "type", "")) if hasattr(p, "type") else None
                 if pname:
                     params.append(pname)
+                if ptype:
+                    param_types.append(ptype)
             if params:
                 functions_params[ename] = params
+            if param_types:
+                functions_param_types[ename] = param_types
 
     if only_contract:
         cs = [c for c in sl.contracts if c.name == only_contract]
@@ -169,7 +191,9 @@ def build_sol_symbols(sol_file: str, only_contract: Optional[str] = None) -> Dic
         "functions": functions,
         "state_vars": state_vars,
         "functions_returns": functions_returns,
+        "functions_return_types": functions_return_types,
         "functions_params": functions_params,
+        "functions_param_types": functions_param_types,
         "functions_public_nonview": functions_public_nonview,
     }
 

@@ -7,6 +7,7 @@ from spec_ir import IR
 from annotations import write_annotations
 from utils import build_call_graph, build_function_writes, build_sol_symbols, split_sol_and_contract
 from runner import run_sv  
+from validate import validate_ir
 
 TIME_COLOR = "\033[94m"
 RESET_COLOR = "\033[0m"
@@ -21,7 +22,7 @@ def main():
     parser.add_argument("--arithmetic", help="Encoding of the arithmetic operations (int,bv,mod,mod-overflow)")
     parser.add_argument("--errors-only", action="store_true", help="Only display error messages and omit displaying names of correct functions (not given by default)")
     parser.add_argument("--event-analysis", action="store_true", help="Checking emitting events and tracking data changes related to events is only performed if there are event annotations or if this flag is explicitly given.")
-    parser.add_argument("--grammar", default="./parser_certora_new.lark", help="Path to the .lark grammar")
+    parser.add_argument("--grammar", default="./parser_certora.lark", help="Path to the .lark grammar")
     parser.add_argument("--modifies-analysis", action="store_true", help="State variables and balances are checked for modifications if there are modification annotations or if this flag is explicitly given")
     parser.add_argument("--no-run", action="store_true", help="Do not run the solc-verify after generating annotations")
     parser.add_argument("--show-warnings", action="store_true", help="Display warning messages (not given by default)")
@@ -61,12 +62,14 @@ def main():
     sol_symbols = build_sol_symbols(sol_path, only_contract=target_contract)
     ir = IR.from_ast(ast, sol_symbols)
 
-    print("[4/7] Building call graph and written variables map...")
     call_graph = build_call_graph(sol_path)
     func_writes = build_function_writes(sol_path)
     for r in ir.rules:
         r.call_graph = call_graph
         r.func_state_writes = func_writes
+
+    print("[4/7] Validating IR...")
+    validate_ir(ir, sol_symbols)
 
     print("[5/7] Inserting preconditions, postconditions and invariants...")
     out_files = write_annotations(sol_path, ir, only_contract=target_contract)
