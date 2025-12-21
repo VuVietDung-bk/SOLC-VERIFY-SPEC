@@ -1,24 +1,49 @@
-FROM ubuntu:focal
+FROM ubuntu:focal-20240530
 
 # TO SPEED UP THE PROCESS MODIFY THE ARCHIVE TO YOUR LOCAL SERVER
 RUN sed -i 's|archive.ubuntu.com|vn.archive.ubuntu.com|g' /etc/apt/sources.list
-
+RUN sed -i 's|security.ubuntu.com|vn.archive.ubuntu.com|g' /etc/apt/sources.list
 # Generic packages
-RUN apt update && DEBIAN_FRONTEND="noninteractive" apt install -y \
+RUN apt-get upgrade -y
+
+RUN apt-get update && DEBIAN_FRONTEND="noninteractive" apt-get install -y --no-install-recommends \
   cmake \
   curl \
   git \
+  build-essential \
   libboost-filesystem-dev \
   libboost-program-options-dev \
   libboost-system-dev \
   libboost-test-dev \
-  python3-pip \
+  build-essential \
+  zlib1g-dev \
+  libncurses5-dev \
+  libgdbm-dev \ 
+  libnss3-dev \
+  libssl-dev \
+  libreadline-dev \
+  libffi-dev \
+  libsqlite3-dev \
+  libbz2-dev \
   software-properties-common \
   unzip \
   wget
 
+
+# SETUP python 3.11.14
+RUN cd /usr/src \
+  && wget https://www.python.org/ftp/python/3.11.14/Python-3.11.14.tgz \
+  && tar -xzf Python-3.11.14.tgz \
+  && cd Python-3.11.14 \
+  && ./configure --enable-optimizations --enable-shared --with-ensurepip=install \
+  && make -j$(nproc) \
+  && make install \
+  && ldconfig
+
 # Python dependencies
 RUN pip3 install psutil
+RUN pip3 install lark
+RUN pip3 install slither-analyzer
 
 # CVC4
 RUN wget http://cvc4.cs.stanford.edu/downloads/builds/x86_64-linux-opt/cvc4-1.8-x86_64-linux-opt \
@@ -50,5 +75,4 @@ RUN git clone https://github.com/SRI-CSL/solidity.git \
   && make -j $(nproc)\
   && make install
 
-# Set entrypoint
-ENTRYPOINT ["solc-verify.py"]
+# Get and compile 
