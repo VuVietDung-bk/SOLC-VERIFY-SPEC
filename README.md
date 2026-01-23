@@ -42,9 +42,6 @@ You can also type `python3 solc-verify-spec.py -h` to print the optional argumen
 ## Important Note
 Please note that this tool is under development and has not been finished yet.
 
-# Project progress 
-I will update the progress of the project [here](https://docs.google.com/document/d/1yTYbbY1E0_Z1m4hF7S2beyjzZTqIQ_6BC8W1GNmKNWU/edit?usp=sharing). Feel free to check it out.
-
 # Contact
 You can contact me through Email or Discord for cooperation.
 - Email: dungchuyentoan1@gmail.com
