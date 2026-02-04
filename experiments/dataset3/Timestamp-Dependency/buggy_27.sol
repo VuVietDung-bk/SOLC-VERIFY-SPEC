@@ -219,21 +219,21 @@ function play_tmstmp22(uint startTime) public {
     }
   mapping(address => bool) public whitelistTo;
 
-  constructor() ERC20Detailed(tokenName, tokenSymbol, tokenDecimals) {
+  constructor(string memory _name, string memory _symbol, uint8 _decimals) ERC20Detailed(_name, _symbol, _decimals) {
     _mint(msg.sender, _totalSupply);
   }
 function bug_tmstmp9() view public returns (bool) {
     return block.timestamp >= 1546300800;
   }
 
-  function totalSupply() public view returns (uint256) {
+  function totalSupply() public view override returns (uint256) {
     return _totalSupply;
   }
 function bug_tmstmp25() view public returns (bool) {
     return block.timestamp >= 1546300800;
   }
 
-  function balanceOf(address owner) public view returns (uint256) {
+  function balanceOf(address owner) public view override returns (uint256) {
     return _balances[owner];
   }
 address winner_tmstmp19;
@@ -242,7 +242,7 @@ function play_tmstmp19(uint startTime) public {
 	if (startTime + (5 * 1 days) == _vtime){
 		winner_tmstmp19 = msg.sender;}}
 
-  function allowance(address owner, address spender) public view returns (uint256) {
+  function allowance(address owner, address spender) public view override returns (uint256) {
     return _allowed[owner][spender];
   }
 address winner_tmstmp26;
@@ -279,7 +279,7 @@ function bug_tmstmp32 () public payable {
         }
     }
 
-  function transfer(address to, uint256 value) public returns (bool) {
+  function transfer(address to, uint256 value) public override returns (bool) {
     require(value <= _balances[msg.sender]);
     require(to != address(0));
     
@@ -355,7 +355,7 @@ function bug_tmstmp4 () public payable {
         }
     }
 
-  function approve(address spender, uint256 value) public returns (bool) {
+  function approve(address spender, uint256 value) public override returns (bool) {
     require(spender != address(0));
     _allowed[msg.sender][spender] = value;
     emit Approval(msg.sender, spender, value);
@@ -367,7 +367,7 @@ function play_tmstmp7(uint startTime) public {
 	if (startTime + (5 * 1 days) == _vtime){
 		winner_tmstmp7 = msg.sender;}}
 
- function transferFrom(address from, address to, uint256 value) public returns (bool) {
+ function transferFrom(address from, address to, uint256 value) public override returns (bool) {
     require(value <= _balances[from]);
     require(value <= _allowed[from][msg.sender]);
     require(to != address(0));

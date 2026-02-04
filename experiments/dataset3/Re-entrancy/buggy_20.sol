@@ -244,11 +244,6 @@ function callme_re_ent42() public{
     }
   bytes32 public paymentDetailsHash;
 
-    /**
-     * Triggered when the pool receives new funds, either a topup, or a returned escrow from an old
-     * swaps contract if it was changed. Avilable for ETH, ERC-223 and ERC-777 token pools.
-     * Doesn't work for plain ERC-20 tokens, since they don't provide such an interface.
-     */
   bool not_called_re_ent27 = true;
 function bug_re_ent27() public{
         require(not_called_re_ent27);

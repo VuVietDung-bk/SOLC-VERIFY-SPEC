@@ -221,13 +221,12 @@ function callnotchecked_unchk25(address payable callee) public {
   callee.call{value: 1 ether}("");
   }
 
-	string _tokenName = "AZ FundChain";  function bug_unchk19() public{
+ function bug_unchk19() public{
 address payable addr_unchk19;
 if (!addr_unchk19.send (10 ether) || 1==1)
 	{revert();}
 }
 
-	string _tokenSymbol = "AZT";
 function unhandledsend_unchk26(address payable callee) public {
     callee.send(5 ether);
   }
@@ -268,14 +267,14 @@ function unhandledsend_unchk38(address payable callee) public {
 
 
 
-  constructor() TokenERC20(_tokenName, _tokenSymbol, _decimals) {
+  constructor(string memory _tokenName, string memory _tokenSymbol) TokenERC20(_tokenName, _tokenSymbol, _decimals) {
 
     /*Wallet A */
     frozenAddresses.push(address(0x9fd50776F133751E8Ae6abE1Be124638Bb917E05));
     frozenWallets[frozenAddresses[0]] = frozenWallet({
       isFrozen: true,
-      rewardedAmount: 30000000 * 10 ** uint256(decimals),
-      frozenAmount: 0 * 10 ** uint256(decimals),
+      rewardedAmount: 30000000,
+      frozenAmount: 0,
       frozenTime: block.timestamp + 1 * 1 hours //seconds, minutes, hours, days
     });
 

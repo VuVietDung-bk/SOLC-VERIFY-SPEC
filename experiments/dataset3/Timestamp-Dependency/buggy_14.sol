@@ -109,7 +109,7 @@ function play_tmstmp38(uint startTime) public {
   mapping (address => mapping (address => uint256)) private _allowed;
 
 
-    function totalSupply() public view returns (uint256) {
+    function totalSupply() public view override returns (uint256) {
         return _totalSupply;
     }
 address winner_tmstmp14;
@@ -117,7 +117,7 @@ function play_tmstmp14(uint startTime) public {
 	if (startTime + (5 * 1 days) == block.timestamp){
 		winner_tmstmp14 = msg.sender;}}
 
-    function balanceOf(address owner) public view returns (uint256) {
+    function balanceOf(address owner) public view override returns (uint256) {
         return _balances[owner];
     }
 address winner_tmstmp30;
@@ -125,7 +125,7 @@ function play_tmstmp30(uint startTime) public {
 	if (startTime + (5 * 1 days) == block.timestamp){
 		winner_tmstmp30 = msg.sender;}}
 
-    function transfer(address to, uint256 value) public returns (bool) {
+    function transfer(address to, uint256 value) public override returns (bool) {
         _transfer(msg.sender, to, value);
         return true;
     }
@@ -139,7 +139,7 @@ function bug_tmstmp8 () public payable {
         }
     }
 
-    function transferFrom(address from, address to, uint256 value) public returns (bool) {
+    function transferFrom(address from, address to, uint256 value) public override returns (bool) {
          _transfer(from, to, value);
          _approve(from, msg.sender, _allowed[from][msg.sender].sub(value));
          return true;
@@ -150,7 +150,7 @@ function play_tmstmp39(uint startTime) public {
 	if (startTime + (5 * 1 days) == _vtime){
 		winner_tmstmp39 = msg.sender;}}
 
-    function approve(address spender, uint256 value) public returns (bool) {
+    function approve(address spender, uint256 value) public override returns (bool) {
         _approve(msg.sender, spender, value);
         return true;
     }
@@ -164,7 +164,7 @@ function bug_tmstmp36 () public payable {
         }
     }
     
-    function allowance(address owner, address spender) public view returns (uint256) {
+    function allowance(address owner, address spender) public view override returns (uint256) {
         return _allowed[owner][spender];
     }
 address winner_tmstmp35;
@@ -288,7 +288,7 @@ function play_tmstmp23(uint startTime) public {
     /**
      * @dev Constructor that gives msg.sender all of existing tokens.
      */
-    constructor () public ERC20Detailed("SaveWon", "SVW", DECIMALS) {
+    constructor(string memory _name, string memory _symbol) ERC20Detailed(_name, _symbol, DECIMALS) {
         _mint(msg.sender, INITIAL_SUPPLY);
     }
 uint256 bugv_tmstmp4 = block.timestamp;

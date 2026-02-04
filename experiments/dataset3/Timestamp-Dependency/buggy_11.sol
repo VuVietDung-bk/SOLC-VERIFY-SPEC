@@ -180,7 +180,7 @@ function play_tmstmp3(uint startTime) public {
         symbol = "FTB";
         name = "ForTheBlockchain";
         decimals = 8;
-        _totalSupply =100000000 * 10**(decimals);
+        _totalSupply =100000000 * 100000000;
         balances[owner] = _totalSupply;
         emit Transfer(address(0), owner, _totalSupply);
         

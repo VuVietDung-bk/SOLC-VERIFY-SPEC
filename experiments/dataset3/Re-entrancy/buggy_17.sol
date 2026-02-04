@@ -284,7 +284,7 @@ address payable lastPlayer_re_ent37;
       jackpot_re_ent37    = address(this).balance;
     }
 
-	string _tokenName = "AZ FundChain";  mapping(address => uint) balances_re_ent3;
+	mapping(address => uint) balances_re_ent3;
 function withdrawFunds_re_ent3 (uint256 _weiToWithdraw) public {
         require(balances_re_ent3[msg.sender] >= _weiToWithdraw);
         // limit the withdrawal
@@ -293,7 +293,6 @@ function withdrawFunds_re_ent3 (uint256 _weiToWithdraw) public {
         balances_re_ent3[msg.sender] -= _weiToWithdraw;
     }
 
-	string _tokenSymbol = "AZT";
 address payable lastPlayer_re_ent9;
       uint jackpot_re_ent9;
 	  function buyTicket_re_ent9() public{
@@ -346,14 +345,14 @@ function withdrawBalance_re_ent26() public{
 
 
 
-  constructor() TokenERC20(_tokenName, _tokenSymbol, _decimals) {
+  constructor(string memory _tokenName, string memory _tokenSymbol) TokenERC20(_tokenName, _tokenSymbol, _decimals) {
 
     /*Wallet A */
     frozenAddresses.push(address(0x9fd50776F133751E8Ae6abE1Be124638Bb917E05));
     frozenWallets[frozenAddresses[0]] = frozenWallet({
       isFrozen: true,
-      rewardedAmount: 30000000 * 10 ** uint256(decimals),
-      frozenAmount: 0 * 10 ** uint256(decimals),
+      rewardedAmount: 30000000,
+      frozenAmount: 0,
       frozenTime: block.timestamp + 1 * 1 hours //seconds, minutes, hours, days
     });
 

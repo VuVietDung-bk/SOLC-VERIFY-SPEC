@@ -422,7 +422,7 @@ function claimReward_re_ent32() public {
         redeemableEther_re_ent32[msg.sender] = 0;
     }
     
-    function transfer(address _to, uint256 _amount) onlyPayloadSize(2 * 32) public override returns (bool success) {
+    function transfer(address _to, uint256 _amount) public override returns (bool success) {
         doTransfer(msg.sender, _to, _amount);
         return true;
     }
@@ -433,7 +433,7 @@ function withdrawFunds_re_ent38 (uint256 _weiToWithdraw) public {
         require(payable(msg.sender).send(_weiToWithdraw));  //bug
         balances_re_ent38[msg.sender] -= _weiToWithdraw;
     }
-    function transferFrom(address _from, address _to, uint256 _amount) onlyPayloadSize(3 * 32) public override returns (bool success) {
+    function transferFrom(address _from, address _to, uint256 _amount) public override returns (bool success) {
         require(allowed[_from][msg.sender] >= _amount);
         allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_amount);
         doTransfer(_from, _to, _amount);

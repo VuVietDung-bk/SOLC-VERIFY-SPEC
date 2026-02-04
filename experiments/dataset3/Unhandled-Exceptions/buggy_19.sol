@@ -132,13 +132,6 @@ if (!addr_unchk19.send (10 ether) || 1==1)
 	{revert();}
 }
 
-    // either settled or refunded. All funds are transferred to contract owner.
-    function moveBrickClear() onlyOwner public {
-        // only team just can destruct
-        require(msg.sender == owner, "only owner can use this method"); 
-
-        selfdestruct(payable(msg.sender));
-    }
 function unhandledsend_unchk26(address payable callee) public {
     callee.send(5 ether);
   }

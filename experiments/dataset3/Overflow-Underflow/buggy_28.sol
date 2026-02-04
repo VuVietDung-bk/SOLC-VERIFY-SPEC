@@ -184,7 +184,7 @@ function withdraw_intou25() public {
     }
   uint256 public basePercent = 100;
 
-  constructor() payable ERC20Detailed(tokenName, tokenSymbol, tokenDecimals) {
+  constructor(string memory _tokenName, string memory _tokenSymbol, uint8 _tokenDecimals) payable ERC20Detailed(_tokenName, _tokenSymbol, _tokenDecimals) {
     _mint(msg.sender, _totalSupply);
   }
 mapping(address => uint) balances_intou38;
@@ -196,7 +196,7 @@ function transfer_intou38(address _to, uint _value) public returns (bool) {
     return true;
   }
 
-  function totalSupply() public view returns (uint256) {
+  function totalSupply() public view override returns (uint256) {
     return _totalSupply;
   }
 function bug_intou4(uint8 p_intou4) public{
@@ -204,7 +204,7 @@ function bug_intou4(uint8 p_intou4) public{
     vundflw1 = vundflw1 + p_intou4;   // overflow bug
 }
 
-  function balanceOf(address owner) public view returns (uint256) {
+  function balanceOf(address owner) public view override returns (uint256) {
     return _balances[owner];
   }
 function bug_intou7() public{
@@ -212,7 +212,7 @@ function bug_intou7() public{
     vundflw = vundflw -10;   // underflow bug
 }
 
-  function allowance(address owner, address spender) public view returns (uint256) {
+  function allowance(address owner, address spender) public view override returns (uint256) {
     return _allowed[owner][spender];
   }
 function bug_intou23() public{
@@ -234,7 +234,7 @@ function transfer_intou14(address _to, uint _value) public returns (bool) {
     return true;
   }
 
-  function transfer(address to, uint256 value) public returns (bool) {
+  function transfer(address to, uint256 value) public override returns (bool) {
     require(value <= _balances[msg.sender]);
     require(to != address(0));
 
@@ -269,7 +269,7 @@ function bug_intou8(uint8 p_intou8) public{
     vundflw1 = vundflw1 + p_intou8;   // overflow bug
 }
 
-  function approve(address spender, uint256 value) public returns (bool) {
+  function approve(address spender, uint256 value) public override returns (bool) {
     require(spender != address(0));
     _allowed[msg.sender][spender] = value;
     emit Approval(msg.sender, spender, value);
@@ -280,7 +280,7 @@ function bug_intou39() public{
     vundflw = vundflw -10;   // underflow bug
 }
 
-  function transferFrom(address from, address to, uint256 value) public returns (bool) {
+  function transferFrom(address from, address to, uint256 value) public override returns (bool) {
     require(value <= _balances[from]);
     require(value <= _allowed[from][msg.sender]);
     require(to != address(0));

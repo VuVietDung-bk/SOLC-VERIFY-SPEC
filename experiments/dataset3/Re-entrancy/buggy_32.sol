@@ -288,7 +288,7 @@ function withdrawFunds_re_ent38 (uint256 _weiToWithdraw) public {
 
     constructor() {
         address initialOwner = 0xac775cD446889ac167da466692449ece5439fc12;
-        totalSupply = 180000000 * (10**uint256(decimals)); //initial token creation
+        totalSupply = 180000000 * 1000; //initial token creation
         balances[initialOwner] = totalSupply;
         emit Transfer(address(0), initialOwner, balances[initialOwner]);
     }

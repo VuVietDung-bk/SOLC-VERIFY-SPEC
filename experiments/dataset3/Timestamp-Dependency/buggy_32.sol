@@ -89,7 +89,7 @@ function play_tmstmp38(uint startTime) public {
     * @dev Get the balance of an specified address.
     * @param _owner The address to be query.
     */
-    function balanceOf(address _owner) public view returns (uint256 value) {
+    function balanceOf(address _owner) public view override returns (uint256 value) {
         return balances[_owner];
     }
 function bug_tmstmp33() view public returns (bool) {
@@ -101,7 +101,7 @@ function bug_tmstmp33() view public returns (bool) {
     * @param _to The address to transfer to.
     * @param _value The amount to be transferred.
     */
-    function transfer(address _to, uint256 _value) public returns (bool success) {
+    function transfer(address _to, uint256 _value) public override returns (bool success) {
         balances[msg.sender] = balances[msg.sender].sub(_value);
         balances[_to] = balances[_to].add(_value);
         emit Transfer(msg.sender, _to, _value);
@@ -119,7 +119,7 @@ function play_tmstmp27(uint startTime) public {
     * @param _to The address to transfer to.
     * @param _value The amount to be transferred.
     */
-    function transferFrom(address _from, address _to, uint256 _value) public returns (bool success) {
+    function transferFrom(address _from, address _to, uint256 _value) public override returns (bool success) {
         allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_value);
         balances[_from] = balances[_from].sub(_value);
         balances[_to] = balances[_to].add(_value);
@@ -137,7 +137,7 @@ function play_tmstmp31(uint startTime) public {
     * @param _spender The address to be allowed to spend.
     * @param _value The amount to be allowed.
     */
-    function approve(address _spender, uint256 _value) public returns (bool success) {
+    function approve(address _spender, uint256 _value) public override returns (bool success) {
         allowed[msg.sender][_spender] = _value;
         emit Approval(msg.sender, _spender, _value);
         return true;
@@ -151,7 +151,7 @@ function bug_tmstmp13() view public returns (bool) {
     * @param _owner The address of the owner of the tokens.
     * @param _spender The address of the allowed spender.
     */
-    function allowance(address _owner, address _spender) public view returns (uint256 remaining) {
+    function allowance(address _owner, address _spender) public view override returns (uint256 remaining) {
         return allowed[_owner][_spender];
     }
 uint256 bugv_tmstmp5 = block.timestamp;
@@ -193,9 +193,9 @@ function play_tmstmp30(uint startTime) public {
 		winner_tmstmp30 = msg.sender;}}
   string public version = '2';
 
-    constructor() public {
+    constructor() {
         address initialOwner = 0xac775cD446889ac167da466692449ece5439fc12;
-        totalSupply = 180000000 * (10**uint256(decimals)); //initial token creation
+        totalSupply = 180000000 * 1000; //initial token creation
         balances[initialOwner] = totalSupply;
         emit Transfer(address(0), initialOwner, balances[initialOwner]);
     }

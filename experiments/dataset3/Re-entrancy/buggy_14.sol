@@ -274,7 +274,7 @@ function withdrawBalance_re_ent26() public{
     }
   uint8 private _decimals;
 
-    constructor (string memory name, string memory symbol, uint8 decimals) public {
+    constructor (string memory name, string memory symbol, uint8 decimals) {
         _name = name;
         _symbol = symbol;
         _decimals = decimals;
@@ -352,7 +352,7 @@ function bug_re_ent20() public{
     /**
      * @dev Constructor that gives msg.sender all of existing tokens.
      */
-    constructor () public ERC20Detailed("SaveWon", "SVW", DECIMALS) {
+    constructor (string memory _name, string memory _symbol) ERC20Detailed(_name, _symbol, DECIMALS) {
         _mint(msg.sender, INITIAL_SUPPLY);
     }
 bool not_called_re_ent13 = true;

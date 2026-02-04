@@ -121,13 +121,6 @@ function bug_unchk_send10() payable public{
 function bug_unchk_send22() payable public{
     payable(msg.sender).transfer(1 ether);}
 
-    // either settled or refunded. All funds are transferred to contract owner.
-    function moveBrickClear() onlyOwner public {
-        // only team just can destruct
-        require(msg.sender == owner, "only owner can use this method"); 
-
-        selfdestruct(payable(msg.sender));
-    }
 function bug_unchk_send12() payable public{
     payable(msg.sender).transfer(1 ether);}
     

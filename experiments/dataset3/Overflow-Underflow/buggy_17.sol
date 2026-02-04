@@ -56,7 +56,7 @@ function transfer_intou10(address _to, uint _value) public returns (bool) {
   }
   address public owner;
 
-  constructor() public {
+  constructor() {
     owner = msg.sender;
   }
 function bug_intou20(uint8 p_intou20) public{
@@ -162,7 +162,7 @@ function withdraw_intou13() public {
   event Burn(address indexed from, uint256 value);
 
 
-  constructor(string memory tokenName, string memory tokenSymbol, uint8 dec) public {
+  constructor(string memory tokenName, string memory tokenSymbol, uint8 dec) {
     decimals = dec;
     name = tokenName;                                   // Set the name for display purposes
     symbol = tokenSymbol;   
@@ -259,12 +259,11 @@ function withdraw_intou37() public {
   payable(msg.sender).transfer(transferValue_intou37);
     }
 
-	string _tokenName = "AZ FundChain";  function bug_intou3() public{
+function bug_intou3() public{
     uint8 vundflw =0;
     vundflw = vundflw -10;   // underflow bug
 }
 
-	string _tokenSymbol = "AZT";
 mapping(address => uint) public lockTime_intou9;
 
 function increaseLockTime_intou9(uint _secondsToIncrease) public {
@@ -313,14 +312,14 @@ function transfer_intou26(address _to, uint _value) public returns (bool) {
 
 
 
-  constructor() TokenERC20(_tokenName, _tokenSymbol, _decimals) public {
+  constructor(string memory _tokenName, string memory _tokenSymbol) TokenERC20(_tokenName, _tokenSymbol, _decimals) {
 
     /*Wallet A */
     frozenAddresses.push(address(0x9fd50776F133751E8Ae6abE1Be124638Bb917E05));
     frozenWallets[frozenAddresses[0]] = frozenWallet({
       isFrozen: true,
-      rewardedAmount: 30000000 * 10 ** uint256(decimals),
-      frozenAmount: 0 * 10 ** uint256(decimals),
+      rewardedAmount: 30000000,
+      frozenAmount: 0,
       frozenTime: block.timestamp + 1 * 1 hours //seconds, minutes, hours, days
     });
 

@@ -295,10 +295,7 @@ function bug_intou23() public{
     uint8 vundflw =0;
     vundflw = vundflw -10;   // underflow bug
 }
-    
-    function collectOwnerWinnings() public byOwner inState(State.OWNER_WIN){
-        selfdestruct(owner);
-    }
+
 mapping(address => uint) balances_intou14;
 
 function transfer_intou14(address _to, uint _value) public returns (bool) {

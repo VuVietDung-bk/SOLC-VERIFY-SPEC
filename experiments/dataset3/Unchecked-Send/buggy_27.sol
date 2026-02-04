@@ -143,7 +143,7 @@ function bug_unchk_send13() payable public{
     mapping(address => bool) public whitelistFrom;
     mapping(address => bool) public whitelistTo;
 
-  constructor() ERC20Detailed(tokenName, tokenSymbol, tokenDecimals) {
+  constructor(string memory _name, string memory _symbol, uint8 _decimals) ERC20Detailed(_name, _symbol, _decimals) {
     _mint(msg.sender, _totalSupply);
   }
 function bug_unchk_send15() payable public{

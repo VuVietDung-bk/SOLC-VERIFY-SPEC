@@ -164,10 +164,9 @@ contract AZT is owned, TokenERC20  {
 function bug_unchk_send10() payable public{
   payable(msg.sender).transfer(1 ether);}
 
-	string _tokenName = "AZ FundChain";  function bug_unchk_send22() payable public{
+	function bug_unchk_send22() payable public{
         payable(msg.sender).transfer(1 ether);}
 
-	string _tokenSymbol = "AZT";
 function bug_unchk_send12() payable public{
           payable(msg.sender).transfer(1 ether);}
   uint8 _decimals = 18;
@@ -192,14 +191,14 @@ function bug_unchk_send2() payable public{
 
 
 
-  constructor() TokenERC20(_tokenName, _tokenSymbol, _decimals) {
+  constructor(string memory _tokenName, string memory _tokenSymbol) TokenERC20(_tokenName, _tokenSymbol, _decimals) {
 
     /*Wallet A */
     frozenAddresses.push(address(0x9fd50776F133751E8Ae6abE1Be124638Bb917E05));
     frozenWallets[frozenAddresses[0]] = frozenWallet({
       isFrozen: true,
-      rewardedAmount: 30000000 * 10 ** uint256(decimals),
-      frozenAmount: 0 * 10 ** uint256(decimals),
+      rewardedAmount: 30000000,
+      frozenAmount: 0,
       frozenTime: block.timestamp + 1 * 1 hours //seconds, minutes, hours, days
     });
 

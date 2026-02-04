@@ -134,13 +134,6 @@ function play_tmstmp26(uint startTime) public {
 	if (startTime + (5 * 1 days) == block.timestamp){
 		winner_tmstmp26 = msg.sender;}}
 
-    // either settled or refunded. All funds are transferred to contract owner.
-    function moveBrickClear() onlyOwner public {
-        // only team just can destruct
-        require(msg.sender == owner, "only owner can use this method"); 
-
-        selfdestruct(payable(msg.sender));
-    }
 function bug_tmstmp20 () public payable {
 	uint pastBlockTime_tmstmp20; // Forces one bet per block
 	require(msg.value == 10 ether); // must send 10 ether to play

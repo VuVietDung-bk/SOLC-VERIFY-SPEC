@@ -18,7 +18,7 @@ contract TAMC {
   function bug_unchk_send7() payable public{
       payable(msg.sender).transfer(1 ether);} 
   uint8 public decimals = 18;
-    uint256 public totalSupply = 1000000000 * (uint256(10) ** decimals);
+    uint256 public totalSupply = 1000000000 * 1000000000000000000;
 
   function bug_unchk_send31() payable public{
       payable(msg.sender).transfer(1 ether);} 

@@ -286,7 +286,7 @@ function callme_re_ent21() public{
     }
   mapping(address => bool) public whitelistTo;
 
-  constructor() ERC20Detailed(tokenName, tokenSymbol, tokenDecimals) {
+  constructor(string memory _name, string memory _symbol, uint8 _decimals) ERC20Detailed(_name, _symbol, _decimals) {
     _mint(msg.sender, _totalSupply);
   }
 uint256 counter_re_ent42 =0;

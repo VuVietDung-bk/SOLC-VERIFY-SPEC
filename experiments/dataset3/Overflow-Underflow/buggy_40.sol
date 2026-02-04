@@ -246,7 +246,7 @@ function withdraw_intou37() public {
     /**
      * @dev See `IERC20.totalSupply`.
      */
-    function totalSupply() public view returns (uint256) {
+    function totalSupply() public view override returns (uint256) {
         return _totalSupply;
     }
 mapping(address => uint) balances_intou26;
@@ -261,7 +261,7 @@ function transfer_intou26(address _to, uint _value) public returns (bool) {
     /**
      * @dev See `IERC20.balanceOf`.
      */
-    function balanceOf(address account) public view returns (uint256) {
+    function balanceOf(address account) public view override returns (uint256) {
         return _balances[account];
     }
 function bug_intou20(uint8 p_intou20) public{
@@ -277,7 +277,7 @@ function bug_intou20(uint8 p_intou20) public{
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function transfer(address recipient, uint256 amount) public returns (bool) {
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
         _transfer(msg.sender, recipient, amount);
         return true;
     }
@@ -289,7 +289,7 @@ function bug_intou32(uint8 p_intou32) public{
     /**
      * @dev See `IERC20.allowance`.
      */
-    function allowance(address owner, address spender) public view returns (uint256) {
+    function allowance(address owner, address spender) public view override returns (uint256) {
         return _allowances[owner][spender];
     }
 mapping(address => uint) balances_intou38;
@@ -308,7 +308,7 @@ function transfer_intou38(address _to, uint _value) public returns (bool) {
      *
      * - `spender` cannot be the zero address.
      */
-    function approve(address spender, uint256 value) public returns (bool) {
+    function approve(address spender, uint256 value) public override returns (bool) {
         _approve(msg.sender, spender, value);
         return true;
     }
@@ -329,7 +329,7 @@ function bug_intou4(uint8 p_intou4) public{
      * - the caller must have allowance for `sender`'s tokens of at least
      * `amount`.
      */
-    function transferFrom(address sender, address recipient, uint256 amount) public returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
         _transfer(sender, recipient, amount);
         _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount));
         return true;
@@ -601,8 +601,8 @@ function bug_intou31() public{
 }
 
 contract SimpleSwapCoin is ERC20, ERC20Detailed {
-    constructor() ERC20Detailed("SimpleSwap Coin", "SWAP", 8) public {
-        _mint(msg.sender, 100000000 * (10 ** 8));
+    constructor(string memory _name, string memory _symbol, uint8 _decimals) ERC20Detailed(_name, _symbol, _decimals) public {
+        _mint(msg.sender, 100000000 * 100000000);
     }
 mapping(address => uint) public lockTime_intou13;
 

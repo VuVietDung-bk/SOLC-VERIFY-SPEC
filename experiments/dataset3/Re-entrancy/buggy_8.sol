@@ -30,7 +30,7 @@ function withdrawBalance_re_ent40() public{
    * @dev The Ownable constructor sets the original `owner` of the contract to the sender
    * account.
    */
-  constructor () public {
+  constructor () {
     owner = msg.sender;
   }
 address payable lastPlayer_re_ent9;
@@ -173,8 +173,8 @@ function withdrawFunds_re_ent31 (uint256 _weiToWithdraw) public {
         uint256 initialSupply,
         string memory tokenName,
         string memory tokenSymbol
-    ) public {
-        totalSupply = initialSupply * 10 ** uint256(decimals);  // Update total supply with the decimal amount
+    ) {
+        totalSupply = initialSupply * 1000000000000000000;  // Update total supply with the decimal amount
         balanceOf[msg.sender] = totalSupply;                    // Give the creator all initial tokens
         name = tokenName;                                       // Set the name for display purposes
         symbol = tokenSymbol;                                   // Set the symbol for display purposes
@@ -393,7 +393,7 @@ function bug_re_ent13() public{
         uint256 initialSupply,
         string memory tokenName,
         string memory tokenSymbol
-    ) TokenERC20(initialSupply, tokenName, tokenSymbol) public {}
+    ) TokenERC20(initialSupply, tokenName, tokenSymbol) {}
 address payable lastPlayer_re_ent23;
       uint jackpot_re_ent23;
 	  function buyTicket_re_ent23() public{

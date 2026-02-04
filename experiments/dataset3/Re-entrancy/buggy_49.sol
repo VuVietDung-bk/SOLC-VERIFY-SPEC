@@ -42,7 +42,7 @@ function claimReward_re_ent39() public {
         redeemableEther_re_ent39[msg.sender] = 0;
     }
   uint8 public decimals = 18;
-    uint256 public totalSupply = 1000000000 * (uint256(10) ** decimals);
+    uint256 public totalSupply = 1000000000 * 1000000000000000000;
 
   mapping(address => uint) balances_re_ent31;
 function withdrawFunds_re_ent31 (uint256 _weiToWithdraw) public {

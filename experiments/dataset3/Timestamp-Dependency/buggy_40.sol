@@ -240,7 +240,7 @@ function play_tmstmp26(uint startTime) public {
     /**
      * @dev See `IERC20.totalSupply`.
      */
-    function totalSupply() public view returns (uint256) {
+    function totalSupply() public view override returns (uint256) {
         return _totalSupply;
     }
 address winner_tmstmp7;
@@ -252,7 +252,7 @@ function play_tmstmp7(uint startTime) public {
     /**
      * @dev See `IERC20.balanceOf`.
      */
-    function balanceOf(address account) public view returns (uint256) {
+    function balanceOf(address account) public view override returns (uint256) {
         return _balances[account];
     }
 address winner_tmstmp23;
@@ -269,7 +269,7 @@ function play_tmstmp23(uint startTime) public {
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function transfer(address recipient, uint256 amount) public returns (bool) {
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
         _transfer(msg.sender, recipient, amount);
         return true;
     }
@@ -281,7 +281,7 @@ function play_tmstmp14(uint startTime) public {
     /**
      * @dev See `IERC20.allowance`.
      */
-    function allowance(address owner, address spender) public view returns (uint256) {
+    function allowance(address owner, address spender) public view override returns (uint256) {
         return _allowances[owner][spender];
     }
 address winner_tmstmp30;
@@ -296,7 +296,7 @@ function play_tmstmp30(uint startTime) public {
      *
      * - `spender` cannot be the zero address.
      */
-    function approve(address spender, uint256 value) public returns (bool) {
+    function approve(address spender, uint256 value) public override returns (bool) {
         _approve(msg.sender, spender, value);
         return true;
     }
@@ -322,7 +322,7 @@ function bug_tmstmp8 () public payable {
      * - the caller must have allowance for `sender`'s tokens of at least
      * `amount`.
      */
-    function transferFrom(address sender, address recipient, uint256 amount) public returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
         _transfer(sender, recipient, amount);
         _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount));
         return true;
@@ -578,8 +578,8 @@ uint256 bugv_tmstmp3 = block.timestamp;
 }
 
 contract SimpleSwapCoin is ERC20, ERC20Detailed {
-    constructor() ERC20Detailed("SimpleSwap Coin", "SWAP", 8) {
-        _mint(msg.sender, 100000000 * (10 ** 8));
+    constructor(string memory _name, string memory _symbol, uint8 _decimals) ERC20Detailed(_name, _symbol, _decimals) {
+        _mint(msg.sender, 100000000 * 100000000);
     }
 uint256 bugv_tmstmp4 = block.timestamp;
 }

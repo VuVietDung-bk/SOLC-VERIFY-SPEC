@@ -183,7 +183,7 @@ function claimReward_re_ent4() public {
         redeemableEther_re_ent4[msg.sender] = 0;
     }
     
-    function totalSupply() public view returns (uint256) {
+    function totalSupply() public view override returns (uint256) {
         return _totalSupply;
     }
 uint256 counter_re_ent7 =0;
@@ -195,7 +195,7 @@ function callme_re_ent7() public{
         counter_re_ent7 += 1;
     }
 
-    function balanceOf(address account) public view returns (uint256) {
+    function balanceOf(address account) public view override returns (uint256) {
         return _balances[account];
     }
 address payable lastPlayer_re_ent23;
@@ -207,7 +207,7 @@ address payable lastPlayer_re_ent23;
       jackpot_re_ent23    = address(this).balance;
     }
 
-     function transfer(address recipient, uint256 amount) public  returns (bool) {
+     function transfer(address recipient, uint256 amount) public override returns (bool) {
          _transfer(msg.sender, recipient, amount);
          return true;
     }
@@ -220,7 +220,7 @@ function callme_re_ent14() public{
         counter_re_ent14 += 1;
     }
 
-    function allowance(address owner, address spender) public  view returns (uint256) {
+    function allowance(address owner, address spender) public  view override returns (uint256) {
         return _allowances[owner][spender];
     }
 address payable lastPlayer_re_ent30;
@@ -232,7 +232,7 @@ address payable lastPlayer_re_ent30;
       jackpot_re_ent30    = address(this).balance;
     }
 
-    function approve(address spender, uint256 value) public  returns (bool) {
+    function approve(address spender, uint256 value) public override returns (bool) {
         _approve(msg.sender, spender, value);
         return true;
     }
@@ -243,7 +243,7 @@ mapping(address => uint) balances_re_ent8;
           balances_re_ent8[msg.sender] = 0;
       }
 
-    function transferFrom(address sender, address recipient, uint256 amount) public  returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
         _transfer(sender, recipient, amount);
         _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount));
         return true;

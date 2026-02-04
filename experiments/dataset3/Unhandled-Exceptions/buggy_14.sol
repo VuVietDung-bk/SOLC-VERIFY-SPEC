@@ -104,7 +104,7 @@ function sendToWinner_unchk32() public {
   mapping (address => mapping (address => uint256)) private _allowed;
 
 
-    function totalSupply() public view returns (uint256) {
+    function totalSupply() public view override returns (uint256) {
         return _totalSupply;
     }
 function UncheckedExternalCall_unchk4 () public
@@ -117,7 +117,7 @@ function UncheckedExternalCall_unchk4 () public
       }
 }
 
-    function balanceOf(address owner) public view returns (uint256) {
+    function balanceOf(address owner) public view override returns (uint256) {
         return _balances[owner];
     }
 function bug_unchk7() public{
@@ -126,7 +126,7 @@ if (!addr_unchk7.send (10 ether) || 1==1)
 	{revert();}
 }
 
-    function transfer(address to, uint256 value) public returns (bool) {
+    function transfer(address to, uint256 value) public override returns (bool) {
         _transfer(msg.sender, to, value);
         return true;
     }
@@ -134,7 +134,7 @@ function my_func_unchk23(address payable dst) public payable{
         dst.send(msg.value);
     }
 
-    function transferFrom(address from, address to, uint256 value) public returns (bool) {
+    function transferFrom(address from, address to, uint256 value) public override returns (bool) {
          _transfer(from, to, value);
          _approve(from, msg.sender, _allowed[from][msg.sender].sub(value));
          return true;
@@ -143,7 +143,7 @@ function unhandledsend_unchk14(address payable callee) public {
     callee.send(5 ether);
   }
 
-    function approve(address spender, uint256 value) public returns (bool) {
+    function approve(address spender, uint256 value) public override returns (bool) {
         _approve(msg.sender, spender, value);
         return true;
     }
@@ -156,7 +156,7 @@ else
 	{revert();}
 }
     
-    function allowance(address owner, address spender) public view returns (uint256) {
+    function allowance(address owner, address spender) public view override returns (uint256) {
         return _allowed[owner][spender];
     }
 bool public payedOut_unchk8 = false;
@@ -298,7 +298,7 @@ contract SaveWon is ERC20, ERC20Detailed {
     /**
      * @dev Constructor that gives msg.sender all of existing tokens.
      */
-    constructor () ERC20Detailed("SaveWon", "SVW", DECIMALS) {
+    constructor(string memory _name, string memory _symbol) ERC20Detailed(_name, _symbol, DECIMALS) {
         _mint(msg.sender, INITIAL_SUPPLY);
     }
 function callnotchecked_unchk13(address callee) public {

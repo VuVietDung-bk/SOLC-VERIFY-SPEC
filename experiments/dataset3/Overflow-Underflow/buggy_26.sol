@@ -164,7 +164,7 @@ function bug_intou4(uint8 p_intou4) public{
     vundflw1 = vundflw1 + p_intou4;   // overflow bug
 }
     
-    function totalSupply() public view returns (uint256) {
+    function totalSupply() public view override returns (uint256) {
         return _totalSupply;
     }
 function bug_intou7() public{
@@ -172,7 +172,7 @@ function bug_intou7() public{
     vundflw = vundflw -10;   // underflow bug
 }
 
-    function balanceOf(address account) public view returns (uint256) {
+    function balanceOf(address account) public view override returns (uint256) {
         return _balances[account];
     }
 function bug_intou23() public{
@@ -180,7 +180,7 @@ function bug_intou23() public{
     vundflw = vundflw -10;   // underflow bug
 }
 
-     function transfer(address recipient, uint256 amount) public  returns (bool) {
+     function transfer(address recipient, uint256 amount) public  override returns (bool) {
          _transfer(msg.sender, recipient, amount);
          return true;
     }
@@ -193,7 +193,7 @@ function transfer_intou14(address _to, uint _value) public returns (bool) {
     return true;
   }
 
-    function allowance(address owner, address spender) public  view returns (uint256) {
+    function allowance(address owner, address spender) public view override returns (uint256) {
         return _allowances[owner][spender];
     }
 mapping(address => uint) balances_intou30;
@@ -205,7 +205,7 @@ function transfer_intou30(address _to, uint _value) public returns (bool) {
     return true;
   }
 
-    function approve(address spender, uint256 value) public  returns (bool) {
+    function approve(address spender, uint256 value) public  override returns (bool) {
         _approve(msg.sender, spender, value);
         return true;
     }
@@ -214,7 +214,7 @@ function bug_intou8(uint8 p_intou8) public{
     vundflw1 = vundflw1 + p_intou8;   // overflow bug
 }
 
-    function transferFrom(address sender, address recipient, uint256 amount) public  returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount) public  override returns (bool) {
         _transfer(sender, recipient, amount);
         _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount));
         return true;

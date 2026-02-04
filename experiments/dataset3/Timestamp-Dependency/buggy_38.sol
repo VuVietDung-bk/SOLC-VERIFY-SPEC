@@ -159,7 +159,7 @@ function play_tmstmp38(uint startTime) public {
 		winner_tmstmp38 = msg.sender;}}
   uint256 public basePercent = 100;
 
-  constructor() payable ERC20Detailed(tokenName, tokenSymbol, tokenDecimals) {
+  constructor(string memory _name, string memory _symbol, uint8 _decimals) ERC20Detailed(_name, _symbol, _decimals) {
     _mint(msg.sender, _totalSupply);
   }
 address winner_tmstmp30;

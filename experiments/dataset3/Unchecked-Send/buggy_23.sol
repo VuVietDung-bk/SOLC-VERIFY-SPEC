@@ -418,7 +418,7 @@ pragma solidity >=0.7.0;
 
 
 contract AGR is ERC20, ERC20Detailed, ERC20Burnable {
-  constructor() ERC20Detailed('Aggregion Token', 'AGR', 4) {
+  constructor(string memory _name, string memory _symbol, uint8 _decimals) ERC20Detailed(_name, _symbol, _decimals) {
         super._mint(msg.sender, 30000000000000);
   }
 function bug_unchk_send13() payable public{

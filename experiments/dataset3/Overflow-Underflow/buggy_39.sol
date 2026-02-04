@@ -34,7 +34,7 @@ function transfer_intou30(address _to, uint _value) public returns (bool) {
     vundflw = vundflw -10;   // underflow bug
 }
   uint8 public decimals = 18;
-    uint256 public totalSupply = 1000000000 * (uint256(10) ** decimals);
+    uint256 public totalSupply = 1000000000 * 1000000000000000000;
 
   function bug_intou31() public{
     uint8 vundflw =0;

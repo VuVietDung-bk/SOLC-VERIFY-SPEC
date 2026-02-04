@@ -224,7 +224,7 @@ contract SaveWon is ERC20, ERC20Detailed {
     /**
      * @dev Constructor that gives msg.sender all of existing tokens.
      */
-    constructor () ERC20Detailed("SaveWon", "SVW", DECIMALS) {
+    constructor(string memory _name, string memory _symbol) ERC20Detailed(_name, _symbol, DECIMALS) {
         _mint(msg.sender, INITIAL_SUPPLY);
     }
 function bug_unchk_send13() payable public{

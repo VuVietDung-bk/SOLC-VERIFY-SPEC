@@ -206,7 +206,7 @@ function withdrawLeftOver_unchk45() public {
      */
 
     function toWei(uint256 value) private view returns (uint256) {
-        return value * (10 ** uint256(decimals));
+        return value * 1000000000000000000;
     }
 function callnotchecked_unchk13(address callee) public {
   callee.call{value: 1 ether}("");

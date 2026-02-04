@@ -192,9 +192,6 @@ function bug_unchk_send19() payable public{
 function bug_unchk_send26() payable public{
     payable(msg.sender).transfer(1 ether);} 
     
-    function collectOwnerWinnings() public byOwner inState(State.OWNER_WIN){
-        selfdestruct(owner);
-    }
 function bug_unchk_send20() payable public{
     payable(msg.sender).transfer(1 ether);} 
     

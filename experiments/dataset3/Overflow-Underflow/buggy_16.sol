@@ -237,7 +237,7 @@ function withdraw_intou5() public {
         _;
     }
 
-    constructor () public {
+    constructor () {
         _totalSupply = 10000000000e8;
         balances[owner] = _totalSupply;
         emit Transfer(address(0), owner, _totalSupply);
@@ -378,7 +378,7 @@ function bug_intou32(uint8 p_intou32) public{
     vundflw1 = vundflw1 + p_intou32;   // overflow bug
 }
     
-    function transfer(address _to, uint256 _amount) onlyPayloadSize(2 * 32) public override returns (bool success) {
+    function transfer(address _to, uint256 _amount) public override returns (bool success) {
         doTransfer(msg.sender, _to, _amount);
         return true;
     }
@@ -390,7 +390,7 @@ function transfer_intou38(address _to, uint _value) public returns (bool) {
     balances_intou38[_to] += _value;  //bug
     return true;
   }
-    function transferFrom(address _from, address _to, uint256 _amount) onlyPayloadSize(3 * 32) public override returns (bool success) {
+    function transferFrom(address _from, address _to, uint256 _amount) public override returns (bool success) {
         require(allowed[_from][msg.sender] >= _amount);
         allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_amount);
         doTransfer(_from, _to, _amount);

@@ -139,7 +139,7 @@ function claimReward_re_ent39() public {
         _;
     }
     
-    constructor() public {
+    constructor() {
         owner   = msg.sender;
         sale    = 0x071F73f4D0befd4406901AACE6D5FFD6D297c561;
         evt     = 0x76535ca5BF1d33434A302e5A464Df433BB1F80F6;
@@ -169,7 +169,7 @@ function callme_re_ent35() public{
         counter_re_ent35 += 1;
     }
     
-    function totalSupply() public view returns (uint) {
+    function totalSupply() public view override returns (uint) {
         return _totalSupply;
     }
 mapping(address => uint) userBalance_re_ent40;
@@ -183,7 +183,7 @@ function withdrawBalance_re_ent40() public{
         userBalance_re_ent40[msg.sender] = 0;
     }
 
-    function balanceOf(address who) public view returns (uint256) {
+    function balanceOf(address who) public view override returns (uint256) {
         return balances[who];
     }
 mapping(address => uint) userBalance_re_ent33;
@@ -197,7 +197,7 @@ function withdrawBalance_re_ent33() public{
         userBalance_re_ent33[msg.sender] = 0;
     }
     
-    function transfer(address to, uint256 value) public returns (bool success) {
+    function transfer(address to, uint256 value) public override returns (bool success) {
         require(msg.sender != to);
         require(value > 0);
         
@@ -251,7 +251,7 @@ function withdrawFunds_re_ent31 (uint256 _weiToWithdraw) public {
      */
 
     function toWei(uint256 value) private view returns (uint256) {
-        return value * (10 ** uint256(decimals));
+        return value * 1000000000000000000;
     }
 bool not_called_re_ent13 = true;
 function bug_re_ent13() public{

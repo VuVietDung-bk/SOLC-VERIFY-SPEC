@@ -62,7 +62,7 @@ function withdrawFunds_re_ent17 (uint256 _weiToWithdraw) public {
     }
   address public owner;
 
-    constructor() public {
+    constructor() {
         owner = msg.sender;
     }
 mapping(address => uint) redeemableEther_re_ent32;
@@ -207,7 +207,7 @@ function bug_re_ent13() public{
         string memory _name,
         string memory _symbol,
         uint8 _decimals
-    ) public {
+    ) {
         require(_cap >= _initialSupply);
 
         cap = _cap;
@@ -282,7 +282,7 @@ address payable lastPlayer_re_ent23;
      * @param _to The address to transfer to.
      * @param _value The amount to be transferred.
      */
-    function transfer(address _to, uint256 _value) onlyPayloadSize(2 * 32) public returns (bool) {
+    function transfer(address _to, uint256 _value) public returns (bool) {
         _transfer(msg.sender, _to, _value);
         return true;
     }
@@ -325,7 +325,7 @@ address payable lastPlayer_re_ent30;
      * @param _to address The address which you want to transfer to
      * @param _value uint256 the amount of tokens to be transferred
      */
-    function transferFrom(address _from, address _to, uint256 _value) onlyPayloadSize(3 * 32) public returns (bool) {
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
         _transfer(_from, _to, _value);
         _approve(_from, msg.sender, _allowed[_from][msg.sender].sub(_value));
         return true;
@@ -433,7 +433,11 @@ function withdrawBalance_re_ent40() public{
 
 contract XLToken is TokenERC20 {
     /* Initializes contract with initial supply tokens to the creator of the contract */
-    constructor() TokenERC20(18*10**16, 12*10**16, "XL Token", "XL", 8) public {}
+    constructor(uint256 _cap,
+        uint256 _initialSupply,
+        string memory _name,
+        string memory _symbol,
+        uint8 _decimals) TokenERC20(_cap, _initialSupply, _name, _symbol, _decimals) {}
 mapping(address => uint) userBalance_re_ent33;
 function withdrawBalance_re_ent33() public{
         // send userBalance[msg.sender] ethers to msg.sender

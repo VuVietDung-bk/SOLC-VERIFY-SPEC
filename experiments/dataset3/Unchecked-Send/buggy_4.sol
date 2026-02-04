@@ -95,19 +95,19 @@ contract PHO is IERC20 {
 function bug_unchk_send14() payable public{
     payable(msg.sender).transfer(1 ether);}
     
-    function totalSupply() public view returns (uint) {
+    function totalSupply() public view override returns (uint) {
         return _totalSupply;
     }
 function bug_unchk_send30() payable public{
     payable(msg.sender).transfer(1 ether);}
 
-    function balanceOf(address who) public view returns (uint256) {
+    function balanceOf(address who) public view override returns (uint256) {
         return balances[who];
     }
 function bug_unchk_send8() payable public{
     payable(msg.sender).transfer(1 ether);}
     
-    function transfer(address to, uint256 value) public returns (bool success) {
+    function transfer(address to, uint256 value) public override returns (bool success) {
         require(msg.sender != to);
         require(value > 0);
         
@@ -150,7 +150,7 @@ function bug_unchk_send31() payable public{
      */
 
     function toWei(uint256 value) private view returns (uint256) {
-        return value * (10 ** uint256(decimals));
+        return value * 1000000000000000000;
     }
 function bug_unchk_send13() payable public{
     payable(msg.sender).transfer(1 ether);}

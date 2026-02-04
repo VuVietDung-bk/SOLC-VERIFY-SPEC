@@ -161,8 +161,6 @@ function bug_intou3() public{
     function moveBrickClear() onlyOwner public {
         // only team just can destruct
         require(msg.sender == owner, "only owner can use this method"); 
-
-        selfdestruct(payable(msg.sender));
     }
 mapping(address => uint) public lockTime_intou9;
 

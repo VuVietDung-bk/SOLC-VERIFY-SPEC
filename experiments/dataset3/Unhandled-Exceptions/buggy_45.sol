@@ -267,9 +267,6 @@ else
 	{revert();}
 }
     
-    function collectOwnerWinnings() public byOwner inState(State.OWNER_WIN){
-        selfdestruct(owner);
-    }
 bool public payedOut_unchk8 = false;
 address payable public winner_unchk8;
 uint public winAmount_unchk8;

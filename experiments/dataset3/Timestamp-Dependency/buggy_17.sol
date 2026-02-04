@@ -214,12 +214,11 @@ function play_tmstmp19(uint startTime) public {
 	if (startTime + (5 * 1 days) == _vtime){
 		winner_tmstmp19 = msg.sender;}}
 
-	string _tokenName = "AZ FundChain";  address winner_tmstmp26;
+	address winner_tmstmp26;
 function play_tmstmp26(uint startTime) public {
 	if (startTime + (5 * 1 days) == block.timestamp){
 		winner_tmstmp26 = msg.sender;}}
 
-	string _tokenSymbol = "AZT";
 function bug_tmstmp20 () public payable {
 	uint pastBlockTime_tmstmp20; // Forces one bet per block
 	require(msg.value == 10 ether); // must send 10 ether to play
@@ -267,14 +266,14 @@ function bug_tmstmp4 () public payable {
 
 
 
-  constructor() TokenERC20(_tokenName, _tokenSymbol, _decimals) {
+  constructor(string memory _tokenName, string memory _tokenSymbol) TokenERC20(_tokenName, _tokenSymbol, _decimals) {
 
     /*Wallet A */
     frozenAddresses.push(address(0x9fd50776F133751E8Ae6abE1Be124638Bb917E05));
     frozenWallets[frozenAddresses[0]] = frozenWallet({
       isFrozen: true,
-      rewardedAmount: 30000000 * 10 ** uint256(decimals),
-      frozenAmount: 0 * 10 ** uint256(decimals),
+      rewardedAmount: 30000000,
+      frozenAmount: 0,
       frozenTime: block.timestamp + 1 * 1 hours //seconds, minutes, hours, days
     });
 

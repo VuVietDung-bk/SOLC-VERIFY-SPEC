@@ -192,11 +192,6 @@ function play_tmstmp3(uint startTime) public {
   }
   bytes32 public paymentDetailsHash;
 
-    /**
-     * Triggered when the pool receives new funds, either a topup, or a returned escrow from an old
-     * swaps contract if it was changed. Avilable for ETH, ERC-223 and ERC-777 token pools.
-     * Doesn't work for plain ERC-20 tokens, since they don't provide such an interface.
-     */
   uint256 bugv_tmstmp2 = block.timestamp;
   event ReceivedFunds(address _from, uint256 _amount);
   uint256 bugv_tmstmp3 = block.timestamp;
@@ -448,7 +443,6 @@ function play_tmstmp31(uint startTime) public {
     }
 
     fallback() external payable override {
-        require(msg.data.length == 0, "invalid pool function called");
         if (msg.sender != swapsContract) {
             emit ReceivedFunds(msg.sender, msg.value);
         }

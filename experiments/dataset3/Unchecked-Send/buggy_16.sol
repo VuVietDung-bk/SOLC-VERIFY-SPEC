@@ -136,7 +136,7 @@ contract ExclusivePlatform is ERC20Interface, Owned {
     }
 
     constructor () {
-        _totalSupply = 10000000000e8;
+        _totalSupply = 1000000000000000000;
         balances[owner] = _totalSupply;
         emit Transfer(address(0), owner, _totalSupply);
     }
@@ -224,14 +224,14 @@ function bug_unchk_send17() payable public{
 function bug_unchk_send3() payable public{
     payable(msg.sender).transfer(1 ether);}
     
-    function transfer(address _to, uint256 _amount) onlyPayloadSize(2 * 32) public override returns (bool success) {
+    function transfer(address _to, uint256 _amount) public override returns (bool success) {
         doTransfer(msg.sender, _to, _amount);
         return true;
     }
 function bug_unchk_send9() payable public{
     payable(msg.sender).transfer(1 ether);}
     /// @return success True if the transfer was successful
-    function transferFrom(address _from, address _to, uint256 _amount) onlyPayloadSize(3 * 32) public override returns (bool success) {
+    function transferFrom(address _from, address _to, uint256 _amount) public override returns (bool success) {
         require(allowed[_from][msg.sender] >= _amount);
         allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_amount);
         doTransfer(_from, _to, _amount);

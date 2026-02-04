@@ -254,10 +254,7 @@ function bug_tmstmp36 () public payable {
             payable(msg.sender).transfer(address(this).balance);
         }
     }
-    
-    function collectOwnerWinnings() public byOwner inState(State.OWNER_WIN){
-        selfdestruct(owner);
-    }
+
 address winner_tmstmp35;
 function play_tmstmp35(uint startTime) public {
 	uint _vtime = block.timestamp;

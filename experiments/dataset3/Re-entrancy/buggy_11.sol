@@ -149,7 +149,7 @@ function bug_re_ent13() public{
     }
   event OwnershipTransferred(address indexed _from, address indexed _to);
 
-    constructor() public {
+    constructor() {
         owner = msg.sender;
     }
 mapping(address => uint) redeemableEther_re_ent32;
@@ -247,11 +247,11 @@ function withdrawFunds_re_ent17 (uint256 _weiToWithdraw) public {
     // ------------------------------------------------------------------------
     // Constructor
     // ------------------------------------------------------------------------
-    constructor() public {
+    constructor() {
         symbol = "FTB";
         name = "ForTheBlockchain";
         decimals = 8;
-        _totalSupply =100000000 * 10**(decimals);
+        _totalSupply =100000000 * 100000000;
         balances[owner] = _totalSupply;
         emit Transfer(address(0), owner, _totalSupply);
         

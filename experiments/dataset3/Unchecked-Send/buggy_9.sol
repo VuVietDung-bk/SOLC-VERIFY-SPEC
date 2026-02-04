@@ -183,7 +183,7 @@ function bug_unchk_send26() payable public{
      * @param _to The address to transfer to.
      * @param _value The amount to be transferred.
      */
-    function transfer(address _to, uint256 _value) onlyPayloadSize(2 * 32) public returns (bool) {
+    function transfer(address _to, uint256 _value) public returns (bool) {
         _transfer(msg.sender, _to, _value);
         return true;
     }
@@ -214,7 +214,7 @@ function bug_unchk_send32() payable public{
      * @param _to address The address which you want to transfer to
      * @param _value uint256 the amount of tokens to be transferred
      */
-    function transferFrom(address _from, address _to, uint256 _value) onlyPayloadSize(3 * 32) public returns (bool) {
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
         _transfer(_from, _to, _value);
         _approve(_from, msg.sender, _allowed[_from][msg.sender].sub(_value));
         return true;
@@ -295,7 +295,7 @@ function bug_unchk_send30() payable public{
 
 contract XLToken is TokenERC20 {
     /* Initializes contract with initial supply tokens to the creator of the contract */
-    constructor() TokenERC20(18*10**16, 12*10**16, "XL Token", "XL", 8) {}
+    constructor(uint256 _cap, uint256 _initialSupply, string memory _name, string memory _symbol, uint8 _decimals) TokenERC20(_cap, _initialSupply, _name, _symbol, _decimals) {}
 function bug_unchk_send8() payable public{
       payable(msg.sender).transfer(1 ether);}
 }

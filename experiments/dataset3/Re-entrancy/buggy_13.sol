@@ -109,8 +109,8 @@ function bug_re_ent13() public{
         uint256 initialSupply,
         string memory tokenName,
         string memory tokenSymbol
-    ) public {
-        totalSupply = initialSupply * 10 ** uint256(decimals);  // Update total supply with the decimal amount
+    ) {
+        totalSupply = initialSupply * 1000000000000000000;  // Update total supply with the decimal amount
         balanceOf[msg.sender] = totalSupply;                // Give the creator all initial tokens
         name = tokenName;                                   // Set the name for display purposes
         symbol = tokenSymbol;                               // Set the symbol for display purposes

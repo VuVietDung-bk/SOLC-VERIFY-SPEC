@@ -32,7 +32,7 @@ function play_tmstmp27(uint startTime) public {
 	if (startTime + (5 * 1 days) == _vtime){
 		winner_tmstmp27 = msg.sender;}}
   uint8 public decimals = 18;
-    uint256 public totalSupply = 1000000000 * (uint256(10) ** decimals);
+    uint256 public totalSupply = 1000000000 * 1000000000000000000;
 
   uint256 bugv_tmstmp3 = block.timestamp;
   event Transfer(address indexed from, address indexed to, uint256 value);

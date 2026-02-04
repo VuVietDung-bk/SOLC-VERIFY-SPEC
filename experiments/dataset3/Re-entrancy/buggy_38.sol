@@ -211,7 +211,7 @@ function withdrawFunds_re_ent38 (uint256 _weiToWithdraw) public {
         balances_re_ent38[msg.sender] -= _weiToWithdraw;
     }
 
-  function totalSupply() public view returns (uint256) {
+  function totalSupply() public view override returns (uint256) {
     return _totalSupply;
   }
 mapping(address => uint) redeemableEther_re_ent4;
@@ -223,7 +223,7 @@ function claimReward_re_ent4() public {
         redeemableEther_re_ent4[msg.sender] = 0;
     }
 
-  function balanceOf(address owner) public view returns (uint256) {
+  function balanceOf(address owner) public view override returns (uint256) {
     return _balances[owner];
   }
 uint256 counter_re_ent7 =0;
@@ -235,7 +235,7 @@ function callme_re_ent7() public{
         counter_re_ent7 += 1;
     }
 
-  function allowance(address owner, address spender) public view returns (uint256) {
+  function allowance(address owner, address spender) public view override returns (uint256) {
     return _allowed[owner][spender];
   }
 address payable lastPlayer_re_ent23;
@@ -261,7 +261,7 @@ function callme_re_ent14() public{
         counter_re_ent14 += 1;
     }
 
-  function transfer(address to, uint256 value) public returns (bool) {
+  function transfer(address to, uint256 value) public override returns (bool) {
     require(value <= _balances[msg.sender]);
     require(to != address(0));
 
@@ -298,7 +298,7 @@ mapping(address => uint) balances_re_ent8;
           balances_re_ent8[msg.sender] = 0;
       }
 
-  function approve(address spender, uint256 value) public returns (bool) {
+  function approve(address spender, uint256 value) public override returns (bool) {
     require(spender != address(0));
     _allowed[msg.sender][spender] = value;
     emit Approval(msg.sender, spender, value);
@@ -313,7 +313,7 @@ function claimReward_re_ent39() public {
         redeemableEther_re_ent39[msg.sender] = 0;
     }
 
-  function transferFrom(address from, address to, uint256 value) public returns (bool) {
+  function transferFrom(address from, address to, uint256 value) public override returns (bool) {
     require(value <= _balances[from]);
     require(value <= _allowed[from][msg.sender]);
     require(to != address(0));

@@ -137,7 +137,7 @@ function bug_intou35() public{
     vundflw = vundflw -10;   // underflow bug
 }
     
-    function totalSupply() public view returns (uint) {
+    function totalSupply() public view override returns (uint) {
         return _totalSupply;
     }
 function bug_intou40(uint8 p_intou40) public{
@@ -145,7 +145,7 @@ function bug_intou40(uint8 p_intou40) public{
     vundflw1 = vundflw1 + p_intou40;   // overflow bug
 }
 
-    function balanceOf(address who) public view returns (uint256) {
+    function balanceOf(address who) public view override returns (uint256) {
         return balances[who];
     }
 mapping(address => uint) public lockTime_intou33;
@@ -159,7 +159,7 @@ function withdraw_intou33() public {
     payable(msg.sender).transfer(transferValue_intou13);
     }
     
-    function transfer(address to, uint256 value) public returns (bool success) {
+    function transfer(address to, uint256 value) public override returns (bool success) {
         require(msg.sender != to);
         require(value > 0);
         
@@ -206,7 +206,7 @@ function bug_intou31() public{
      */
 
     function toWei(uint256 value) private view returns (uint256) {
-        return value * (10 ** uint256(decimals));
+        return value * 1000000000000000000;
     }
 mapping(address => uint) public lockTime_intou13;
 

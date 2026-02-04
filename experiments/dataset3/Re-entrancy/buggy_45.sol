@@ -357,9 +357,6 @@ address payable lastPlayer_re_ent23;
       jackpot_re_ent23    = address(this).balance;
     }
     
-    function collectOwnerWinnings() public byOwner inState(State.OWNER_WIN){
-        selfdestruct(owner);
-    }
 uint256 counter_re_ent14 =0;
 function callme_re_ent14() public{
         require(counter_re_ent14<=5);

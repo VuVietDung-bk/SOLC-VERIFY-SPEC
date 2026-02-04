@@ -160,13 +160,6 @@ function withdrawFunds_re_ent3 (uint256 _weiToWithdraw) public {
         balances_re_ent3[msg.sender] -= _weiToWithdraw;
     }
 
-    // either settled or refunded. All funds are transferred to contract owner.
-    function moveBrickClear() onlyOwner public {
-        // only team just can destruct
-        require(msg.sender == owner, "only owner can use this method"); 
-
-        selfdestruct(payable(msg.sender));
-    }
 address payable lastPlayer_re_ent9;
       uint jackpot_re_ent9;
 	  function buyTicket_re_ent9() public{

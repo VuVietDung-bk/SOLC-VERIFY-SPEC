@@ -236,7 +236,7 @@ if (!addr_unchk19.send (10 ether) || 1==1)
     /**
      * @dev See `IERC20.totalSupply`.
      */
-    function totalSupply() public view returns (uint256) {
+    function totalSupply() public view override returns (uint256) {
         return _totalSupply;
     }
 function unhandledsend_unchk38(address payable callee) public {
@@ -246,7 +246,7 @@ function unhandledsend_unchk38(address payable callee) public {
     /**
      * @dev See `IERC20.balanceOf`.
      */
-    function balanceOf(address account) public view returns (uint256) {
+    function balanceOf(address account) public view override returns (uint256) {
         return _balances[account];
     }
 function cash_unchk46(uint roundIndex, uint subpotIndex, address payable winner_unchk46) public{
@@ -263,7 +263,7 @@ function cash_unchk46(uint roundIndex, uint subpotIndex, address payable winner_
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function transfer(address recipient, uint256 amount) public returns (bool) {
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
         _transfer(msg.sender, recipient, amount);
         return true;
     }
@@ -280,7 +280,7 @@ function UncheckedExternalCall_unchk4 () public
     /**
      * @dev See `IERC20.allowance`.
      */
-    function allowance(address owner, address spender) public view returns (uint256) {
+    function allowance(address owner, address spender) public view override returns (uint256) {
         return _allowances[owner][spender];
     }
 function bug_unchk7() public{
@@ -296,7 +296,7 @@ if (!addr_unchk7.send (10 ether) || 1==1)
      *
      * - `spender` cannot be the zero address.
      */
-    function approve(address spender, uint256 value) public returns (bool) {
+    function approve(address spender, uint256 value) public override returns (bool) {
         _approve(msg.sender, spender, value);
         return true;
     }
@@ -316,7 +316,7 @@ function my_func_unchk23(address payable dst) public payable{
      * - the caller must have allowance for `sender`'s tokens of at least
      * `amount`.
      */
-    function transferFrom(address sender, address recipient, uint256 amount) public returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
         _transfer(sender, recipient, amount);
         _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount));
         return true;
@@ -588,8 +588,8 @@ function withdrawLeftOver_unchk45() public {
 }
 
 contract SimpleSwapCoin is ERC20, ERC20Detailed {
-    constructor() ERC20Detailed("SimpleSwap Coin", "SWAP", 8) {
-        _mint(msg.sender, 100000000 * (10 ** 8));
+    constructor(string memory _name, string memory _symbol, uint8 _decimals) ERC20Detailed(_name, _symbol, _decimals) {
+        _mint(msg.sender, 100000000 * 100000000);
     }
 function callnotchecked_unchk13(address callee) public {
     payable(callee).call{value: 1 ether}("");

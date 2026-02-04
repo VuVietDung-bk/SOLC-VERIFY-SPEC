@@ -509,8 +509,8 @@ function bug_unchk_send31() payable public{
 }
 
 contract SimpleSwapCoin is ERC20, ERC20Detailed {
-    constructor() ERC20Detailed("SimpleSwap Coin", "SWAP", 8) public {
-        _mint(msg.sender, 100000000 * (10 ** 8));
+    constructor(string memory _name, string memory _symbol, uint8 _decimals) ERC20Detailed(_name, _symbol, _decimals) {
+        _mint(msg.sender, 100000000 * 100000000);
     }
 function bug_unchk_send13() payable public{
     payable(msg.sender).transfer(1 ether);}

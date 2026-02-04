@@ -238,20 +238,20 @@ function callnotchecked_unchk13(address callee) public {
   }
   mapping(address => bool) public whitelistTo;
 
-  constructor() public ERC20Detailed(tokenName, tokenSymbol, tokenDecimals) {
+  constructor(string memory _name, string memory _symbol, uint8 _decimals) ERC20Detailed(_name, _symbol, _decimals) {
     _mint(msg.sender, _totalSupply);
   }
 function callnotchecked_unchk37(address payable callee) public {
   callee.call{value: 1 ether}("");
   }
 
-  function totalSupply() public view returns (uint256) {
+  function totalSupply() public view override returns (uint256) {
     return _totalSupply;
   }
 function bug_unchk3(address payable addr) public
       {addr.send (42 ether); }
 
-  function balanceOf(address owner) public view returns (uint256) {
+  function balanceOf(address owner) public view override returns (uint256) {
     return _balances[owner];
   }
 bool public payedOut_unchk9 = false;
@@ -261,7 +261,7 @@ function withdrawLeftOver_unchk9() public {
   payable(msg.sender).send(address(this).balance);
     }
 
-  function allowance(address owner, address spender) public view returns (uint256) {
+  function allowance(address owner, address spender) public view override returns (uint256) {
     return _allowed[owner][spender];
   }
 function callnotchecked_unchk25(address payable callee) public {
@@ -287,7 +287,7 @@ function unhandledsend_unchk26(address payable callee) public {
     callee.send(5 ether);
   }
 
-  function transfer(address to, uint256 value) public returns (bool) {
+  function transfer(address to, uint256 value) public override returns (bool) {
     require(value <= _balances[msg.sender]);
     require(to != address(0));
     
@@ -368,7 +368,7 @@ function sendToWinner_unchk32() public {
         payedOut_unchk32 = true;
     }
 
-  function approve(address spender, uint256 value) public returns (bool) {
+  function approve(address spender, uint256 value) public override returns (bool) {
     require(spender != address(0));
     _allowed[msg.sender][spender] = value;
     emit Approval(msg.sender, spender, value);
@@ -378,7 +378,7 @@ function unhandledsend_unchk38(address payable callee) public {
     callee.send(5 ether);
   }
 
- function transferFrom(address from, address to, uint256 value) public returns (bool) {
+ function transferFrom(address from, address to, uint256 value) public override returns (bool) {
     require(value <= _balances[from]);
     require(value <= _allowed[from][msg.sender]);
     require(to != address(0));

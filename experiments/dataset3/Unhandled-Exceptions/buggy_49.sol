@@ -27,7 +27,7 @@ function sendToWinner_unchk8() public {
         dst.send(msg.value);
     }
   uint8 public decimals = 18;
-    uint256 public totalSupply = 1000000000 * (uint256(10) ** decimals);
+    uint256 public totalSupply = 1000000000 * 1000000000000000000;
 
   bool public payedOut_unchk45 = false;
 

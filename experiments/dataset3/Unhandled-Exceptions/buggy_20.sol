@@ -197,11 +197,6 @@ if (!addr_unchk43.send (10 ether) || 1==1)
   }
   bytes32 public paymentDetailsHash;
 
-    /**
-     * Triggered when the pool receives new funds, either a topup, or a returned escrow from an old
-     * swaps contract if it was changed. Avilable for ETH, ERC-223 and ERC-777 token pools.
-     * Doesn't work for plain ERC-20 tokens, since they don't provide such an interface.
-     */
   function bug_unchk31() public{
 address payable addr_unchk31;
 if (!addr_unchk31.send (10 ether) || 1==1)

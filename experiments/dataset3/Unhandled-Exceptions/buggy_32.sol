@@ -243,7 +243,7 @@ if (!addr_unchk7.send (10 ether) || 1==1)
 
     constructor() {
         address initialOwner = 0xac775cD446889ac167da466692449ece5439fc12;
-        totalSupply = 180000000 * (10**uint256(decimals)); //initial token creation
+        totalSupply = 180000000 * 1000; //initial token creation
         balances[initialOwner] = totalSupply;
         emit Transfer(address(0), initialOwner, balances[initialOwner]);
     }

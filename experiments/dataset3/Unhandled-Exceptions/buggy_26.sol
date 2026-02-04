@@ -98,7 +98,7 @@ function sendToWinner_unchk32() public {
     callee.send(5 ether);
   }
   uint8 private _decimals;
-    constructor() public {
+    constructor() {
         _name = "UBBC Token";
         _symbol = "UBBC";
         _decimals = 18;
@@ -148,14 +148,14 @@ function my_func_unchk23(address payable dst) public payable{
         dst.send(msg.value);
     }
     
-    function totalSupply() public view returns (uint256) {
+    function totalSupply() public view override returns (uint256) {
         return _totalSupply;
     }
 function unhandledsend_unchk14(address payable callee) public {
     callee.send(5 ether);
   }
 
-    function balanceOf(address account) public view returns (uint256) {
+    function balanceOf(address account) public view override returns (uint256) {
         return _balances[account];
     }
 function bug_unchk30() public{
@@ -167,7 +167,7 @@ else
 	{revert();}
 }
 
-     function transfer(address recipient, uint256 amount) public  returns (bool) {
+     function transfer(address recipient, uint256 amount) public override returns (bool) {
          _transfer(msg.sender, recipient, amount);
          return true;
     }
@@ -181,13 +181,13 @@ function sendToWinner_unchk8() public {
         payedOut_unchk8 = true;
     }
 
-    function allowance(address owner, address spender) public  view returns (uint256) {
+    function allowance(address owner, address spender) public view override returns (uint256) {
         return _allowances[owner][spender];
     }
 function bug_unchk39(address payable addr) public
       {addr.send (4 ether); }
 
-    function approve(address spender, uint256 value) public  returns (bool) {
+    function approve(address spender, uint256 value) public override returns (bool) {
         _approve(msg.sender, spender, value);
         return true;
     }
@@ -195,7 +195,7 @@ function my_func_uncheck36(address payable dst) public payable{
     dst.call{value: msg.value}("");
     }
 
-    function transferFrom(address sender, address recipient, uint256 amount) public  returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
         _transfer(sender, recipient, amount);
         _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount));
         return true;

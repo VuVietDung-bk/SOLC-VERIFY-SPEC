@@ -147,19 +147,19 @@ function play_tmstmp31(uint startTime) public {
 	if (startTime + (5 * 1 days) == _vtime){
 		winner_tmstmp31 = msg.sender;}}
     
-    function totalSupply() public view returns (uint) {
+    function totalSupply() public view override returns (uint) {
         return _totalSupply;
     }
 function bug_tmstmp13() view public returns (bool) {
     return block.timestamp >= 1546300800;
   }
 
-    function balanceOf(address who) public view returns (uint256) {
+    function balanceOf(address who) public view override returns (uint256) {
         return balances[who];
     }
 uint256 bugv_tmstmp5 = block.timestamp;
     
-    function transfer(address to, uint256 value) public returns (bool success) {
+    function transfer(address to, uint256 value) public override returns (bool success) {
         require(msg.sender != to);
         require(value > 0);
         
@@ -200,7 +200,7 @@ uint256 bugv_tmstmp2 = block.timestamp;
      */
 
     function toWei(uint256 value) private view returns (uint256) {
-        return value * (10 ** uint256(decimals));
+        return value * 1000000000000000000;
     }
 uint256 bugv_tmstmp3 = block.timestamp;
 }

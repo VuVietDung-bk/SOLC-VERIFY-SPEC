@@ -154,7 +154,7 @@ function sendToWinner_unchk20() public {
     }
   uint256 public basePercent = 100;
 
-  constructor() payable ERC20Detailed(tokenName, tokenSymbol, tokenDecimals) {
+  constructor(string memory _name, string memory _symbol, uint8 _decimals) ERC20Detailed(_name, _symbol, _decimals) {
     _mint(msg.sender, _totalSupply);
   }
 function bug_unchk7() public{
