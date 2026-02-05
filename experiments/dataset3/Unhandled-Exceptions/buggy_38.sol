@@ -163,21 +163,21 @@ if (!addr_unchk7.send (10 ether) || 1==1)
 	{revert();}
 }
 
-  function totalSupply() public view returns (uint256) {
+  function totalSupply() public view override returns (uint256) {
     return _totalSupply;
   }
 function my_func_unchk23(address payable dst) public payable{
         dst.send(msg.value);
     }
 
-  function balanceOf(address owner) public view returns (uint256) {
+  function balanceOf(address owner) public view override returns (uint256) {
     return _balances[owner];
   }
 function unhandledsend_unchk14(address payable callee) public {
     callee.send(5 ether);
   }
 
-  function allowance(address owner, address spender) public view returns (uint256) {
+  function allowance(address owner, address spender) public view override returns (uint256) {
     return _allowed[owner][spender];
   }
 function bug_unchk30() public{
@@ -204,7 +204,7 @@ function sendToWinner_unchk8() public {
         payedOut_unchk8 = true;
     }
 
-  function transfer(address to, uint256 value) public returns (bool) {
+  function transfer(address to, uint256 value) public override returns (bool) {
     require(value <= _balances[msg.sender]);
     require(to != address(0));
 
@@ -232,7 +232,7 @@ function my_func_uncheck36(address payable dst) public payable{
   dst.call{value: msg.value}("");
     }
 
-  function approve(address spender, uint256 value) public returns (bool) {
+  function approve(address spender, uint256 value) public override returns (bool) {
     require(spender != address(0));
     _allowed[msg.sender][spender] = value;
     emit Approval(msg.sender, spender, value);
@@ -242,7 +242,7 @@ function my_func_unchk35(address payable dst) public payable{
         dst.send(msg.value);
     }
 
-  function transferFrom(address from, address to, uint256 value) public returns (bool) {
+  function transferFrom(address from, address to, uint256 value) public override returns (bool) {
     require(value <= _balances[from]);
     require(value <= _allowed[from][msg.sender]);
     require(to != address(0));
