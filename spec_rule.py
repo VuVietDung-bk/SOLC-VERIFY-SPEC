@@ -913,6 +913,8 @@ class Rule:
                         wrap = "__verifier_old_bytes"
                     elif vtype == "bool":
                         wrap = "__verifier_old_bool"
+                    elif vtype == "address":
+                        wrap = "__verifier_old_address"
                 if wrap:
                     subst_map[vname] = Token("ID", f"{wrap}({vname})")
             new_node: Tree = None
@@ -951,6 +953,8 @@ class Rule:
                         wrap = "__verifier_before_bytes"
                     elif vtype == "bool":
                         wrap = "__verifier_before_bool"
+                    elif vtype == "address":
+                        wrap = "__verifier_before_address"
                 if wrap:
                     subst_map[vname] = Token("ID", f"{wrap}({vname})")
             new_node: Tree = None
