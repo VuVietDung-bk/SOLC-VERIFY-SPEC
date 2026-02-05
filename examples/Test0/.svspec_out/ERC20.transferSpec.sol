@@ -5,7 +5,7 @@ pragma solidity >=0.7.0;
 contract ERC20 {
     mapping(address => uint256) private _balances;
  
-    /// @notice precondition forall (address a) _balances[a] >= 0
+    /// @notice precondition forall (address extraVar0) _balances[extraVar0] >= 0
     /// @notice precondition amount >= 0
     /// @notice postcondition recipient == msg.sender || _balances[msg.sender] == __verifier_old_uint(_balances[msg.sender]) - amount
     /// @notice postcondition recipient == msg.sender || _balances[recipient] == __verifier_old_uint(_balances[recipient]) + amount

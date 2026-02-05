@@ -7,7 +7,7 @@ svspec BecToken.sol:BecToken BecToken.spec
 svspec BinarySearch.sol:BinarySearch BinarySearch.spec
 svspec QuantifiersSimple.sol:QuantifiersSimple QuantifiersSimple.spec
 svspec SimpleBank.sol:SimpleBank SimpleBank.spec
-svspec Reentrancy.sol:Reentrancy Reentrancy.spec
+svspec Reentrancy.sol:SimpleBank Reentrancy.spec
 svspec Storage.sol:Storage Storage.spec
 svspec ERC20.sol:ERC20 ERC20.spec
 svspec ERC20.sol:ERC20 Parametric.spec

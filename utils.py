@@ -29,7 +29,7 @@ def _insert_lines_before(filepath: str, line_no_1based: int, new_lines: List[str
     with open(filepath, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
 
-def _scan_function_lines_in_file(sol_file: str, target_names: List[str]) -> Dict[str, List[int]]:
+def _scan_function_lines_in_file(sol_file: str, target_names: List[str], only_contract: Optional[str] = None) -> Dict[str, List[int]]:
     """Find lines with 'function <name>(' (1-indexed)."""
     with open(sol_file, "r", encoding="utf-8") as f:
         lines = f.read().splitlines()
@@ -42,20 +42,55 @@ def _scan_function_lines_in_file(sol_file: str, target_names: List[str]) -> Dict
     if "constructor" in name_set:
         patterns["constructor"] = re.compile(r'^\s*constructor\s*\(')
     found: Dict[str, List[int]] = {name: [] for name in name_set}
+
+    in_contract = False
+    brace_depth = 0
     for i, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if only_contract:
+            # Enter contract block
+            if not in_contract:
+                if re.match(rf"^contract\s+{re.escape(only_contract)}\b", stripped):
+                    in_contract = True
+                    brace_depth = stripped.count("{") - stripped.count("}")
+                    continue
+            else:
+                brace_depth += stripped.count("{") - stripped.count("}")
+                if brace_depth <= 0:
+                    in_contract = False
+                    continue
+        if only_contract and not in_contract:
+            continue
         for name, pat in patterns.items():
             if pat.search(line):
                 found[name].append(i)
     return found
 
-def _scan_event_lines_in_file(sol_file: str, target_names: List[str]) -> Dict[str, List[int]]:
+def _scan_event_lines_in_file(sol_file: str, target_names: List[str], only_contract: Optional[str] = None) -> Dict[str, List[int]]:
     """Find lines with 'event <name>(' (1-indexed)."""
     with open(sol_file, "r", encoding="utf-8") as f:
         lines = f.read().splitlines()
     name_set = set(target_names)
     patterns = {name: re.compile(rf'^\s*event\s+{re.escape(name)}\s*\(') for name in name_set}
     found: Dict[str, List[int]] = {name: [] for name in name_set}
+
+    in_contract = False
+    brace_depth = 0
     for i, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if only_contract:
+            if not in_contract:
+                if re.match(rf"^contract\s+{re.escape(only_contract)}\b", stripped):
+                    in_contract = True
+                    brace_depth = stripped.count("{") - stripped.count("}")
+                    continue
+            else:
+                brace_depth += stripped.count("{") - stripped.count("}")
+                if brace_depth <= 0:
+                    in_contract = False
+                    continue
+        if only_contract and not in_contract:
+            continue
         for name, pat in patterns.items():
             if pat.search(line):
                 found[name].append(i)

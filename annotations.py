@@ -130,8 +130,8 @@ def write_annotations(sol_in: str, ir: IR, output_path: str, only_contract: Opti
         )
         target_events = sorted(set(list(event_pre_by_name.keys()) + list(event_post_by_name.keys())))
 
-        occ = _scan_function_lines_in_file(out_path, target_funcs)
-        occ_events = _scan_event_lines_in_file(out_path, target_events) if target_events else {}
+        occ = _scan_function_lines_in_file(out_path, target_funcs, only_contract=only_contract)
+        occ_events = _scan_event_lines_in_file(out_path, target_events, only_contract=only_contract) if target_events else {}
         inserts: List[tuple[int, List[str]]] = []
 
         for fn in target_funcs:

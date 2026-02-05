@@ -38,6 +38,8 @@ contract BecToken {
     uint256 public totalSupply;
     mapping(address => uint256) balances;
 
+    /// @notice precondition totalSupply >= 0
+    /// @notice precondition forall (address extraVar0) balances[extraVar0] >= 0
     constructor() {
         totalSupply = 7000000000 * (10**18);
         balances[msg.sender] = totalSupply; // Give the creator all initial tokens
