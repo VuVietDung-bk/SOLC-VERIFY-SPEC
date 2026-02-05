@@ -34,7 +34,13 @@ def _scan_function_lines_in_file(sol_file: str, target_names: List[str]) -> Dict
     with open(sol_file, "r", encoding="utf-8") as f:
         lines = f.read().splitlines()
     name_set = set(target_names)
-    patterns = {name: re.compile(rf'^\s*function\s+{re.escape(name)}\s*\(') for name in name_set}
+    patterns = {
+        name: re.compile(rf'^\s*function\s+{re.escape(name)}\s*\(')
+        for name in name_set
+        if name != "constructor"
+    }
+    if "constructor" in name_set:
+        patterns["constructor"] = re.compile(r'^\s*constructor\s*\(')
     found: Dict[str, List[int]] = {name: [] for name in name_set}
     for i, line in enumerate(lines, start=1):
         for name, pat in patterns.items():

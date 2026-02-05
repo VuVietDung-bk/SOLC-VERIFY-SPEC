@@ -6,26 +6,83 @@ import shutil
 from utils import _rewrite_pragma_to_0_7_0, _insert_lines_before, _scan_function_lines_in_file, _scan_event_lines_in_file
 from spec_ir import IR
 
+def _build_uint_preconditions(var_type, expr: str, depth: int = 0) -> List[str]:
+    """
+    Recursively build preconditions for uint-containing types at arbitrary nesting depth.
+
+    Handles: uint, mapping(K => V), and arrays (V[]).
+    Returns quantified preconditions for all reachable uint leaves.
+    """
+    t_str = str(var_type)
+    type_class = type(var_type).__name__
+
+    # Mapping type: forall (KeyType var) <inner>
+    if type_class == "MappingType" or (hasattr(var_type, "type_from") and hasattr(var_type, "type_to")):
+        key_type = getattr(var_type, "type_from", None)
+        value_type = getattr(var_type, "type_to", None)
+        if key_type is None or value_type is None:
+            return []
+        var_name = f"extraVar{depth}"
+        inner_expr = f"{expr}[{var_name}]"
+        inner_preconds = _build_uint_preconditions(value_type, inner_expr, depth + 1)
+        return [f"forall ({key_type} {var_name}) {p}" for p in inner_preconds]
+
+    # Array type: property(expr) (idx) <inner>
+    if type_class == "ArrayType" or (t_str.endswith("[]") and hasattr(var_type, "type")):
+        elem_type = getattr(var_type, "type", None)
+        if elem_type is None:
+            return []
+        idx_name = f"extraIndex{depth}"
+        inner_expr = f"{expr}[{idx_name}]"
+        inner_preconds = _build_uint_preconditions(elem_type, inner_expr, depth + 1)
+        return [f"property({expr}) ({idx_name}) {p}" for p in inner_preconds]
+
+    # Leaf: elementary uint type
+    if "uint" in t_str and not t_str.startswith("int"):
+        return [f"{expr} >= 0"]
+
+    return []
+
+
 def collect_param_preconds(sol_file: str, only_contract: Optional[str] = None) -> Dict[str, List[str]]:
     """Build simple preconditions from parameter types (uint* → param >= 0)."""
     sl = Slither(os.path.abspath(sol_file))
     pre: Dict[str, List[str]] = {}
 
     def _handle_contract(c):
-        for f in c.functions:
-            vis = getattr(f, "visibility", None) or ""
-            if str(vis) not in ("public", "external"):
+        state_pre: List[str] = []
+        for v in c.state_variables:
+            name = getattr(v, "name", "") or ""
+            if not name:
                 continue
+            var_type = getattr(v, "type", None)
+            if var_type is None:
+                continue
+            state_pre.extend(_build_uint_preconditions(var_type, name))
+
+        def _add_param_preconds(func_obj, key_name: str) -> None:
             pcs: List[str] = []
-            if getattr(f, "payable", False):
+            pcs.extend(state_pre)
+            if getattr(func_obj, "payable", False):
                 pcs.append("msg.value >= 0")
                 pcs.append("address(this).balance >= 0")
-            for p in f.parameters:
+            for p in getattr(func_obj, "parameters", []):
                 t = getattr(p.type, "type", None) or str(p.type)
                 if "uint" in str(t) and not str(t).startswith("int") and p.name:
                     pcs.append(f"{p.name} >= 0")
             if pcs:
-                pre.setdefault(f.name, []).extend(pcs)
+                pre.setdefault(key_name, []).extend(pcs)
+
+        for f in c.functions:
+            vis = getattr(f, "visibility", None) or ""
+            if str(vis) not in ("public", "external"):
+                continue
+            _add_param_preconds(f, f.name)
+
+        # Handle constructor parameters (if any)
+        ctor = getattr(c, "constructor", None)
+        if ctor is not None:
+            _add_param_preconds(ctor, "constructor")
 
     if only_contract:
         cs = [c for c in sl.contracts if c.name == only_contract]
@@ -41,14 +98,17 @@ def collect_param_preconds(sol_file: str, only_contract: Optional[str] = None) -
         pre[k] = list(dict.fromkeys(v))
     return pre
 
-def write_annotations(sol_in: str, ir: IR, only_contract: Optional[str] = None) -> List[str]:
+def write_annotations(sol_in: str, ir: IR, output_path: str, only_contract: Optional[str] = None) -> List[str]:
     """Emit annotated Solidity copies per rule with pre/post/modifies/emits and invariants."""
+    # Ensure the output directory exists before writing any annotated files.
+    os.makedirs(output_path, exist_ok=True)
+
     preconds = collect_param_preconds(sol_in, only_contract=only_contract)
 
     base, ext = os.path.splitext(os.path.abspath(sol_in))
     out_files: List[str] = []
     for rule in ir.rules:
-        out_path = base + f".{rule.name}" + ext
+        out_path = os.path.join(output_path, os.path.basename(base) + f".{rule.name}" + ext)
         shutil.copyfile(sol_in, out_path)
         _rewrite_pragma_to_0_7_0(out_path)
 
@@ -113,7 +173,7 @@ def write_annotations(sol_in: str, ir: IR, only_contract: Optional[str] = None) 
         out_files.append(out_path)
 
     if not out_files:
-        out_path = base + f".annotated" + ext
+        out_path = os.path.join(output_path, os.path.basename(base) + f".annotated" + ext)
         shutil.copyfile(sol_in, out_path)
         _rewrite_pragma_to_0_7_0(out_path)
 

@@ -1,3 +1,4 @@
 __pycache__/
 anno_count.py
 experiments/
+solc-verify-spec.egg-info/

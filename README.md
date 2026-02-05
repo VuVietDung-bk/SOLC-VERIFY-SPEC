@@ -27,10 +27,17 @@ python3 solc-verify-spec.py <file_sol>[:contract_name] <file_spec>
 ```
 Example: `python3 solc-verify-spec.py examples/Test2/test2.sol:Example2 examples/Test2/test2.spec`
 
+Optional: install the CLI wrapper to use the `svspec` command from any directory:
+```shell
+pip install -e .
+svspec <file_sol>[:contract_name] <file_spec>
+```
+
 You can also type `python3 solc-verify-spec.py -h` to print the optional arguments, but we also list them below.
 - `-h`, `--help`: Show the help message and exit.
 - `--grammar <file_lark>`: Path to the .lark grammar to define the specification language.
 - `--no-run`: Do not run solc-verify after generating annotations.
+- `--output`: Output directory for generated annotations (default is ./.svspec_out)
 - `--arithmetic {int,bv,mod,mod-overflow}`: Encoding of arithmetic operations.
 - `--errors-only`: Only display error messages.
 - `--event-analysis`: Enable event analysis even without event annotations.

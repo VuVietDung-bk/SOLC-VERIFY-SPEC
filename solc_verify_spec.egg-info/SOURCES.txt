@@ -1,0 +1,8 @@
+README.md
+setup.py
+svspec_cli.py
+solc_verify_spec.egg-info/PKG-INFO
+solc_verify_spec.egg-info/SOURCES.txt
+solc_verify_spec.egg-info/dependency_links.txt
+solc_verify_spec.egg-info/entry_points.txt
+solc_verify_spec.egg-info/top_level.txt

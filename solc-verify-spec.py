@@ -1,6 +1,7 @@
 import argparse
 import os
 import time
+from pathlib import Path
 from lark import Lark
 
 from spec_ir import IR
@@ -12,6 +13,8 @@ from validate import validate_ir
 TIME_COLOR = "\033[94m"
 RESET_COLOR = "\033[0m"
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+
 def main():
     parser = argparse.ArgumentParser(
         description="SOLC-VERIFY-SPEC: Annotate Solidity code with specifications from a spec file.",
@@ -19,6 +22,7 @@ def main():
     )
     parser.add_argument("file_sol", help="Path to the Solidity file, optionally with a contract name (format: path-to-file.sol:ContractName)")
     parser.add_argument("file_spec", help="Path to the specification file (format: path-to-file.spec)")
+    parser.add_argument("--output", default="./.svspec_out", help="Output directory for generated annotations (default is ./.svspec_out)")
     parser.add_argument("--arithmetic", help="Encoding of the arithmetic operations (int,bv,mod,mod-overflow)")
     parser.add_argument("--errors-only", action="store_true", help="Only display error messages and omit displaying names of correct functions (not given by default)")
     parser.add_argument("--event-analysis", action="store_true", help="Checking emitting events and tracking data changes related to events is only performed if there are event annotations or if this flag is explicitly given.")
@@ -35,7 +39,10 @@ def main():
     sol_path, target_contract = split_sol_and_contract(args.file_sol)
 
     print("[1/7] Loading grammar...")
-    with open(args.grammar, "r", encoding="utf-8") as f:
+    grammar_path = Path(args.grammar)
+    if not grammar_path.is_absolute():
+        grammar_path = SCRIPT_DIR / grammar_path
+    with open(grammar_path, "r", encoding="utf-8") as f:
         grammar_text = f.read()
     lark = Lark(grammar_text)
 
@@ -72,7 +79,7 @@ def main():
     validate_ir(ir, sol_symbols)
 
     print("[5/7] Inserting preconditions, postconditions and invariants...")
-    out_files = write_annotations(sol_path, ir, only_contract=target_contract)
+    out_files = write_annotations(sol_path, ir, args.output, only_contract=target_contract)
 
     print("[6/7] Annotated files:", out_files)
 
