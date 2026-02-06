@@ -708,7 +708,7 @@ class Rule:
                             preconds.append(eq_expr)
 
                 for idx, arg in enumerate(args):
-                    if var_to_value[arg] is None:
+                    if var_to_value.get(arg) is None:
                         var_to_value[arg] = Token("ID", param_names[idx])
             elif step.kind == "emits":
                 is_event = True
@@ -740,7 +740,7 @@ class Rule:
                             preconds.append(eq_expr)
 
                 for idx, arg in enumerate(args):
-                    if var_to_value[arg] is None:
+                    if var_to_value.get(arg) is None:
                         var_to_value[arg] = Token("ID", param_names[idx])
 
         for step in require_steps:
@@ -901,7 +901,6 @@ class Rule:
             for v in vars_iter:
                 vname = getattr(v, "name", None) if hasattr(v, "name") else None
                 vtype = getattr(v, "vtype", None) if hasattr(v, "vtype") else None
-                type_class = type(vtype).__name__ if vtype is not None else None
                 if not vname or vname in skip_set:
                     continue
                 wrap = None
@@ -914,7 +913,7 @@ class Rule:
                         wrap = "__verifier_old_bytes"
                     elif vtype == "bool":
                         wrap = "__verifier_old_bool"
-                    elif vtype == "address" and type_class != "ArrayType":
+                    elif vtype == "address":
                         wrap = "__verifier_old_address"
                 if wrap:
                     subst_map[vname] = Token("ID", f"{wrap}({vname})")
@@ -942,7 +941,6 @@ class Rule:
             for v in vars_iter:
                 vname = getattr(v, "name", None) if hasattr(v, "name") else None
                 vtype = getattr(v, "vtype", None) if hasattr(v, "vtype") else None
-                type_class = type(vtype).__name__ if vtype is not None else None
                 if not vname or vname in skip_set:
                     continue
                 wrap = None
@@ -955,7 +953,7 @@ class Rule:
                         wrap = "__verifier_before_bytes"
                     elif vtype == "bool":
                         wrap = "__verifier_before_bool"
-                    elif vtype == "address" and type_class != "ArrayType":
+                    elif vtype == "address":
                         wrap = "__verifier_before_address"
                 if wrap:
                     subst_map[vname] = Token("ID", f"{wrap}({vname})")
@@ -1068,7 +1066,7 @@ class Rule:
                 param_names = fn_params_map.get(name, []) if isinstance(fn_params_map, dict) else []
 
                 for idx, arg in enumerate(args):
-                    if var_to_value[arg] is None:
+                    if var_to_value.get(arg) is None:
                         var_to_value[arg] = Token("ID", param_names[idx])
 
             elif step.kind == "emits":
@@ -1080,7 +1078,7 @@ class Rule:
                     raise SystemExit(f"\033[91m[ERROR] Multiple function calls or events detected in one path of rule '{self.name}'.\033[0m")
                 param_names = fn_params_map.get(name, []) if isinstance(fn_params_map, dict) else []
                 for idx, arg in enumerate(args):
-                    if var_to_value[arg] is None and idx < len(param_names):
+                    if var_to_value.get(arg) is None and idx < len(param_names):
                         var_to_value[arg] = Token("ID", param_names[idx])
 
             elif step.kind == "assert":

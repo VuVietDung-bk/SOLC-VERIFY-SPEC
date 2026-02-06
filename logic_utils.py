@@ -292,7 +292,6 @@ def oldify_expr(expr_node: Optional[Tree], variables: List[Variable], skip=None)
     for v in vars_iter:
         vname = getattr(v, "name", None) if hasattr(v, "name") else None
         vtype = getattr(v, "vtype", None) if hasattr(v, "vtype") else None
-        type_class = type(vtype).__name__ if vtype is not None else None
         if not vname or vname in skip_set:
             continue
         wrap = None
@@ -305,7 +304,7 @@ def oldify_expr(expr_node: Optional[Tree], variables: List[Variable], skip=None)
                 wrap = "__verifier_old_bytes"
             elif vtype == "bool":
                 wrap = "__verifier_old_bool"
-            elif vtype == "address" and type_class != "ArrayType":
+            elif vtype == "address":
                 wrap = "__verifier_old_address"
         if wrap:
             subst_map[vname] = Token("ID", f"{wrap}({vname})")
