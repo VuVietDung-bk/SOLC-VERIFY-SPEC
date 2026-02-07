@@ -742,7 +742,7 @@ class Rule:
                 for idx, arg in enumerate(args):
                     if var_to_value.get(arg) is None:
                         var_to_value[arg] = Token("ID", param_names[idx])
-
+        
         for step in require_steps:
             expr_node = _require_expr_from_step(step)
             expr_subst = _subst_expr(expr_node)
@@ -1065,9 +1065,20 @@ class Rule:
 
                 param_names = fn_params_map.get(name, []) if isinstance(fn_params_map, dict) else []
 
+                print(args)
                 for idx, arg in enumerate(args):
-                    if var_to_value.get(arg) is None:
-                        var_to_value[arg] = Token("ID", param_names[idx])
+                    if var_to_value.get(arg) is None and idx < len(param_names):
+                        new_val_token = Token("ID", param_names[idx])
+                        
+                        subst_map = {arg: new_val_token}
+                        
+                        for var_name in list(var_to_value.keys()):
+                            current_expr = var_to_value[var_name]
+                            
+                            if current_expr is not None:
+                                var_to_value[var_name] = subst_expr(deepcopy(current_expr), subst_map)
+                        
+                        var_to_value[arg] = new_val_token
 
             elif step.kind == "emits":
                 name = step.data.get("event")
@@ -1079,7 +1090,17 @@ class Rule:
                 param_names = fn_params_map.get(name, []) if isinstance(fn_params_map, dict) else []
                 for idx, arg in enumerate(args):
                     if var_to_value.get(arg) is None and idx < len(param_names):
-                        var_to_value[arg] = Token("ID", param_names[idx])
+                        new_val_token = Token("ID", param_names[idx])
+                        
+                        subst_map = {arg: new_val_token}
+                        
+                        for var_name in list(var_to_value.keys()):
+                            current_expr = var_to_value[var_name]
+                            
+                            if current_expr is not None:
+                                var_to_value[var_name] = subst_expr(deepcopy(current_expr), subst_map)
+                        
+                        var_to_value[arg] = new_val_token
 
             elif step.kind == "assert":
                 if func_name is None:

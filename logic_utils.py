@@ -391,6 +391,9 @@ def wrap_old_expr(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
             attr_tok = next((t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "LENGTH")), None)
             if id_tok and attr_tok:
                 return wrap_old_access(deepcopy(node), "uint")
+            attr_tok = next((t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "BALANCE")), None)
+            if id_tok and attr_tok:
+                return wrap_old_access(deepcopy(node), "uint")
             return node
 
         if _rule_name(node.data) == "expr" and node.children:

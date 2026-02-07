@@ -57,8 +57,8 @@ map_to: mapping | primitive_basic_type | ID
         | unop expr -> unary_expr
         | expr "?" expr ":" expr
         | ID index?
-        | special_var_attribute_call
         | contract_attribute_call
+        | special_var_attribute_call
         | ID index? attribute
         | func_compare_expr
         | cast_function_expr
@@ -71,7 +71,7 @@ func_compare_expr: "funcCompare(" ID "," STRING_LITERAL ")"
 cast_function: ADDRESS
 cast_function_expr: cast_function "(" INTEGER_LITERAL ")"
 
-special_var_attribute: SUM | LENGTH | ISUM
+special_var_attribute: SUM | LENGTH | ISUM | BALANCE
 SUM: "sum"
 ISUM: "isum"
 LENGTH: "length"
