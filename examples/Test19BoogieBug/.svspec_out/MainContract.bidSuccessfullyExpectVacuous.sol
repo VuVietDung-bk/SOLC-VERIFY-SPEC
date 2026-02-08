@@ -9,6 +9,7 @@ contract MainContract
     /// @notice precondition currentBid >= 0
     /// @notice precondition msg.value >= 0
     /// @notice precondition address(this).balance >= 0
+    /// @notice precondition forall (address addr2005) addr2005.balance >= 0
     /// @notice precondition msg.sender != address(this)
     /// @notice precondition msg.value > 0 && msg.value > address(this).balance
     /// @notice precondition address(this).balance > 0

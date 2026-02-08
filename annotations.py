@@ -66,6 +66,7 @@ def collect_param_preconds(sol_file: str, only_contract: Optional[str] = None) -
             if getattr(func_obj, "payable", False):
                 pcs.append("msg.value >= 0")
                 pcs.append("address(this).balance >= 0")
+                pcs.append("forall (address addr2005) addr2005.balance >= 0")
             for p in getattr(func_obj, "parameters", []):
                 t = getattr(p.type, "type", None) or str(p.type)
                 if "uint" in str(t) and not str(t).startswith("int") and p.name:

@@ -8,6 +8,7 @@ contract SimpleBank {
     /// @notice precondition forall (address extraVar0) balances[extraVar0] >= 0
     /// @notice precondition msg.value >= 0
     /// @notice precondition address(this).balance >= 0
+    /// @notice precondition forall (address addr2005) addr2005.balance >= 0
     function deposit() public payable {
         balances[msg.sender] += msg.value;
     }

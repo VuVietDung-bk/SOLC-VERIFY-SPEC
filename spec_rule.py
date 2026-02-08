@@ -1065,7 +1065,6 @@ class Rule:
 
                 param_names = fn_params_map.get(name, []) if isinstance(fn_params_map, dict) else []
 
-                print(args)
                 for idx, arg in enumerate(args):
                     if var_to_value.get(arg) is None and idx < len(param_names):
                         new_val_token = Token("ID", param_names[idx])
