@@ -342,6 +342,8 @@ def wrap_old_expr(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
             return "bytes"
         if vt == "bool":
             return "bool"
+        if vt == "address":
+            return "address"
         return None
 
     def _peel_element(vt: Optional[str], depth: int) -> Optional[str]:
@@ -388,11 +390,12 @@ def wrap_old_expr(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
 
         if _rule_name(node.data) == "special_var_attribute_call":
             id_tok = next((t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "ID")), None)
+            address_tok = next((t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "INTEGER_LITERAL")), None)
             attr_tok = next((t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "LENGTH")), None)
-            if id_tok and attr_tok:
+            if (id_tok or address_tok) and attr_tok:
                 return wrap_old_access(deepcopy(node), "uint")
             attr_tok = next((t for t in node.scan_values(lambda v: isinstance(v, Token) and v.type == "BALANCE")), None)
-            if id_tok and attr_tok:
+            if (id_tok or address_tok) and attr_tok:
                 return wrap_old_access(deepcopy(node), "uint")
             return node
 
@@ -439,6 +442,8 @@ def wrap_old_expr_event(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
             return "bytes"
         if vt == "bool":
             return "bool"
+        if vt == "address":
+            return "address"
         return None
 
     def _peel_element(vt: Optional[str], depth: int) -> Optional[str]:

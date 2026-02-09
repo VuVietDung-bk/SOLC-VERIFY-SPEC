@@ -69,7 +69,8 @@ def collect_param_preconds(sol_file: str, only_contract: Optional[str] = None) -
                 pcs.append("forall (address addr2005) addr2005.balance >= 0")
             for p in getattr(func_obj, "parameters", []):
                 t = getattr(p.type, "type", None) or str(p.type)
-                if "uint" in str(t) and not str(t).startswith("int") and p.name:
+                type_class = type(t).__name__
+                if "uint" in str(t) and not str(t).startswith("int") and type_class != "ArrayType" and type_class != "ElementaryType"and p.name:
                     pcs.append(f"{p.name} >= 0")
             if pcs:
                 pre.setdefault(key_name, []).extend(pcs)

@@ -34,13 +34,15 @@ def _scan_function_lines_in_file(sol_file: str, target_names: List[str], only_co
     with open(sol_file, "r", encoding="utf-8") as f:
         lines = f.read().splitlines()
     name_set = set(target_names)
-    patterns = {
-        name: re.compile(rf'^\s*function\s+{re.escape(name)}\s*\(')
-        for name in name_set
-        if name != "constructor"
-    }
-    if "constructor" in name_set:
-        patterns["constructor"] = re.compile(r'^\s*constructor\s*\(')
+    patterns = {}
+    for name in name_set:
+        if name == "constructor":
+            patterns[name] = re.compile(r'^\s*constructor\s*\(')
+        elif name in ("fallback", "receive"):
+            # Match both modern style (fallback() external) and legacy (function fallback()).
+            patterns[name] = re.compile(rf'^\s*(function\s+)?{re.escape(name)}\s*\(')
+        else:
+            patterns[name] = re.compile(rf'^\s*function\s+{re.escape(name)}\s*\(')
     found: Dict[str, List[int]] = {name: [] for name in name_set}
 
     in_contract = False

@@ -144,9 +144,14 @@ class Rule:
                 zname = _is_zero_arg_function_call(expr_node)
                 if zname:
                     observed = zname
-        else :
-            id_node: Token = chs[2] if len(chs) >=3 else None
-            rhs_text = id_node.value if id_node else ""
+        else:
+            id_node = chs[2] if len(chs) >= 3 else None
+            if isinstance(id_node, Tree):
+                rhs_text = to_text(id_node)
+            elif isinstance(id_node, Token):
+                rhs_text = id_node.value
+            else:
+                rhs_text = ""
 
         if ghost:
             self.snapshots[ghost] = {
