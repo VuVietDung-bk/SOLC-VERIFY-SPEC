@@ -242,7 +242,7 @@ class Rule:
         rhs_text = to_text(rhs_node) if rhs_node else None
         if not rhs_text:
             id_node: Token = st.children[1]
-            rhs_text = id_node.value
+            rhs_text = id_node.value if isinstance(id_node, Token) else to_text(id_node)
         func_calls = _collect_call_like_from_expr(rhs_node, sol_symbols)
         rhs_calls = [fc.get("name") for fc in func_calls if fc.get("name")]
 

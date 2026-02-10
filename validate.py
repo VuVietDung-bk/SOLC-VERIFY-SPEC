@@ -185,6 +185,15 @@ def _infer_expr_type(node: Optional[Tree | Token], symbols: Dict[str, str], sol_
             base_type = symbols.get(base_name)
             cat = _type_category(base_type)
             idx_depth = _index_depth(node)
+            for ch in node.children:
+                if isinstance(ch, Tree) and ch.data == "attribute":
+                    attr_tok = next(
+                        (t for t in ch.scan_values(lambda v: isinstance(v, Token) and v.type == "ID")),
+                        None
+                    )
+                    if attr_tok:
+                        if attr_tok.value == "balance":
+                            return "uint"
             if cat == "mapping" and idx_depth > 0:
                 val_raw = _mapping_value_type(base_type or "", idx_depth)
                 return _type_category(val_raw)

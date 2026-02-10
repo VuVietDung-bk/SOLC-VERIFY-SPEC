@@ -403,6 +403,15 @@ def wrap_old_expr(expr: Tree | Token, vars_iter: List[Variable]) -> Tree:
             base_tok = node.children[0] if isinstance(node.children[0], Token) else None
             if base_tok and base_tok.type == "ID":
                 base_name = base_tok.value
+                for ch in node.children:
+                    if isinstance(ch, Tree) and ch.data == "attribute":
+                        attr_tok = next(
+                            (t for t in ch.scan_values(lambda v: isinstance(v, Token) and v.type == "ID")),
+                            None
+                        )
+                        if attr_tok:
+                            if attr_tok.value == "balance":
+                                return wrap_old_access(deepcopy(node), "uint")
                 if base_name in type_map:
                     idx_count = _index_depth(node)
                     vtype = _peel_element(type_map.get(base_name), idx_count)

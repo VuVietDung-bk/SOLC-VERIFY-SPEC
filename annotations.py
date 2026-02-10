@@ -63,6 +63,8 @@ def collect_param_preconds(sol_file: str, only_contract: Optional[str] = None) -
         def _add_param_preconds(func_obj, key_name: str) -> None:
             pcs: List[str] = []
             pcs.extend(state_pre)
+            pcs.append("block.timestamp >= 0")
+            pcs.append("block.number >= 0")
             if getattr(func_obj, "payable", False):
                 pcs.append("msg.value >= 0")
                 pcs.append("address(this).balance >= 0")
