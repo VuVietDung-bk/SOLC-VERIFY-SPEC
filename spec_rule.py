@@ -713,7 +713,7 @@ class Rule:
                             preconds.append(eq_expr)
 
                 for idx, arg in enumerate(args):
-                    if var_to_value.get(arg) is None:
+                    if var_to_value.get(arg) is None and idx < len(param_names):
                         var_to_value[arg] = Token("ID", param_names[idx])
             elif step.kind == "emits":
                 is_event = True
@@ -745,7 +745,7 @@ class Rule:
                             preconds.append(eq_expr)
 
                 for idx, arg in enumerate(args):
-                    if var_to_value.get(arg) is None:
+                    if var_to_value.get(arg) is None and idx < len(param_names):
                         var_to_value[arg] = Token("ID", param_names[idx])
         
         for step in require_steps:
