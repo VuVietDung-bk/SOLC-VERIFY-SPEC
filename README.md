@@ -1,7 +1,7 @@
-# SOLC-VERIFY-SPEC
+# SOLCSPEC
 
 ## Description
-SOLC-VERIFY-SPEC is a spec-based verification tool for Ethereum smart contracts. SOLC-VERIFY-SPEC takes smart contracts written in Solidity along with a specification file to automatically fill in smart contracts with SOLC-VERIFY-based annotations, and later discharge verification conditions using modular program analysis and SMT solvers.
+SOLCSPEC is a spec-based verification tool for Ethereum smart contracts. SOLCSPEC takes smart contracts written in Solidity along with a specification file to automatically fill in smart contracts with SOLC-VERIFY-based annotations, and later discharge verification conditions using modular program analysis and SMT solvers.
 For more information about SOLC-VERIFY, visit the [github page](https://github.com/SRI-CSL/solidity) of the verifier.
 
 ## How to Use
@@ -19,13 +19,13 @@ The Dockerfile of SOLC-VERIFY can be built with the following command:
 docker build -t solc-verify -f docker/Dockerfile .
 ```
 
-3. Running SOLC-VERIFY-SPEC
+3. Running SOLCSPEC
 
-After successfully building the docker image, SOLC-VERIFY-SPEC can be run by this command:
+After successfully building the docker image, SOLCSPEC can be run by this command:
 ```shell
-python3 solc-verify-spec.py <file_sol>[:contract_name] <file_spec>
+python3 solcspec.py <file_sol>[:contract_name] <file_spec>
 ```
-Example: `python3 solc-verify-spec.py examples/Test2/test2.sol:Example2 examples/Test2/test2.spec`
+Example: `python3 solcspec.py examples/Test2/test2.sol:Example2 examples/Test2/test2.spec`
 
 Optional: install the CLI wrapper to use the `svspec` command from any directory:
 ```shell
@@ -33,7 +33,7 @@ pip install -e .
 svspec <file_sol>[:contract_name] <file_spec>
 ```
 
-You can also type `python3 solc-verify-spec.py -h` to print the optional arguments, but we also list them below.
+You can also type `python3 solcspec.py -h` to print the optional arguments, but we also list them below.
 - `-h`, `--help`: Show the help message and exit.
 - `--grammar <file_lark>`: Path to the .lark grammar to define the specification language.
 - `--no-run`: Do not run solc-verify after generating annotations.

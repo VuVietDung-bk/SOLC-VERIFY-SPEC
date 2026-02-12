@@ -4,3 +4,5 @@ experiments/
 solc-verify-spec.egg-info/
 commands.txt
 .svspec_out/
+fake_experiments/
+.vscode/

@@ -4,9 +4,9 @@ from setuptools import setup
 here = Path(__file__).parent
 
 setup(
-    name="solc-verify-spec",
+    name="solcspec",
     version="0.1.0",
-    description="SOLC-VERIFY-SPEC command wrapper",
+    description="SOLCSPEC command wrapper",
     py_modules=["svspec_cli"],
     entry_points={
         "console_scripts": [

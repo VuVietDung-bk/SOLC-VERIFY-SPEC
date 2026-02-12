@@ -17,7 +17,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 
 def main():
     parser = argparse.ArgumentParser(
-        description="SOLC-VERIFY-SPEC: Annotate Solidity code with specifications from a spec file.",
+        description="SOLCSPEC: Annotate Solidity code with specifications from a spec file.",
         usage="%(prog)s [-h] [options] file_sol[:contract_name] file_spec"
     )
     parser.add_argument("file_sol", help="Path to the Solidity file, optionally with a contract name (format: path-to-file.sol:ContractName)")
