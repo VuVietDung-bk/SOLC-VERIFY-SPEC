@@ -385,7 +385,24 @@ def fmt(node):
 
     if node.data == "unary_expr":
         op = node.children[0].children[0].value
-        t, p = fmt(node.children[1])
+        inner = node.children[1]
+        if op == "!":
+            lit = inner
+            while isinstance(lit, Tree) and lit.data == "expr" and len(lit.children) == 1:
+                lit = lit.children[0]
+            if isinstance(lit, Tree) and lit.data == "literal" and lit.children:
+                tok = lit.children[0]
+                if isinstance(tok, Token):
+                    if tok.type == "TRUE":
+                        return "false", 100
+                    if tok.type == "FALSE":
+                        return "true", 100
+            if isinstance(lit, Token):
+                if lit.type == "TRUE":
+                    return "false", 100
+                if lit.type == "FALSE":
+                    return "true", 100
+        t, p = fmt(inner)
         if p < UNARY_PRECEDENCE: t = f"({t})"
         return f"{op}{t}", UNARY_PRECEDENCE
 
