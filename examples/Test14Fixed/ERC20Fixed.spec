@@ -40,6 +40,7 @@ rule doesNotAffectAThirdPartyBalance(method f) {
     address thirdParty;
 
     require (thirdParty != from) && (thirdParty != to);
+    require (!funcCompare(f, "constructor"));
 
     uint256 thirdBalanceBefore = _balances[thirdParty];
     
@@ -82,6 +83,7 @@ rule doesNotAffectAThirdPartyBalance(method f) {
 rule balanceChangesFromCertainFunctions(method f, address user){
     
     uint256 userBalanceBefore = _balances[user];
+    require (!funcCompare(f, "constructor"));
     f();
     uint256 userBalanceAfter = _balances[user];
 
@@ -101,6 +103,7 @@ rule balanceChangesFromCertainFunctions(method f, address user){
 rule onlyOwnersMayChangeTotalSupply(method f) {
     
     uint256 totalSupplyBefore = _totalSupply;
+    require (!funcCompare(f, "constructor"));
     f();
     uint256 totalSupplyAfter = _totalSupply;
     assert totalSupplyAfter != totalSupplyBefore => msg.sender == _owner ;

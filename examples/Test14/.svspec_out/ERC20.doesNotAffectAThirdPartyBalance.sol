@@ -56,6 +56,7 @@ contract ERC20 is IERC20, IERC20Metadata {
     /// @notice precondition _totalSupply >= 0
     /// @notice precondition block.timestamp >= 0
     /// @notice precondition block.number >= 0
+    /// @notice precondition (false)
     /// @notice postcondition forall (address to) forall (address thirdParty) forall (address from) thirdParty == from || thirdParty == to || _balances[thirdParty] == __verifier_old_uint(_balances[thirdParty])
     constructor(string memory name_, string memory symbol_) {
         _name = name_;
@@ -75,6 +76,7 @@ contract ERC20 is IERC20, IERC20Metadata {
     /// @notice precondition _totalSupply >= 0
     /// @notice precondition block.timestamp >= 0
     /// @notice precondition block.number >= 0
+    /// @notice precondition (true)
     /// @notice postcondition forall (address to) forall (address thirdParty) forall (address from) thirdParty == from || thirdParty == to || _balances[thirdParty] == __verifier_old_uint(_balances[thirdParty])
     function name() public view virtual override returns (string memory) {
         return _name;
@@ -89,6 +91,7 @@ contract ERC20 is IERC20, IERC20Metadata {
     /// @notice precondition _totalSupply >= 0
     /// @notice precondition block.timestamp >= 0
     /// @notice precondition block.number >= 0
+    /// @notice precondition (true)
     /// @notice postcondition forall (address to) forall (address thirdParty) forall (address from) thirdParty == from || thirdParty == to || _balances[thirdParty] == __verifier_old_uint(_balances[thirdParty])
     function symbol() public view virtual override returns (string memory) {
         return _symbol;
@@ -112,6 +115,7 @@ contract ERC20 is IERC20, IERC20Metadata {
     /// @notice precondition _totalSupply >= 0
     /// @notice precondition block.timestamp >= 0
     /// @notice precondition block.number >= 0
+    /// @notice precondition (true)
     /// @notice postcondition forall (address to) forall (address thirdParty) forall (address from) thirdParty == from || thirdParty == to || _balances[thirdParty] == __verifier_old_uint(_balances[thirdParty])
     function decimals() public view virtual override returns (uint8) {
         return 18;
@@ -125,6 +129,7 @@ contract ERC20 is IERC20, IERC20Metadata {
     /// @notice precondition _totalSupply >= 0
     /// @notice precondition block.timestamp >= 0
     /// @notice precondition block.number >= 0
+    /// @notice precondition (true)
     /// @notice postcondition forall (address to) forall (address thirdParty) forall (address from) thirdParty == from || thirdParty == to || _balances[thirdParty] == __verifier_old_uint(_balances[thirdParty])
     function totalSupply() public view virtual override returns (uint256) {
         return _totalSupply;
@@ -138,6 +143,7 @@ contract ERC20 is IERC20, IERC20Metadata {
     /// @notice precondition _totalSupply >= 0
     /// @notice precondition block.timestamp >= 0
     /// @notice precondition block.number >= 0
+    /// @notice precondition (true)
     /// @notice postcondition forall (address to) forall (address thirdParty) forall (address from) thirdParty == from || thirdParty == to || _balances[thirdParty] == __verifier_old_uint(_balances[thirdParty])
     function balanceOf(address account)
         public

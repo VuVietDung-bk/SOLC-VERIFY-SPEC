@@ -555,6 +555,10 @@ def solve_free_vars_in_pres_and_posts(
     - If require P; f(); assert Q; → Post(forall n. P => Q, f)
       (here pres/posts are already separated per function; we only add quantifiers for vars in Q absent from var_to_type/var_to_value)
     - Preconditions with unmatched free vars are dropped when they cannot pair with a postcondition.
+
+    Uses transitive closure: if post has free var {thirdParty}, pre1 has {thirdParty, from},
+    and pre2 has {from}, then pre2 is also included because 'from' connects it transitively
+    to the postcondition through pre1.
     """
     def _free_vars(expr: Tree) -> set:
         free = set()
@@ -571,6 +575,8 @@ def solve_free_vars_in_pres_and_posts(
             return body
         res = body
         for v in sorted(vars_set):
+            if v not in var_to_type:
+                continue
             res = Tree("expr", [
                 Token("QUANTIFIER", "forall"),
                 Tree("cvl_type", [Token("PRIMITIVE_CVL_TYPE", var_to_type[v])]),
@@ -578,6 +584,42 @@ def solve_free_vars_in_pres_and_posts(
                 res
             ])
         return res
+
+    def _transitive_connected_pres(fv_post: set, pre_list: List[Any]) -> Tuple[set, set]:
+        """
+        Find all preconditions transitively connected to the postcondition
+        through shared free variables.
+        Returns (connected_indices, union_of_all_free_vars).
+        """
+        # Compute free vars for each precondition
+        pre_fvs = []
+        for pre_ex in pre_list:
+            if isinstance(pre_ex, Tree):
+                pre_fvs.append(_free_vars(pre_ex))
+            else:
+                pre_fvs.append(set())
+
+        # Start with postcondition's free vars as the seed
+        reachable_vars = set(fv_post)
+        connected_idx = set()
+        changed = True
+
+        while changed:
+            changed = False
+            for idx, fv in enumerate(pre_fvs):
+                if idx in connected_idx:
+                    continue
+                if not fv:
+                    continue
+                # If this precondition shares any free var with the reachable set
+                if fv & reachable_vars:
+                    connected_idx.add(idx)
+                    new_vars = fv - reachable_vars
+                    if new_vars:
+                        reachable_vars |= new_vars
+                        changed = True
+
+        return connected_idx, reachable_vars
 
     new_pres: Dict[str, List[Any]] = {}
     new_posts: Dict[str, List[Any]] = {}
@@ -596,26 +638,35 @@ def solve_free_vars_in_pres_and_posts(
                 out_posts.append(post_ex)
                 continue
             fv_post = _free_vars(post_ex)
-            matched = False
-            for idx, pre_ex in enumerate(pre_list):
-                if not isinstance(pre_ex, Tree):
-                    continue
-                fv_pre = _free_vars(pre_ex)
-                if fv_pre & fv_post:
-                    matched = True
-                    used_pre_idx.add(idx)
-                    union_vars = fv_pre | fv_post
-                    
-                    oldified_pre = oldify_expr(pre_ex, variables)
-                    neg_pre = negative(deepcopy(oldified_pre))
-                    implication = Tree("logic_bi_expr", [
-                        neg_pre,
-                        Tree("logic_binop", [Token("OROR", "||")]),
-                        deepcopy(post_ex)
-                    ])
-                    out_posts.append(_wrap_forall(union_vars, implication))
-            if not matched:
+
+            # Find ALL transitively connected preconditions
+            connected_idx, union_vars = _transitive_connected_pres(fv_post, pre_list)
+
+            if not connected_idx:
+                # No precondition connected — just quantify the postcondition
                 out_posts.append(_wrap_forall(fv_post, post_ex))
+                continue
+
+            # Mark all connected preconditions as used
+            used_pre_idx |= connected_idx
+
+            # Combine all connected preconditions into a single conjunction
+            connected_pres = [pre_list[idx] for idx in sorted(connected_idx)]
+            if len(connected_pres) == 1:
+                combined_pre = connected_pres[0]
+            else:
+                combined_pre = connected_pres[0]
+                for cp in connected_pres[1:]:
+                    combined_pre = make_binary_logic(deepcopy(combined_pre), "&&", deepcopy(cp))
+
+            oldified_pre = oldify_expr(combined_pre, variables)
+            neg_pre = negative(deepcopy(oldified_pre))
+            implication = Tree("logic_bi_expr", [
+                neg_pre,
+                Tree("logic_binop", [Token("OROR", "||")]),
+                deepcopy(post_ex)
+            ])
+            out_posts.append(_wrap_forall(union_vars, implication))
 
         remaining_pre = []
         for idx, pre_ex in enumerate(pre_list):
@@ -632,3 +683,4 @@ def solve_free_vars_in_pres_and_posts(
             new_posts[fn] = out_posts
 
     return new_pres, new_posts
+

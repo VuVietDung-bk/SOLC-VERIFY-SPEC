@@ -56,7 +56,6 @@ contract ERC20 is IERC20, IERC20Metadata {
     /// @notice precondition _totalSupply >= 0
     /// @notice precondition block.timestamp >= 0
     /// @notice precondition block.number >= 0
-    /// @notice postcondition forall (address user) __verifier_old_uint(_balances[user]) == _balances[user] || (false || false || false || false)
     constructor(string memory name_, string memory symbol_) {
         _name = name_;
         _symbol = symbol_;

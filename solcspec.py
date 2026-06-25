@@ -32,6 +32,7 @@ def main():
     parser.add_argument("--show-warnings", action="store_true", help="Display warning messages (not given by default)")
     parser.add_argument("--solver", default="all", help="SMT solver used by the verifier (z3, cvc4, all), default is \"all\"")
     parser.add_argument("--timeout", default="10", help="Timeout for running the Boogie verifier in seconds (default is 10)")
+    parser.add_argument("--verbose", action="store_true", help="Print the whole output of the solc-verify command (not given by default)")
     args = parser.parse_args()
 
     overall_start = time.time()
@@ -106,7 +107,7 @@ def main():
                 extra.extend(["--solver", args.solver])
             if args.timeout:
                 extra.extend(["--timeout", args.timeout])
-            run_sv(file, extra_args=extra)
+            run_sv(file, extra_args=extra, verbose=args.verbose)
             elapsed_rule = time.time() - start_rule
             rule_label = os.path.basename(file)
             print(f"{TIME_COLOR}[TIME] {rule_label}: {elapsed_rule:.2f}s{RESET_COLOR}")

@@ -414,7 +414,7 @@ class Rule:
         _dfs(self.steps, [])
         return all_paths
     
-    def get_preconditions_from_path(self, steps: List[Step]) -> Tuple[Dict[str, List[Tree]], bool]:
+    def get_preconditions_from_path(self, steps: List[Step]) -> Tuple[Dict[str, List[Tree]], bool, bool]:
         """Compute preconditions for a single linearized path."""
         var_to_value: Dict[str, Any] = {}
         for p in self.params:
@@ -760,7 +760,7 @@ class Rule:
 
         return {func_name: unique_exprs(preconds)}, unknown_call, is_event
     
-    def get_postconditions_from_path(self, steps: List[Step]) -> Tuple[Dict[str, List[Tree]], bool, Dict[str, Any]]:
+    def get_postconditions_from_path(self, steps: List[Step]) -> Tuple[Dict[str, List[Tree]], bool, Dict[str, Any], bool]:
         """Compute postconditions for a single linearized path."""
         var_to_value: Dict[str, Any] = {}
         for p in self.params:
@@ -1269,7 +1269,7 @@ class Rule:
                     if isinstance(c, Tree):
                         ce = evaluate_expr_at_function(c, fn)
                         txt = to_text(ce)
-                        if txt.lower() == "false" and is_pre:
+                        if txt.lower() == "false" or txt.lower() == "(false)" and is_pre:
                             temp_no_conditions.add(fn)
                             break
                 if fn in temp_no_conditions:
@@ -1279,7 +1279,7 @@ class Rule:
                     if isinstance(c, Tree):
                         ce = evaluate_expr_at_function(c, fn)
                         txt = to_text(ce)
-                        if txt.lower() == "true":
+                        if txt.lower() == "true" or txt.lower() == "(true)":
                             continue
                     append_unique(bucket, ce)
 
